@@ -10,5 +10,17 @@
     "followers": 0,
     "likes": 0,
     "createdAt": "2025-04-26T08:44:36.368Z"
+  },
+  {
+    "id": "aiu4kv7ft",
+    "name": "Tieu Hong Nhi",
+    "username": "tieu_hong_nhi",
+    "email": "nhi123@gmail.com",
+    "password": "12345",
+    "avatar": "/no_avatar.png",
+    "following": 0,
+    "followers": 0,
+    "likes": 0,
+    "createdAt": "2025-04-26T08:50:32.851Z"
   }
 ]

@@ -196,17 +196,27 @@ export async function fetchUserVideos(userId) {
 
 // Login user
 export async function loginUser(email, password) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  try {
+    // Đọc danh sách người dùng từ API
+    const users = await readUsersFromAPI()
+    
+    // Tìm người dùng có email và mật khẩu khớp
+    const user = users.find((u) => u.email === email && u.password === password)
 
-  // Tìm người dùng có email và mật khẩu khớp
-  const user = users.find((u) => u.email === email && u.password === password)
+    if (!user) {
+      throw new Error("Email hoặc mật khẩu không đúng")
+    }
 
-  if (!user) {
-    throw new Error("Invalid email or password")
+    // Lưu thông tin người dùng vào localStorage để sử dụng sau này
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify(user))
+    }
+
+    return user
+  } catch (error) {
+    console.error("Lỗi đăng nhập:", error)
+    throw error
   }
-
-  return user
 }
 
 // Register user
