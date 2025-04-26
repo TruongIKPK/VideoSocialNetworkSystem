@@ -20,6 +20,7 @@ export default function EditProfile() {
   const [loading, setLoading] = useState(false)
   const [avatar, setAvatar] = useState(null)
   const [preview, setPreview] = useState("")
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!userLoading && !user) {
@@ -32,6 +33,7 @@ export default function EditProfile() {
     if (user) {
       setName(user.name || "")
       setBio(user.bio || "")
+      setPreview(user.avatar || "/no_avatar.png")
     }
   }, [user])
 
@@ -49,15 +51,13 @@ export default function EditProfile() {
     setSuccess(false)
   
     try {
-      const formData = new FormData()
-      formData.append("userId", user.id) // Thêm userId vào FormData
-      formData.append("name", name)
-      formData.append("bio", bio)
-      if (avatar) {
-        formData.append("avatar", avatar)
-      }
-  
-      const updatedData = await updateUserProfile(formData)
+      const updatedData = await updateUserProfile({
+        userId: user.id,
+        name,
+        bio,
+        avatar
+      })
+      
       updateProfile(updatedData)
       setSuccess(true)
   
@@ -68,12 +68,13 @@ export default function EditProfile() {
       setError(
         language === "en"
           ? "Failed to update profile. Please try again."
-          : "Cập nhật hồ sơ thất bại. Vui lòng thử lại.",
+          : "Cập nhật hồ sơ thất bại. Vui lòng thử lại."
       )
     } finally {
       setLoading(false)
     }
   }
+
   const handleAvatarChange = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -81,6 +82,7 @@ export default function EditProfile() {
       setPreview(URL.createObjectURL(file))
     }
   }
+
   if (userLoading || !user) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-64px)]">
@@ -111,8 +113,8 @@ export default function EditProfile() {
               <div className="flex items-center">
                 <div className="w-24 h-24 rounded-full overflow-hidden">
                   <Image
-                    src={user.avatar || "/placeholder.svg?height=96&width=96"}
-                    alt={user.name}
+                    src={preview}
+                    alt={name}
                     width={96}
                     height={96}
                     className="object-cover"
@@ -124,13 +126,6 @@ export default function EditProfile() {
                   onChange={handleAvatarChange}
                   className="ml-4"
                 />
-                {/* <button
-                  type="button"
-                  className="ml-4 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  {language === "en" ? "Change" : "Thay đổi"}
-                </button> */}
               </div>
             </div>
 

@@ -1,15 +1,16 @@
 [
   {
     "id": "dejomrol1",
-    "name": "Dao Duc Danh 1",
+    "name": "Dao Duc Danh",
     "username": "dao_duc_danh_1",
     "email": "danhne@gmail.com",
     "password": "12345",
-    "avatar": "/no_avatar.png",
+    "avatar": "/uploads/ntx7mts243q32ubie2j8evlc0.png",
     "following": 0,
     "followers": 0,
     "likes": 0,
-    "createdAt": "2025-04-26T08:44:36.368Z"
+    "createdAt": "2025-04-26T08:44:36.368Z",
+    "bio": "Toi la gay"
   },
   {
     "id": "aiu4kv7ft",

@@ -3,6 +3,9 @@
 // Đọc danh sách người dùng từ API
 async function readUsersFromAPI() {
   const response = await fetch('/api/users')
+  if (!response.ok) {
+    throw new Error('Failed to fetch users')
+  }
   return await response.json()
 }
 
@@ -15,6 +18,9 @@ async function writeUsersToAPI(users) {
     },
     body: JSON.stringify(users),
   })
+  if (!response.ok) {
+    throw new Error('Failed to save users')
+  }
   return await response.json()
 }
 
@@ -258,19 +264,44 @@ export async function registerUser(name, email, password) {
   }
 }
 
-//Trong file api.js, cập nhật hàm updateUserProfile để hỗ trợ FormData.
+// Update user profile
 export async function updateUserProfile(data) {
-  const options = {
-    method: "POST",
-    body: data, // FormData chứa avatar và các thông tin khác
-  }
+  try {
+    // Kiểm tra userId
+    if (!data.userId) {
+      throw new Error('User ID is required')
+    }
 
-  const response = await fetch(`/api/users/updateProfile`, options)
-  if (!response.ok) {
-    throw new Error("Failed to update profile")
-  }
+    const formData = new FormData()
+    formData.append('userId', data.userId)
+    formData.append('name', data.name)
+    formData.append('bio', data.bio)
+    if (data.avatar) {
+      formData.append('avatar', data.avatar)
+    }
 
-  return response.json()
+    const response = await fetch('/api/users/update', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Failed to update profile')
+    }
+
+    const updatedUser = await response.json()
+    
+    // Cập nhật thông tin người dùng trong localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser))
+    }
+
+    return updatedUser
+  } catch (error) {
+    console.error('Error updating profile:', error)
+    throw error
+  }
 }
 
 // Upload video
