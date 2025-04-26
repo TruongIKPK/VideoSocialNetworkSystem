@@ -18,7 +18,8 @@ export default function EditProfile() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-
+  const [avatar, setAvatar] = useState(null)
+  const [preview, setPreview] = useState("")
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!userLoading && !user) {
@@ -37,22 +38,29 @@ export default function EditProfile() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
-
+  
     if (!name) {
       setError(language === "en" ? "Name is required" : "Tên là bắt buộc")
       return
     }
-
+  
     setLoading(true)
     setError("")
     setSuccess(false)
-
+  
     try {
-      const updatedData = await updateUserProfile(user.id, { name, bio })
+      const formData = new FormData()
+      formData.append("userId", user.id) // Thêm userId vào FormData
+      formData.append("name", name)
+      formData.append("bio", bio)
+      if (avatar) {
+        formData.append("avatar", avatar)
+      }
+  
+      const updatedData = await updateUserProfile(formData)
       updateProfile(updatedData)
       setSuccess(true)
-
-      // Reset success message after 3 seconds
+  
       setTimeout(() => {
         setSuccess(false)
       }, 3000)
@@ -66,7 +74,13 @@ export default function EditProfile() {
       setLoading(false)
     }
   }
-
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setAvatar(file)
+      setPreview(URL.createObjectURL(file))
+    }
+  }
   if (userLoading || !user) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-64px)]">
@@ -104,13 +118,19 @@ export default function EditProfile() {
                     className="object-cover"
                   />
                 </div>
-                <button
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="ml-4"
+                />
+                {/* <button
                   type="button"
                   className="ml-4 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   <Pencil className="h-4 w-4 mr-2" />
                   {language === "en" ? "Change" : "Thay đổi"}
-                </button>
+                </button> */}
               </div>
             </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import VideoCard from "@/components/video-card"
 import { useLanguage } from "@/context/language-context"
-import { fetchVideos } from "@/lib/api"
+import { fetchVideos, updateUserProfile } from "@/lib/api"
 
 // Home page component
 export default function Home() {

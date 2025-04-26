@@ -1,5 +1,29 @@
 // Simulated API functions for the Looply app
 
+// Đọc danh sách người dùng từ API
+async function readUsersFromAPI() {
+  const response = await fetch('/api/users')
+  return await response.json()
+}
+
+// Ghi danh sách người dùng vào API
+async function writeUsersToAPI(users) {
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(users),
+  })
+  return await response.json()
+}
+
+// Mảng người dùng được khởi tạo từ API
+let users = []
+readUsersFromAPI().then(data => {
+  users = data
+})
+
 // Fetch videos from the server
 export async function fetchVideos() {
   // Simulate API call delay
@@ -175,18 +199,14 @@ export async function loginUser(email, password) {
   // Simulate API call delay
   await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  // In a real app, this would validate credentials with a server
-  // For demo purposes, we'll just return a mock user
-  return {
-    id: "1001",
-    name: "Hin Day Ni",
-    username: "hindayni",
-    email,
-    avatar: "/placeholder.svg?height=100&width=100",
-    following: 1,
-    followers: 1000000,
-    likes: 153450,
+  // Tìm người dùng có email và mật khẩu khớp
+  const user = users.find((u) => u.email === email && u.password === password)
+
+  if (!user) {
+    throw new Error("Invalid email or password")
   }
+
+  return user
 }
 
 // Register user
@@ -194,29 +214,53 @@ export async function registerUser(name, email, password) {
   // Simulate API call delay
   await new Promise((resolve) => setTimeout(resolve, 1000))
 
-  // In a real app, this would create a new user in the database
-  // For demo purposes, we'll just return a mock user
-  return {
+  // Kiểm tra email đã tồn tại chưa
+  const existingUser = users.find((u) => u.email === email)
+  if (existingUser) {
+    throw new Error("Email already exists")
+  }
+
+  // Tạo thông tin người dùng mới
+  const newUser = {
     id: Math.random().toString(36).substr(2, 9),
     name,
     username: name.toLowerCase().replace(/\s+/g, "_"),
     email,
-    avatar: "/placeholder.svg?height=100&width=100",
+    password, // Lưu mật khẩu (nên mã hóa trong thực tế)
+    avatar: "/no_avatar.png",
     following: 0,
     followers: 0,
     likes: 0,
+    createdAt: new Date().toISOString()
+  }
+
+  try {
+    // Thêm người dùng mới vào mảng
+    users.push(newUser)
+
+    // Ghi mảng người dùng vào API
+    await writeUsersToAPI(users)
+
+    return newUser
+  } catch (error) {
+    console.error("Error registering user:", error)
+    throw new Error("Failed to register user")
   }
 }
 
-// Update user profile
-export async function updateUserProfile(userId, data) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
+//Trong file api.js, cập nhật hàm updateUserProfile để hỗ trợ FormData.
+export async function updateUserProfile(data) {
+  const options = {
+    method: "POST",
+    body: data, // FormData chứa avatar và các thông tin khác
+  }
 
-  // In a real app, this would update the user in the database
-  // For demo purposes, we'll just return the updated data
-  const user = JSON.parse(localStorage.getItem("user"))
-  return { ...user, ...data }
+  const response = await fetch(`/api/users/updateProfile`, options)
+  if (!response.ok) {
+    throw new Error("Failed to update profile")
+  }
+
+  return response.json()
 }
 
 // Upload video
