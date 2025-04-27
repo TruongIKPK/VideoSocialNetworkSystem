@@ -23,5 +23,18 @@
     "followers": 0,
     "likes": 0,
     "createdAt": "2025-04-26T08:50:32.851Z"
+  },
+  {
+    "id": "2mp71vrx7",
+    "name": "Nguyễn Thị Thanh Hiền",
+    "username": "nguyễn_thị_thanh_hiền",
+    "email": "hien04@gmail.com",
+    "password": "12345",
+    "avatar": "/uploads/hco9qq14rei2vimfuzmiekaku.jpg",
+    "following": 0,
+    "followers": 0,
+    "likes": 0,
+    "createdAt": "2025-04-27T12:55:03.554Z",
+    "bio": "Hiền thích học hỏi"
   }
 ]

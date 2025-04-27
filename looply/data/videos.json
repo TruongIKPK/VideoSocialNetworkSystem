@@ -1,0 +1,104 @@
+{
+  "videos": [
+    {
+      "id": "1745759303507",
+      "title": "Học Lập Trình Cùng Phi Trường",
+      "description": "Khám phá các ngôn ngữ lập trình cùng mình nhé",
+      "url": "/videos/1745759303507.mp4",
+      "thumbnail": "/videos/1745759303507.mp4?height=720&width=1280",
+      "likes": 0,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "dejomrol1",
+        "name": "Dao Duc Danh",
+        "username": "dao_duc_danh_1",
+        "email": "danhne@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/ntx7mts243q32ubie2j8evlc0.png",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-26T08:44:36.368Z",
+        "bio": "Toi la gay"
+      },
+      "createdAt": "2025-04-27T13:08:23.516Z"
+    },
+    {
+      "id": "1745759373588",
+      "title": "Video 1",
+      "description": "Demo1",
+      "url": "/videos/1745759373588.mp4",
+      "thumbnail": "/videos/1745759373588.mp4?height=720&width=1280",
+      "likes": 0,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "dejomrol1",
+        "name": "Dao Duc Danh",
+        "username": "dao_duc_danh_1",
+        "email": "danhne@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/ntx7mts243q32ubie2j8evlc0.png",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-26T08:44:36.368Z",
+        "bio": "Toi la gay"
+      },
+      "createdAt": "2025-04-27T13:09:33.590Z"
+    },
+    {
+      "id": "1745759429429",
+      "title": "Video 2",
+      "description": "Demo",
+      "url": "/videos/1745759429429.mp4",
+      "thumbnail": "/videos/1745759429429.mp4?height=720&width=1280",
+      "likes": 0,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "dejomrol1",
+        "name": "Dao Duc Danh",
+        "username": "dao_duc_danh_1",
+        "email": "danhne@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/ntx7mts243q32ubie2j8evlc0.png",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-26T08:44:36.368Z",
+        "bio": "Toi la gay"
+      },
+      "createdAt": "2025-04-27T13:10:29.433Z"
+    },
+    {
+      "id": "1745759474241",
+      "title": "Video 1",
+      "description": "demo",
+      "url": "/videos/1745759474241.mp4",
+      "thumbnail": "/videos/1745759474241.mp4?height=720&width=1280",
+      "likes": 0,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "2mp71vrx7",
+        "name": "Nguyễn Thị Thanh Hiền",
+        "username": "nguyễn_thị_thanh_hiền",
+        "email": "hien04@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/hco9qq14rei2vimfuzmiekaku.jpg",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-27T12:55:03.554Z",
+        "bio": "Hiền thích học hỏi"
+      },
+      "createdAt": "2025-04-27T13:11:14.247Z"
+    }
+  ]
+}

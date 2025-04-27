@@ -32,60 +32,16 @@ readUsersFromAPI().then(data => {
 
 // Fetch videos from the server
 export async function fetchVideos() {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  // Return mock data
-  return [
-    {
-      id: "1",
-      title: "Cat playing",
-      url: "/videos/video2.mp4",
-      thumbnail: "/videos/video2.mp4?height=720&width=1280",
-      likes: 94600000,
-      comments: 32900,
-      saves: 81700,
-      shares: 9900,
-      user: {
-        id: "101",
-        name: "Abdul_Hakim_Zayd",
-        avatar: "/placeholder.svg?height=50&width=50",
-        verified: true,
-      },
-    },
-    {
-      id: "2",
-      title: "Beach sunset",
-      url: "/videos/video1.mp4",
-      thumbnail: "/placeholder.svg?height=720&width=1280",
-      likes: 45600,
-      comments: 2100,
-      saves: 8700,
-      shares: 1200,
-      user: {
-        id: "102",
-        name: "SunsetLover",
-        avatar: "/placeholder.svg?height=50&width=50",
-        verified: false,
-      },
-    },
-    {
-      id: "3",
-      title: "Mountain hiking",
-      url: "/videos/video3.mp4",
-      thumbnail: "/placeholder.svg?height=720&width=1280",
-      likes: 78900,
-      comments: 4500,
-      saves: 12300,
-      shares: 3400,
-      user: {
-        id: "103",
-        name: "AdventureTime",
-        avatar: "/placeholder.svg?height=50&width=50",
-        verified: true,
-      },
-    },
-  ]
+  try {
+    const response = await fetch('/api/videos')
+    if (!response.ok) {
+      throw new Error('Failed to fetch videos')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching videos:', error)
+    return []
+  }
 }
 
 // Fetch comments for a video
@@ -306,19 +262,31 @@ export async function updateUserProfile(data) {
 
 // Upload video
 export async function uploadVideo(file, title, description, onProgress) {
-  // Simulate API call with progress
-  for (let i = 0; i <= 100; i += 10) {
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    onProgress(i)
-  }
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('title', title)
+    formData.append('description', description)
+    formData.append('user', JSON.stringify(JSON.parse(localStorage.getItem('currentUser'))))
 
-  // In a real app, this would upload the video to a server
-  // For demo purposes, we'll just return a mock response
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    title,
-    description,
-    url: URL.createObjectURL(file),
-    thumbnail: "/placeholder.svg?height=720&width=1280",
+    // Simulate upload progress
+    for (let i = 0; i <= 100; i += 10) {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      onProgress(i)
+    }
+
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to upload video')
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error uploading video:', error)
+    throw error
   }
 }
