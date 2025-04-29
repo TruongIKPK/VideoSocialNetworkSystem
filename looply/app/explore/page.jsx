@@ -16,8 +16,10 @@ export default function ExplorePage() {
     const loadVideos = async () => {
       try {
         const data = await fetchVideos()
+        // Sort videos by createdAt in descending order (newest first)
+        const sortedVideos = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         // Shuffle videos for explore page
-        const shuffled = [...data].sort(() => 0.5 - Math.random())
+        const shuffled = sortedVideos.sort(() => 0.5 - Math.random())
         setVideos(shuffled)
       } catch (error) {
         console.error("Failed to fetch videos:", error)

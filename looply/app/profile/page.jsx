@@ -31,7 +31,9 @@ export default function Profile() {
       const loadVideos = async () => {
         try {
           const data = await fetchUserVideos(user.id)
-          setVideos(data)
+          // Sort videos by createdAt in descending order (newest first)
+          const sortedVideos = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          setVideos(sortedVideos)
         } catch (error) {
           console.error("Failed to fetch user videos:", error)
         } finally {

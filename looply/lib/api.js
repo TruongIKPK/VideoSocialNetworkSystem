@@ -278,3 +278,33 @@ export async function uploadVideo(file, title, description, onProgress) {
     throw error
   }
 }
+
+// Like a video
+export async function likeVideo(videoId) {
+  try {
+    const user = JSON.parse(localStorage.getItem('currentUser'))
+    if (!user) {
+      throw new Error('User not logged in')
+    }
+
+    const response = await fetch('/api/videos/like', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        videoId,
+        userId: user.id 
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to like video')
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error liking video:', error)
+    throw error
+  }
+}
