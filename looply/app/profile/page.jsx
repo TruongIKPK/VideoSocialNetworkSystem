@@ -52,7 +52,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6">
           <div className="flex flex-col md:flex-row items-center">
@@ -144,7 +144,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-8">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
@@ -159,15 +159,44 @@ export default function Profile() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video) => (
-              <div key={video.id} className="relative aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
-                <Link href={`/video/${video.id}`}>
-                  <Image src={video.thumbnail || "/placeholder.svg"} alt={video.title} fill className="object-cover" />
-                  <div className="absolute inset-0 bg-black bg-opacity-20 flex items-end p-2">
-                    <div className="text-white text-sm font-medium truncate">{video.title}</div>
+              <div key={video.id} className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="relative aspect-w-16 aspect-h-9">
+                  <Link href={`/video/${video.id}`}>
+                    <video
+                      src={video.url}
+                      className="w-full h-full object-cover"
+                      controls
+                      muted
+                      loop
+                      playsInline
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-20 flex items-end p-4">
+                      <div className="text-white">
+                        <h3 className="font-medium text-lg truncate">{video.title}</h3>
+                        <p className="text-sm opacity-90 truncate">{video.description}</p>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">
+                        {video.views?.toLocaleString() || 0} {language === "en" ? "views" : "lượt xem"}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span className="text-sm text-gray-500">
+                        {video.likes?.toLocaleString() || 0} {language === "en" ? "likes" : "thích"}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {video.comments?.toLocaleString() || 0} {language === "en" ? "comments" : "bình luận"}
+                      </span>
+                    </div>
                   </div>
-                </Link>
+                </div>
               </div>
             ))}
           </div>

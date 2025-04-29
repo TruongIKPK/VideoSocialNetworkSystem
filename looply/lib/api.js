@@ -130,30 +130,18 @@ export async function addComment(videoId, text) {
 
 // Fetch user videos
 export async function fetchUserVideos(userId) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  // Return mock data
-  return [
-    {
-      id: "301",
-      title: "Cat playing",
-      thumbnail: "/placeholder.svg?height=720&width=1280",
-      views: 12500,
-    },
-    {
-      id: "302",
-      title: "Beach sunset",
-      thumbnail: "/placeholder.svg?height=720&width=1280",
-      views: 8700,
-    },
-    {
-      id: "303",
-      title: "Mountain hiking",
-      thumbnail: "/placeholder.svg?height=720&width=1280",
-      views: 5400,
-    },
-  ]
+  try {
+    const response = await fetch('/api/videos')
+    if (!response.ok) {
+      throw new Error('Failed to fetch videos')
+    }
+    const allVideos = await response.json()
+    // Lọc video theo userId
+    return allVideos.filter(video => video.user.id === userId)
+  } catch (error) {
+    console.error('Error fetching user videos:', error)
+    return []
+  }
 }
 
 // Login user
