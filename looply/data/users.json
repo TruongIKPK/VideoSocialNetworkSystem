@@ -36,5 +36,18 @@
     "likes": 0,
     "createdAt": "2025-04-27T12:55:03.554Z",
     "bio": "Hiền thích học hửi"
+  },
+  {
+    "id": "y519fyn2w",
+    "name": "Nguyễn Thị Thanh Hiền",
+    "username": "nguyễn_thị_thanh_hiền",
+    "email": "chirihin04@gmail.com",
+    "password": "12345",
+    "avatar": "/uploads/bu63w2rtzzhgpunu9un25vq0f.jpeg",
+    "following": 0,
+    "followers": 0,
+    "likes": 0,
+    "createdAt": "2025-04-29T11:50:22.962Z",
+    "bio": "hà bá "
   }
 ]

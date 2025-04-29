@@ -61,9 +61,10 @@ export default function EditProfile() {
       updateProfile(updatedData)
       setSuccess(true)
   
+      // Redirect to profile page after 1 second
       setTimeout(() => {
-        setSuccess(false)
-      }, 3000)
+        router.push("/profile")
+      }, 1000)
     } catch (error) {
       setError(
         language === "en"
