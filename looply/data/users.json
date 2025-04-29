@@ -49,5 +49,29 @@
     "likes": 0,
     "createdAt": "2025-04-29T11:50:22.962Z",
     "bio": "hà bá "
+  },
+  {
+    "id": "41nmbfgt6",
+    "name": "hiha",
+    "username": "hiha",
+    "email": "babiedon9@gmail.com",
+    "password": "12345",
+    "avatar": "/no_avatar.png",
+    "following": 0,
+    "followers": 0,
+    "likes": 0,
+    "createdAt": "2025-04-29T12:09:28.139Z"
+  },
+  {
+    "id": "vbpd69cnv",
+    "name": "eennhaaaa",
+    "username": "eennhaaaa",
+    "email": "nangluongtichcuc00@gmail.com",
+    "password": "12345",
+    "avatar": "/no_avatar.png",
+    "following": 0,
+    "followers": 0,
+    "likes": 0,
+    "createdAt": "2025-04-29T12:17:28.998Z"
   }
 ]

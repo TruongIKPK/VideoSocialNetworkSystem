@@ -6,7 +6,7 @@
       "description": "Khám phá các ngôn ngữ lập trình cùng mình nhé",
       "url": "/videos/1745759303507.mp4",
       "thumbnail": "/videos/1745759303507.mp4?height=720&width=1280",
-      "likes": 0,
+      "likes": 2,
       "comments": 0,
       "saves": 0,
       "shares": 0,
@@ -23,7 +23,10 @@
         "createdAt": "2025-04-26T08:44:36.368Z",
         "bio": "Toi la gay"
       },
-      "createdAt": "2025-04-27T13:08:23.516Z"
+      "createdAt": "2025-04-27T13:08:23.516Z",
+      "likedBy": [
+        "y519fyn2w"
+      ]
     },
     {
       "id": "1745759373588",
@@ -31,7 +34,7 @@
       "description": "Demo1",
       "url": "/videos/1745759373588.mp4",
       "thumbnail": "/videos/1745759373588.mp4?height=720&width=1280",
-      "likes": 0,
+      "likes": 1,
       "comments": 0,
       "saves": 0,
       "shares": 0,
@@ -48,7 +51,10 @@
         "createdAt": "2025-04-26T08:44:36.368Z",
         "bio": "Toi la gay"
       },
-      "createdAt": "2025-04-27T13:09:33.590Z"
+      "createdAt": "2025-04-27T13:09:33.590Z",
+      "likedBy": [
+        "y519fyn2w"
+      ]
     },
     {
       "id": "1745759429429",
@@ -124,6 +130,91 @@
         "bio": "Hiền thích học hỏi"
       },
       "createdAt": "2025-04-27T13:32:29.301Z"
+    },
+    {
+      "id": "1745927861383",
+      "title": "hì hì ",
+      "description": "",
+      "url": "/videos/1745927861383.mp4",
+      "thumbnail": "/videos/1745927861383.mp4?height=720&width=1280",
+      "likes": 2,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "y519fyn2w",
+        "name": "Nguyễn Thị Thanh Hiền",
+        "username": "nguyễn_thị_thanh_hiền",
+        "email": "chirihin04@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/bu63w2rtzzhgpunu9un25vq0f.jpeg",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-29T11:50:22.962Z",
+        "bio": "hà bá "
+      },
+      "createdAt": "2025-04-29T11:57:41.388Z",
+      "likedBy": [
+        "y519fyn2w"
+      ]
+    },
+    {
+      "id": "1745928194235",
+      "title": "buồn quá đi thouuuuu ",
+      "description": "",
+      "url": "/videos/1745928194235.mp4",
+      "thumbnail": "/videos/1745928194235.mp4?height=720&width=1280",
+      "likes": 3,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "y519fyn2w",
+        "name": "Nguyễn Thị Thanh Hiền",
+        "username": "nguyễn_thị_thanh_hiền",
+        "email": "chirihin04@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/bu63w2rtzzhgpunu9un25vq0f.jpeg",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-29T11:50:22.962Z",
+        "bio": "hà bá "
+      },
+      "createdAt": "2025-04-29T12:03:14.282Z",
+      "likedBy": [
+        "y519fyn2w",
+        "za6oe8d00"
+      ]
+    },
+    {
+      "id": "1745928976873",
+      "title": "dd",
+      "description": "",
+      "url": "/videos/1745928976873.mp4",
+      "thumbnail": "/videos/1745928976873.mp4?height=720&width=1280",
+      "likes": 1,
+      "comments": 0,
+      "saves": 0,
+      "shares": 0,
+      "user": {
+        "id": "y519fyn2w",
+        "name": "Nguyễn Thị Thanh Hiền",
+        "username": "nguyễn_thị_thanh_hiền",
+        "email": "chirihin04@gmail.com",
+        "password": "12345",
+        "avatar": "/uploads/bu63w2rtzzhgpunu9un25vq0f.jpeg",
+        "following": 0,
+        "followers": 0,
+        "likes": 0,
+        "createdAt": "2025-04-29T11:50:22.962Z",
+        "bio": "hà bá "
+      },
+      "createdAt": "2025-04-29T12:16:16.892Z",
+      "likedBy": [
+        "y519fyn2w"
+      ]
     }
   ]
 }
