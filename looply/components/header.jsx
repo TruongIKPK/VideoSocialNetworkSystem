@@ -6,13 +6,15 @@ import { useUser } from "@/context/user-context"
 import { useLanguage } from "@/context/language-context"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 // Header component with search and user menu
 export default function Header() {
-  const { user } = useUser()
+  const { user, logout } = useUser()
   const { language } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const userMenuRef = useRef(null)
+  const router = useRouter()
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -31,6 +33,12 @@ export default function Header() {
   // Toggle user menu
   const toggleUserMenu = () => {
     setShowUserMenu(!showUserMenu)
+  }
+
+  // Handle logout
+  const handleLogout = () => {
+    logout()
+    router.push("/login")
   }
 
   return (
@@ -70,9 +78,12 @@ export default function Header() {
                     {language === "en" ? "View profile" : "Xem hồ sơ"}
                   </Link>
 
-                  <Link href="/logout" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
                     {language === "en" ? "Log out" : "Đăng xuất"}
-                  </Link>
+                  </button>
                 </div>
               </div>
             )}
