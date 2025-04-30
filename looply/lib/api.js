@@ -224,7 +224,7 @@ export async function updateUserProfile(data) {
       formData.append('avatar', data.avatar)
     }
 
-    const response = await fetch('/api/users/update', {
+    const response = await fetch('/api/users/updateProfile', {
       method: 'POST',
       body: formData,
     })
@@ -256,12 +256,6 @@ export async function uploadVideo(file, title, description, onProgress) {
     formData.append('title', title)
     formData.append('description', description)
     formData.append('user', JSON.stringify(JSON.parse(localStorage.getItem('currentUser'))))
-
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      onProgress(i)
-    }
 
     const response = await fetch('/api/upload', {
       method: 'POST',

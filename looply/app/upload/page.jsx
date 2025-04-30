@@ -108,23 +108,9 @@ export default function UploadPage() {
     setError("")
 
     try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressInterval)
-            return prev
-          }
-          return prev + 5
-        })
-      }, 500)
-
       await uploadVideo(file, title, description, (progress) => {
         setUploadProgress(progress)
       })
-
-      clearInterval(progressInterval)
-      setUploadProgress(100)
 
       // Redirect to profile page after successful upload
       setTimeout(() => {
