@@ -1,77 +1,15 @@
 [
   {
-    "id": "dejomrol1",
-    "name": "Ghe An",
-    "username": "dao_duc_danh_1",
-    "email": "danhne@gmail.com",
+    "id": "9icpztbc7",
+    "name": "Lê Nguyễn Phi Trường",
+    "username": "lê_nguyễn_phi_trường",
+    "email": "admin@example.com",
     "password": "12345",
-    "avatar": "/uploads/mw02d40i36phui16d3jts7y67.jpeg",
+    "avatar": "https://res.cloudinary.com/dcnmynqty/image/upload/v1746033677/avatars/h4oph54peyioqrypya84.jpg",
     "following": 0,
     "followers": 0,
     "likes": 0,
-    "createdAt": "2025-04-26T08:44:36.368Z",
-    "bio": "Ny toi xin qua"
-  },
-  {
-    "id": "aiu4kv7ft",
-    "name": "Tieu Hong Nhi",
-    "username": "tieu_hong_nhi",
-    "email": "nhi123@gmail.com",
-    "password": "12345",
-    "avatar": "/no_avatar.png",
-    "following": 0,
-    "followers": 0,
-    "likes": 0,
-    "createdAt": "2025-04-26T08:50:32.851Z"
-  },
-  {
-    "id": "2mp71vrx7",
-    "name": "Nguyễn Thị Thanh Hiền",
-    "username": "nguyễn_thị_thanh_hiền",
-    "email": "hien04@gmail.com",
-    "password": "12345",
-    "avatar": "/uploads/jy7wu5w7rcd2rx0dal7whvo1s.jpg",
-    "following": 0,
-    "followers": 0,
-    "likes": 0,
-    "createdAt": "2025-04-27T12:55:03.554Z",
-    "bio": "Hiền thích học hửi"
-  },
-  {
-    "id": "y519fyn2w",
-    "name": "Nguyễn Thị Thanh Hiền",
-    "username": "nguyễn_thị_thanh_hiền",
-    "email": "chirihin04@gmail.com",
-    "password": "12345",
-    "avatar": "/uploads/bu63w2rtzzhgpunu9un25vq0f.jpeg",
-    "following": 0,
-    "followers": 0,
-    "likes": 0,
-    "createdAt": "2025-04-29T11:50:22.962Z",
-    "bio": "hà bá "
-  },
-  {
-    "id": "41nmbfgt6",
-    "name": "hiha",
-    "username": "hiha",
-    "email": "babiedon9@gmail.com",
-    "password": "12345",
-    "avatar": "/no_avatar.png",
-    "following": 0,
-    "followers": 0,
-    "likes": 0,
-    "createdAt": "2025-04-29T12:09:28.139Z"
-  },
-  {
-    "id": "vbpd69cnv",
-    "name": "eennhaaaa",
-    "username": "eennhaaaa",
-    "email": "nangluongtichcuc00@gmail.com",
-    "password": "12345",
-    "avatar": "/no_avatar.png",
-    "following": 0,
-    "followers": 0,
-    "likes": 0,
-    "createdAt": "2025-04-29T12:17:28.998Z"
+    "createdAt": "2025-04-30T09:52:02.225Z",
+    "bio": "1"
   }
 ]

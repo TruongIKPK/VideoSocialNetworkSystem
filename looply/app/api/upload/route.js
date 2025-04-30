@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import cloudinary from '@/lib/cloudinary'
 import fs from 'fs'
 import path from 'path'
 
@@ -17,21 +18,33 @@ export async function POST(request) {
       )
     }
 
-    // Create videos directory if it doesn't exist
-    const videosDir = path.join(process.cwd(), 'public', 'videos')
-    if (!fs.existsSync(videosDir)) {
-      fs.mkdirSync(videosDir, { recursive: true })
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now()
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${timestamp}.${fileExtension}`
-    const filePath = path.join(videosDir, fileName)
-
-    // Convert file to buffer and save
+    // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer())
-    fs.writeFileSync(filePath, buffer)
+    
+    // Upload to Cloudinary with progress tracking
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          folder: 'videos',
+          format: 'mp4',
+          chunk_size: 6000000, // 6MB chunks for better progress tracking
+        },
+        (error, result) => {
+          if (error) reject(error)
+          resolve(result)
+        }
+      )
+
+      // Handle upload progress
+      uploadStream.on('progress', (progress) => {
+        const percent = Math.round((progress.bytes_written / progress.bytes_total) * 100)
+        // You can emit this progress to the client if needed
+        console.log(`Upload progress: ${percent}%`)
+      })
+
+      uploadStream.end(buffer)
+    })
 
     // Read existing videos data
     const videosDataPath = path.join(process.cwd(), 'data', 'videos.json')
@@ -39,11 +52,11 @@ export async function POST(request) {
 
     // Create new video object
     const newVideo = {
-      id: timestamp.toString(),
+      id: result.public_id,
       title,
       description,
-      url: `/videos/${fileName}`,
-      thumbnail: `/videos/${fileName}?height=720&width=1280`,
+      url: result.secure_url,
+      thumbnail: result.secure_url.replace('.mp4', '.jpg'),
       likes: 0,
       comments: 0,
       saves: 0,
