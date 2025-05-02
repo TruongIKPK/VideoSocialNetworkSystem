@@ -31,6 +31,7 @@ export default function EditProfile() {
   // Set initial form values
   useEffect(() => {
     if (user) {
+      console.log('Setting initial user data:', user)
       setName(user.name || "")
       setBio(user.bio || "")
       setPreview(user.avatar || "/no_avatar.png")
@@ -40,6 +41,7 @@ export default function EditProfile() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('Form submitted with data:', { name, bio, avatar })
   
     if (!name) {
       setError(language === "en" ? "Name is required" : "Tên là bắt buộc")
@@ -51,12 +53,13 @@ export default function EditProfile() {
     setSuccess(false)
   
     try {
+      console.log('Calling updateUserProfile with:', { name, bio, avatar })
       const updatedUser = await updateUserProfile({
-        userId: user.id,
         name,
         bio,
         avatar
       })
+      console.log('Profile updated successfully:', updatedUser)
 
       updateProfile(updatedUser)
       setSuccess(true)
@@ -66,6 +69,7 @@ export default function EditProfile() {
         router.push("/profile")
       }, 1000)
     } catch (error) {
+      console.error('Error updating profile:', error)
       setError(
         language === "en"
           ? "Failed to update profile. Please try again."
@@ -78,6 +82,7 @@ export default function EditProfile() {
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0]
+    console.log('Avatar file selected:', file)
     if (file) {
       setAvatar(file)
       const reader = new FileReader()

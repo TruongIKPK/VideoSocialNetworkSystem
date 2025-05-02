@@ -1,4 +1,4 @@
-import { MongoClient, ServerApiVersion } from 'mongodb';
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
 const uri = "mongodb+srv://looply:12345@cluster0.itbnhsw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -59,25 +59,64 @@ export async function POST(request) {
     const action = searchParams.get('action');
     const body = await request.json();
 
+    console.log('Received request:', { collection, action, body });
+
     const db = await connectDB();
 
     switch (action) {
       case 'insertOne':
         const result = await db.collection(collection).insertOne(body);
-        return Response.json({ ...body, id: result.insertedId });
+        return Response.json({ ...body, _id: result.insertedId });
       
       case 'updateOne':
         const { query, update } = body;
-        const updateResult = await db.collection(collection).updateOne(query, { $set: update });
-        if (updateResult.matchedCount === 0) {
-          return Response.json({ error: 'Document not found' }, { status: 404 });
+        
+        console.log('Update query:', query);
+        console.log('Update data:', update);
+        
+        // Convert string _id to ObjectId if it exists
+        if (query._id) {
+          try {
+            // Nếu _id đã là ObjectId, không cần convert
+            if (query._id instanceof ObjectId) {
+              console.log('_id is already ObjectId');
+            } else {
+              query._id = new ObjectId(query._id);
+              console.log('Converted _id to ObjectId:', query._id);
+            }
+          } catch (error) {
+            console.error('Invalid ObjectId:', query._id);
+            return Response.json({ error: 'Invalid user ID format' }, { status: 400 });
+          }
         }
-        return Response.json({ success: true });
+        
+        const updateResult = await db.collection(collection).updateOne(
+          query,
+          update
+        );
+        
+        console.log('Update result:', updateResult);
+        
+        if (updateResult.matchedCount === 0) {
+          return Response.json({ 
+            error: 'Document not found',
+            query: query,
+            update: update
+          }, { status: 404 });
+        }
+        
+        return Response.json({ 
+          success: true,
+          matchedCount: updateResult.matchedCount,
+          modifiedCount: updateResult.modifiedCount,
+          upsertedCount: updateResult.upsertedCount
+        });
       
       default:
         return Response.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
+    console.error('MongoDB operation error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 } 

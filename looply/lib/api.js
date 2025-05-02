@@ -2,15 +2,25 @@
 
 // Đọc danh sách người dùng từ API
 async function readUsersFromAPI() {
-  const url = new URL('/api/mongodb', window.location.origin)
-  url.searchParams.append('collection', 'users')
-  url.searchParams.append('action', 'find')
-  
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error('Failed to fetch users')
+  try {
+    // Kiểm tra môi trường trước khi sử dụng window
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const url = new URL('/api/mongodb', baseUrl);
+    url.searchParams.append('collection', 'users');
+    url.searchParams.append('action', 'find');
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error reading users from API:', error);
+    return [];
   }
-  return await response.json()
 }
 
 // Ghi danh sách người dùng vào API
@@ -290,59 +300,77 @@ export async function registerUser(name, email, password) {
   }
 }
 
-// Update user profile
+// Cập nhật thông tin người dùng
 export async function updateUserProfile(data) {
   try {
-    // Lấy userId từ localStorage
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'))
-    if (!currentUser || !currentUser._id) {
-      throw new Error('User not logged in')
-    }
+    console.log('Starting profile update with data:', data);
 
-    const formData = new FormData()
-    formData.append('name', data.name)
-    formData.append('bio', data.bio)
-    if (data.avatar) {
-      formData.append('avatar', data.avatar)
-    }
-
-    // Tạo URL cho MongoDB
-    const url = new URL('/api/mongodb', window.location.origin)
-    url.searchParams.append('collection', 'users')
-    url.searchParams.append('action', 'updateOne')
+    // Lấy _id từ localStorage
+    const userData = localStorage.getItem('user');
+    console.log('Raw user data from localStorage:', userData);
     
-    const response = await fetch(url.toString(), {
-      method: 'POST',
+    if (!userData) {
+      throw new Error('User not found in localStorage');
+    }
+
+    const parsedUserData = JSON.parse(userData);
+    console.log('Parsed user data:', parsedUserData);
+    
+    const { _id } = parsedUserData;
+    if (!_id) {
+      throw new Error('User ID is required');
+    }
+
+    console.log('User ID:', _id);
+
+    // Convert File to base64 if it's a file
+    let avatarData = data.avatar;
+    if (data.avatar instanceof File) {
+      avatarData = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data.avatar);
+      });
+    }
+
+    // Gửi yêu cầu cập nhật đến API
+    const response = await fetch('/api/profile', {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query: { _id: currentUser._id },
-        update: {
-          $set: {
-            name: data.name,
-            bio: data.bio,
-            ...(data.avatar && { avatar: data.avatar })
-          }
-        }
+        _id,
+        name: data.name,
+        bio: data.bio,
+        avatar: avatarData
       }),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error('Failed to update profile')
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to update profile');
     }
 
-    const updatedUser = await response.json()
+    const result = await response.json();
+    console.log('Profile update result:', result);
+
+    // Cập nhật localStorage
+    const updatedUser = {
+      ...parsedUserData,
+      name: result.name || parsedUserData.name,
+      bio: result.bio || parsedUserData.bio,
+      avatar: result.avatar || parsedUserData.avatar,
+      updatedAt: new Date().toISOString()
+    };
     
-    // Cập nhật thông tin người dùng trong localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser))
-    }
+    console.log('Updating localStorage with:', updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
 
-    return updatedUser
+    return updatedUser;
   } catch (error) {
-    console.error('Error updating profile:', error)
-    throw error
+    console.error('Error updating user profile:', error);
+    throw error;
   }
 }
 
@@ -398,5 +426,34 @@ export async function likeVideo(videoId) {
   } catch (error) {
     console.error('Error liking video:', error)
     throw error
+  }
+}
+
+// Upload avatar lên Cloudinary
+export async function uploadAvatar(file) {
+  try {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'looply_avatars');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/dcnmynqty/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload avatar');
+    }
+
+    const data = await response.json();
+    return data.secure_url;
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    throw error;
   }
 }
