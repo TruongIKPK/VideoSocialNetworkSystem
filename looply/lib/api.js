@@ -456,30 +456,51 @@ export async function uploadVideo(file, title, description, onProgress) {
 // Like a video
 export async function likeVideo(videoId) {
   try {
-    const user = JSON.parse(localStorage.getItem('currentUser'))
-    if (!user) {
-      throw new Error('User not logged in')
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để thích video');
     }
-
-    const response = await fetch('/api/videos/like', {
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    console.log('Sending like request for video:', videoId, 'by user:', userId);
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/like`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Tránh cache
       },
       body: JSON.stringify({ 
         videoId,
-        userId: user.id 
+        userId
       }),
-    })
+    });
 
     if (!response.ok) {
-      throw new Error('Failed to like video')
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Like video error:', errorData);
+      throw new Error(errorData.error || 'Không thể thích video');
     }
 
-    return await response.json()
+    const result = await response.json();
+    console.log('Like video result:', result);
+    return result;
   } catch (error) {
-    console.error('Error liking video:', error)
-    throw error
+    console.error('Error liking video:', error);
+    throw error;
   }
 }
 
