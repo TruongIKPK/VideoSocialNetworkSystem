@@ -163,16 +163,100 @@ export async function addComment(videoId, text) {
 // Fetch user videos
 export async function fetchUserVideos(userId) {
   try {
-    const response = await fetch('/api/videos')
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    console.log('Fetching videos for user ID:', userId);
+    
+    const response = await fetch(`${baseUrl}/api/videos`, {
+      headers: {
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      // Thiết lập thời gian chờ tối đa là 10 giây
+      signal: AbortSignal.timeout(10000)
+    });
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch videos')
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error when fetching videos:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch videos');
     }
-    const allVideos = await response.json()
-    // Lọc video theo userId
-    return allVideos.filter(video => video.user.id === userId)
+    
+    const allVideos = await response.json();
+    console.log(`Retrieved ${allVideos.length} total videos, filtering for user: ${userId}`);
+    
+    // Lọc video theo userId với nhiều cấu trúc dữ liệu khác nhau có thể có
+    const userVideos = allVideos.filter(video => {
+      // Trường hợp 1: Nếu video có trường user.id
+      if (video.user && video.user.id === userId) {
+        return true;
+      }
+      
+      // Trường hợp 2: Nếu video có trường user._id
+      if (video.user && video.user._id === userId) {
+        return true;
+      }
+      
+      // Trường hợp 3: Nếu video có trường userId trực tiếp
+      if (video.userId === userId) {
+        return true;
+      }
+      
+      // Trường hợp 4: Video có thể lưu userId dưới dạng ObjectId string
+      if (video.userId && video.userId.toString() === userId) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log(`Found ${userVideos.length} videos for user ${userId}`);
+    return userVideos;
   } catch (error) {
-    console.error('Error fetching user videos:', error)
-    return []
+    console.error('Error fetching user videos:', error);
+    return [];
+  }
+}
+
+// Fetch videos that user has liked
+export async function fetchLikedVideos(userId) {
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos`, {
+      headers: {
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      // Thiết lập thời gian chờ tối đa là 10 giây
+      signal: AbortSignal.timeout(10000)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error when fetching videos:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch videos');
+    }
+    
+    const allVideos = await response.json();
+    console.log(`Retrieved ${allVideos.length} total videos, finding liked videos for user: ${userId}`);
+    
+    // Lọc video có mảng likedBy chứa userId
+    const likedVideos = allVideos.filter(video => 
+      video.likedBy && 
+      Array.isArray(video.likedBy) && 
+      video.likedBy.includes(userId)
+    );
+    
+    console.log(`Found ${likedVideos.length} liked videos for user ${userId}`);
+    return likedVideos;
+  } catch (error) {
+    console.error('Error fetching liked videos:', error);
+    return [];
   }
 }
 
