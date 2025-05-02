@@ -19,16 +19,22 @@ export default function VideoCard({ video }) {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [likesCount, setLikesCount] = useState(video.likes || 0)
   const videoRef = useRef(null)
 
   // Initialize liked state when component mounts or video/user changes
   useEffect(() => {
     if (user && video.likedBy) {
-      setLiked(video.likedBy.includes(user.id))
+      // Kiểm tra xem user hiện tại đã like video này chưa
+      const userId = user._id || user.id;
+      setLiked(video.likedBy.includes(userId));
     } else {
-      setLiked(false)
+      setLiked(false);
     }
-  }, [user, video])
+    
+    // Cập nhật số lượng likes từ video
+    setLikesCount(video.likes || 0);
+  }, [user, video]);
 
   // Intersection Observer logic
   useEffect(() => {
@@ -78,21 +84,30 @@ export default function VideoCard({ video }) {
       setShowLoginModal(true)
       return
     }
-
+    
     try {
-      const response = await likeVideo(video.id)
-      setLiked(response.hasLiked)
-      // Update the likes count in the video object
-      video.likes = response.likes
-      // Update likedBy array
-      if (response.hasLiked) {
-        if (!video.likedBy) video.likedBy = []
-        video.likedBy.push(user.id)
-      } else {
-        video.likedBy = video.likedBy?.filter(id => id !== user.id) || []
-      }
+      // Hiển thị thay đổi UI ngay lập tức (optimistic UI update)
+      const newLikedState = !liked;
+      setLiked(newLikedState);
+      setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
+      
+      // Gọi API để cập nhật trạng thái like
+      const videoId = video._id || video.id;
+      const response = await likeVideo(videoId);
+      
+      // Cập nhật lại UI dựa trên phản hồi từ server
+      setLiked(response.hasLiked);
+      setLikesCount(response.likes);
+      
+      console.log('Video like updated:', response);
     } catch (error) {
-      console.error("Failed to like video:", error)
+      // Nếu có lỗi, khôi phục trạng thái UI ban đầu
+      console.error("Failed to like video:", error);
+      setLiked(!liked);
+      setLikesCount(video.likes || 0);
+      
+      // Hiển thị thông báo lỗi (có thể thêm toast notification ở đây)
+      alert(error.message || "Không thể cập nhật trạng thái like video");
     }
   }
 
@@ -130,11 +145,11 @@ export default function VideoCard({ video }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="p-4 flex items-center">
-        <Link href={`/user/${video.user.id}`} className="flex items-center">
+        <Link href={`/user/${video.user?.id || video.userId}`} className="flex items-center">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <Image
-              src={video.user.avatar || "/no_avatar.png"}
-              alt={video.user.name}
+              src={video.user?.avatar || "/no_avatar.png"}
+              alt={video.user?.name || "User"}
               width={40}
               height={40}
               className="object-cover"
@@ -142,7 +157,7 @@ export default function VideoCard({ video }) {
             />
           </div>
           <div className="ml-3">
-            <div className="font-semibold">{video.user.name}</div>
+            <div className="font-semibold">{video.user?.name || "User"}</div>
             <div className="text-sm text-gray-500">{video.title}</div>
           </div>
         </Link>
@@ -180,12 +195,12 @@ export default function VideoCard({ video }) {
             className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${liked ? "text-red-500" : "text-white"}`}
           >
             <Heart className="h-6 w-6" fill={liked ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(video.likes)}</span>
+            <span className="text-xs mt-1 block">{formatCount(likesCount)}</span>
           </button>
 
           <button onClick={handleComment} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <MessageCircle className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.comments)}</span>
+            <span className="text-xs mt-1 block">{formatCount(video.comments || 0)}</span>
           </button>
 
           <button
@@ -193,17 +208,17 @@ export default function VideoCard({ video }) {
             className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${saved ? "text-yellow-500" : "text-white"}`}
           >
             <Bookmark className="h-6 w-6" fill={saved ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(video.saves)}</span>
+            <span className="text-xs mt-1 block">{formatCount(video.saves || 0)}</span>
           </button>
 
           <button className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <Share2 className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.shares)}</span>
+            <span className="text-xs mt-1 block">{formatCount(video.shares || 0)}</span>
           </button>
         </div>
       </div>
 
-      {showComments && <CommentSection videoId={video.id} />}
+      {showComments && <CommentSection videoId={video._id || video.id} />}
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>

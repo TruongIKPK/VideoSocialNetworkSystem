@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/language-context"
 import { Pencil, Settings } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { fetchUserVideos } from "@/lib/api"
+import { fetchUserVideos, fetchLikedVideos } from "@/lib/api"
 
 // Profile page component
 export default function Profile() {
@@ -16,6 +16,8 @@ export default function Profile() {
   const { language } = useLanguage()
   const [activeTab, setActiveTab] = useState("videos")
   const [videos, setVideos] = useState([])
+  const [likedVideos, setLikedVideos] = useState([])
+  const [savedVideos, setSavedVideos] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Redirect to login if not authenticated
@@ -25,25 +27,57 @@ export default function Profile() {
     }
   }, [user, userLoading, router])
 
-  // Fetch user videos on component mount
+  // Fetch user videos and liked videos on component mount
   useEffect(() => {
     if (user) {
-      const loadVideos = async () => {
+      const loadData = async () => {
+        setLoading(true);
         try {
-          const data = await fetchUserVideos(user.id)
-          // Sort videos by createdAt in descending order (newest first)
-          const sortedVideos = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-          setVideos(sortedVideos)
+          // Lấy ID người dùng, hỗ trợ cả hai cấu trúc dữ liệu (_id hoặc id)
+          const userId = user._id || user.id;
+          
+          // Tải song song dữ liệu video của user và video đã thích
+          const [userVideosData, likedVideosData] = await Promise.all([
+            fetchUserVideos(userId),
+            fetchLikedVideos(userId)
+          ]);
+          
+          // Sắp xếp video theo thời gian tạo (mới nhất trước)
+          const sortVideos = (videos) => {
+            return [...videos].sort((a, b) => 
+              new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            );
+          };
+          
+          setVideos(sortVideos(userVideosData));
+          setLikedVideos(sortVideos(likedVideosData));
+          
+          // Video đã lưu - tạm thời để trống, sẽ cập nhật sau khi có API
+          setSavedVideos([]);
         } catch (error) {
-          console.error("Failed to fetch user videos:", error)
+          console.error("Failed to fetch user data:", error);
         } finally {
-          setLoading(false)
+          setLoading(false);
         }
-      }
+      };
 
-      loadVideos()
+      loadData();
     }
-  }, [user])
+  }, [user]);
+  
+  // Hiển thị video theo tab được chọn
+  const getActiveVideos = () => {
+    switch (activeTab) {
+      case "videos": 
+        return videos;
+      case "liked": 
+        return likedVideos;
+      case "saved": 
+        return savedVideos;
+      default: 
+        return [];
+    }
+  };
 
   if (userLoading || !user) {
     return (
@@ -60,7 +94,7 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row items-center">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden">
               <Image
-                src={user.avatar}
+                src={user.avatar || "/no_avatar.png"}
                 alt={user.name}
                 width={128}
                 height={128}
@@ -152,7 +186,7 @@ export default function Profile() {
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
           </div>
-        ) : videos.length === 0 ? (
+        ) : getActiveVideos().length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">
               {activeTab === "videos" &&
@@ -163,10 +197,10 @@ export default function Profile() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map((video) => (
-              <div key={video.id} className="bg-white rounded-lg shadow overflow-hidden">
+            {getActiveVideos().map((video) => (
+              <div key={video._id || video.id} className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="relative aspect-w-16 aspect-h-9">
-                  <Link href={`/video/${video.id}`}>
+                  <Link href={`/video/${video._id || video.id}`}>
                     <video
                       src={video.url}
                       className="w-full h-full object-cover"

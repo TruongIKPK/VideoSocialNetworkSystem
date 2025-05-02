@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { connectDB } from '../../mongodb/route'
+import { ObjectId } from 'mongodb'
 
 export async function POST(request) {
   try {
@@ -13,12 +13,24 @@ export async function POST(request) {
       )
     }
 
-    // Read videos data
-    const videosDataPath = path.join(process.cwd(), 'data', 'videos.json')
-    const videosData = JSON.parse(fs.readFileSync(videosDataPath, 'utf-8'))
-
-    // Find the video
-    const video = videosData.videos.find(v => v.id === videoId)
+    // Kết nối đến MongoDB
+    const db = await connectDB()
+    
+    // Chuyển đổi videoId sang ObjectId nếu cần
+    let videoObjectId;
+    try {
+      videoObjectId = new ObjectId(videoId);
+    } catch (error) {
+      console.error('Invalid video ID format:', error);
+      return NextResponse.json(
+        { error: 'Invalid video ID format' },
+        { status: 400 }
+      );
+    }
+    
+    // Tìm video trong collection videos
+    const video = await db.collection('videos').findOne({ _id: videoObjectId });
+    
     if (!video) {
       return NextResponse.json(
         { error: 'Video not found' },
@@ -26,36 +38,51 @@ export async function POST(request) {
       )
     }
 
-    // Initialize likedBy array if it doesn't exist
+    // Khởi tạo mảng likedBy nếu chưa có
     if (!video.likedBy) {
       video.likedBy = []
     }
 
-    // Check if user has already liked the video
+    // Kiểm tra xem người dùng đã like video chưa
     const hasLiked = video.likedBy.includes(userId)
-
+    let updateOperation;
+    
     if (hasLiked) {
-      // Remove like
-      video.likedBy = video.likedBy.filter(id => id !== userId)
-      video.likes = Math.max(0, video.likes - 1)
+      // Bỏ like
+      updateOperation = {
+        $pull: { likedBy: userId },
+        $inc: { likes: -1 }
+      };
     } else {
-      // Add like
-      video.likedBy.push(userId)
-      video.likes = (video.likes || 0) + 1
+      // Thêm like
+      updateOperation = {
+        $addToSet: { likedBy: userId },
+        $inc: { likes: 1 }
+      };
     }
 
-    // Save updated data
-    fs.writeFileSync(videosDataPath, JSON.stringify(videosData, null, 2))
+    // Cập nhật video trong database
+    const result = await db.collection('videos').updateOne(
+      { _id: videoObjectId },
+      updateOperation
+    );
+    
+    // Lấy video đã cập nhật
+    const updatedVideo = await db.collection('videos').findOne({ _id: videoObjectId });
+    
+    if (!result.modifiedCount) {
+      console.warn('Like operation did not modify any document');
+    }
 
-    // Return updated like status for the user
+    // Trả về trạng thái like mới
     return NextResponse.json({
-      likes: video.likes,
-      hasLiked: !hasLiked // Indicate whether the user has liked the video after the operation
+      likes: updatedVideo.likes || 0,
+      hasLiked: !hasLiked // Trạng thái like mới sau thao tác
     })
   } catch (error) {
     console.error('Error liking video:', error)
     return NextResponse.json(
-      { error: 'Failed to like video' },
+      { error: 'Failed to like video: ' + error.message },
       { status: 500 }
     )
   }
