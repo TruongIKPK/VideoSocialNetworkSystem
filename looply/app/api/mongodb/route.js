@@ -1,27 +1,44 @@
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
-const uri = "mongodb+srv://looply:12345@cluster0.itbnhsw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// Sử dụng biến môi trường hoặc URI mặc định
+const uri = process.env.MONGODB_URI || "mongodb+srv://looply:12345@cluster0.itbnhsw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const dbName = process.env.MONGODB_DB || "Looply_DB";
 
-const client = new MongoClient(uri, {
+const options = {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
-});
+  },
+  maxPoolSize: 10,                // Giới hạn số lượng kết nối tối đa
+  connectTimeoutMS: 5000,         // Giới hạn thời gian kết nối
+  socketTimeoutMS: 45000,         // Giới hạn thời gian không hoạt động
+}
 
-let db = null;
+let clientPromise = null;
+
+// Khởi tạo kết nối MongoDB một lần
+function getMongoClient() {
+  if (!clientPromise) {
+    clientPromise = new MongoClient(uri, options).connect();
+  }
+  return clientPromise;
+}
 
 export async function connectDB() {
-  if (db) return db;
-  
   try {
-    await client.connect();
-    db = client.db("Looply_DB");
+    const client = await getMongoClient();
+    const db = client.db(dbName);
+    
+    // Kiểm tra kết nối bằng cách ping
+    await db.command({ ping: 1 });
     console.log("Successfully connected to MongoDB!");
+    
     return db;
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
+    // Nếu lỗi kết nối, reset clientPromise để thử lại lần sau
+    clientPromise = null;
     throw error;
   }
 }
@@ -119,4 +136,4 @@ export async function POST(request) {
     console.error('MongoDB operation error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
-} 
+}
