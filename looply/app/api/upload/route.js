@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import cloudinary from '@/lib/cloudinary'
-import fs from 'fs'
-import path from 'path'
+import { connectDB } from '../mongodb/route'
 
 export async function POST(request) {
   try {
@@ -39,20 +38,14 @@ export async function POST(request) {
       // Handle upload progress
       uploadStream.on('progress', (progress) => {
         const percent = Math.round((progress.bytes_written / progress.bytes_total) * 100)
-        // You can emit this progress to the client if needed
         console.log(`Upload progress: ${percent}%`)
       })
 
       uploadStream.end(buffer)
     })
 
-    // Read existing videos data
-    const videosDataPath = path.join(process.cwd(), 'data', 'videos.json')
-    const videosData = JSON.parse(fs.readFileSync(videosDataPath, 'utf-8'))
-
     // Create new video object
     const newVideo = {
-      id: result.public_id,
       title,
       description,
       url: result.secure_url,
@@ -65,13 +58,11 @@ export async function POST(request) {
       createdAt: new Date().toISOString()
     }
 
-    // Add new video to videos array
-    videosData.videos.push(newVideo)
+    // Save to MongoDB
+    const db = await connectDB()
+    const videoResult = await db.collection('videos').insertOne(newVideo)
 
-    // Save updated videos data
-    fs.writeFileSync(videosDataPath, JSON.stringify(videosData, null, 2))
-
-    return NextResponse.json(newVideo)
+    return NextResponse.json({ ...newVideo, _id: videoResult.insertedId })
   } catch (error) {
     console.error('Error uploading video:', error)
     return NextResponse.json(

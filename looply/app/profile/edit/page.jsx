@@ -51,25 +51,14 @@ export default function EditProfile() {
     setSuccess(false)
   
     try {
-      const formData = new FormData()
-      formData.append('userId', user.id)
-      formData.append('name', name)
-      formData.append('bio', bio)
-      if (avatar) {
-        formData.append('avatar', avatar)
-      }
-
-      const response = await fetch('/api/users/updateProfile', {
-        method: 'POST',
-        body: formData,
+      const updatedUser = await updateUserProfile({
+        userId: user.id,
+        name,
+        bio,
+        avatar
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to update profile')
-      }
-
-      const updatedData = await response.json()
-      updateProfile(updatedData)
+      updateProfile(updatedUser)
       setSuccess(true)
   
       // Redirect to profile page after 1 second
