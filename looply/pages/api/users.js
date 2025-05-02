@@ -1,23 +1,30 @@
-import fs from 'fs'
-import path from 'path'
+import { connectDB } from '../../app/api/mongodb/route'
 
-const usersFilePath = path.join(process.cwd(), 'data', 'users.json')
-
-export default function handler(req, res) {
+export default async function handler(req, res) {
+  const db = await connectDB()
+  
   if (req.method === 'GET') {
-    // Đọc dữ liệu từ file
-    if (!fs.existsSync(usersFilePath)) {
-      return res.status(200).json([])
+    try {
+      const users = await db.collection('users').find({}).toArray()
+      return res.status(200).json(users)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      return res.status(500).json({ error: 'Failed to fetch users' })
     }
-    const data = fs.readFileSync(usersFilePath, 'utf-8')
-    return res.status(200).json(JSON.parse(data))
   }
 
   if (req.method === 'POST') {
-    // Ghi dữ liệu vào file
-    const users = req.body
-    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2))
-    return res.status(200).json({ success: true })
+    try {
+      const user = req.body
+      const result = await db.collection('users').insertOne({
+        ...user,
+        createdAt: new Date().toISOString()
+      })
+      return res.status(200).json({ ...user, _id: result.insertedId })
+    } catch (error) {
+      console.error('Error creating user:', error)
+      return res.status(500).json({ error: 'Failed to create user' })
+    }
   }
 
   return res.status(405).json({ message: 'Method not allowed' })

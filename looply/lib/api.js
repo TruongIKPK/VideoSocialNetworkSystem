@@ -2,7 +2,7 @@
 
 // Đọc danh sách người dùng từ API
 async function readUsersFromAPI() {
-  const response = await fetch('/api/users')
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users`)
   if (!response.ok) {
     throw new Error('Failed to fetch users')
   }
@@ -11,7 +11,7 @@ async function readUsersFromAPI() {
 
 // Ghi danh sách người dùng vào API
 async function writeUsersToAPI(users) {
-  const response = await fetch('/api/users', {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -224,7 +224,7 @@ export async function updateUserProfile(data) {
       formData.append('avatar', data.avatar)
     }
 
-    const response = await fetch('/api/users/updateProfile', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users/updateProfile`, {
       method: 'POST',
       body: formData,
     })

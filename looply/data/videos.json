@@ -1,32 +1,3 @@
 {
-  "videos": [
-    {
-      "id": "videos/qmrpoyj0cvpp22oypzhc",
-      "title": "Video đầu tiên của Looply",
-      "description": "Chào",
-      "url": "https://res.cloudinary.com/dcnmynqty/video/upload/v1746033296/videos/qmrpoyj0cvpp22oypzhc.mp4",
-      "thumbnail": "https://res.cloudinary.com/dcnmynqty/video/upload/v1746033296/videos/qmrpoyj0cvpp22oypzhc.jpg",
-      "likes": 1,
-      "comments": 0,
-      "saves": 0,
-      "shares": 0,
-      "user": {
-        "id": "9icpztbc7",
-        "name": "Lê Nguyễn Phi Trường",
-        "username": "lê_nguyễn_phi_trường",
-        "email": "admin@example.com",
-        "password": "12345",
-        "avatar": "/uploads/dh8b3vpzzm98tlk304n9sskhl.jpg",
-        "following": 0,
-        "followers": 0,
-        "likes": 0,
-        "createdAt": "2025-04-30T09:52:02.225Z",
-        "bio": "1"
-      },
-      "createdAt": "2025-04-30T17:15:01.407Z",
-      "likedBy": [
-        "9icpztbc7"
-      ]
-    }
-  ]
+  "videos": []
 }
