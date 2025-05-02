@@ -616,3 +616,53 @@ export async function uploadAvatar(file) {
     throw error;
   }
 }
+
+// Xóa video
+export async function deleteVideo(videoId) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để xóa video');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    console.log('Sending delete request for video:', videoId, 'by user:', userId);
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const url = new URL(`${baseUrl}/api/videos`);
+    url.searchParams.append('id', videoId);
+    url.searchParams.append('userId', userId);
+    
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      headers: {
+        'Cache-Control': 'no-cache', // Tránh cache
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Delete video error:', errorData);
+      throw new Error(errorData.error || 'Không thể xóa video');
+    }
+
+    const result = await response.json();
+    console.log('Delete video result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error deleting video:', error);
+    throw error;
+  }
+}
