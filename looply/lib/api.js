@@ -2,24 +2,42 @@
 
 // Đọc danh sách người dùng từ API
 async function readUsersFromAPI() {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch users')
+  try {
+    // Kiểm tra môi trường trước khi sử dụng window
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const url = new URL('/api/mongodb', baseUrl);
+    url.searchParams.append('collection', 'users');
+    url.searchParams.append('action', 'find');
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error reading users from API:', error);
+    return [];
   }
-  return await response.json()
 }
 
 // Ghi danh sách người dùng vào API
-async function writeUsersToAPI(users) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users`, {
+async function writeUsersToAPI(user) {
+  const url = new URL('/api/mongodb', window.location.origin)
+  url.searchParams.append('collection', 'users')
+  url.searchParams.append('action', 'insertOne')
+  
+  const response = await fetch(url.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(users),
+    body: JSON.stringify(user),
   })
   if (!response.ok) {
-    throw new Error('Failed to save users')
+    throw new Error('Failed to save user')
   }
   return await response.json()
 }
@@ -144,16 +162,60 @@ export async function fetchUserVideos(userId) {
   }
 }
 
+// Hàm kiểm tra tất cả người dùng trong database
+export async function getAllUsers() {
+  try {
+    const url = new URL('/api/mongodb', window.location.origin)
+    url.searchParams.append('collection', 'users')
+    url.searchParams.append('action', 'find')
+    
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error('Failed to fetch users')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('Error fetching all users:', error)
+    throw error
+  }
+}
+
 // Login user
 export async function loginUser(email, password) {
   try {
-    // Đọc danh sách người dùng từ API
-    const users = await readUsersFromAPI()
+    console.log('Attempting to login with:', { email, password })
     
-    // Tìm người dùng có email và mật khẩu khớp
-    const user = users.find((u) => u.email === email && u.password === password)
-
+    // Tìm người dùng có email khớp
+    const url = new URL('/api/mongodb', window.location.origin)
+    url.searchParams.append('collection', 'users')
+    url.searchParams.append('action', 'findOne')
+    url.searchParams.append('query', JSON.stringify({ email }))
+    
+    console.log('Fetching user with URL:', url.toString())
+    const response = await fetch(url.toString())
+    console.log('Response status:', response.status)
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch user')
+    }
+    
+    const user = await response.json()
+    console.log('Raw user data from MongoDB:', user)
+    
+    // Kiểm tra nếu user là null hoặc undefined
     if (!user) {
+      console.log('No user found with email:', email)
+      throw new Error("Email hoặc mật khẩu không đúng")
+    }
+
+    // Kiểm tra mật khẩu
+    console.log('Comparing passwords:', {
+      stored: user.password,
+      provided: password
+    })
+    
+    if (user.password !== password) {
+      console.log('Password mismatch')
       throw new Error("Email hoặc mật khẩu không đúng")
     }
 
@@ -171,80 +233,144 @@ export async function loginUser(email, password) {
 
 // Register user
 export async function registerUser(name, email, password) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  // Kiểm tra email đã tồn tại chưa
-  const existingUser = users.find((u) => u.email === email)
-  if (existingUser) {
-    throw new Error("Email already exists")
-  }
-
-  // Tạo thông tin người dùng mới
-  const newUser = {
-    id: Math.random().toString(36).substr(2, 9),
-    name,
-    username: name.toLowerCase().replace(/\s+/g, "_"),
-    email,
-    password, // Lưu mật khẩu (nên mã hóa trong thực tế)
-    avatar: "/no_avatar.png",
-    following: 0,
-    followers: 0,
-    likes: 0,
-    createdAt: new Date().toISOString()
-  }
-
   try {
-    // Thêm người dùng mới vào mảng
-    users.push(newUser)
+    console.log('Attempting to register user:', { name, email })
+    
+    // Kiểm tra email đã tồn tại chưa
+    const checkUrl = new URL('/api/mongodb', window.location.origin)
+    checkUrl.searchParams.append('collection', 'users')
+    checkUrl.searchParams.append('action', 'findOne')
+    checkUrl.searchParams.append('query', JSON.stringify({ email }))
+    
+    console.log('Checking existing user with URL:', checkUrl.toString())
+    const checkResponse = await fetch(checkUrl.toString())
+    console.log('Check response status:', checkResponse.status)
+    
+    if (!checkResponse.ok) {
+      throw new Error('Failed to check existing user')
+    }
+    
+    const existingUser = await checkResponse.json()
+    console.log('Existing user check result:', existingUser)
+    
+    if (existingUser) {
+      throw new Error("Email already exists")
+    }
 
-    // Ghi mảng người dùng vào API
-    await writeUsersToAPI(users)
+    // Tạo thông tin người dùng mới
+    const newUser = {
+      name,
+      username: name.toLowerCase().replace(/\s+/g, "_"),
+      email,
+      password,
+      avatar: "/no_avatar.png",
+      following: 0,
+      followers: 0,
+      likes: 0,
+      createdAt: new Date().toISOString()
+    }
 
-    return newUser
+    console.log('Creating new user:', newUser)
+
+    // Ghi người dùng mới vào API
+    const url = new URL('/api/mongodb', window.location.origin)
+    url.searchParams.append('collection', 'users')
+    url.searchParams.append('action', 'insertOne')
+    
+    console.log('Saving user with URL:', url.toString())
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(newUser),
+    })
+    console.log('Save response status:', response.status)
+
+    if (!response.ok) {
+      throw new Error('Failed to register user')
+    }
+
+    const result = await response.json()
+    console.log('Registration result:', result)
+    return result
   } catch (error) {
     console.error("Error registering user:", error)
-    throw new Error("Failed to register user")
+    throw error
   }
 }
 
-// Update user profile
+// Cập nhật thông tin người dùng
 export async function updateUserProfile(data) {
   try {
-    // Kiểm tra userId
-    if (!data.userId) {
-      throw new Error('User ID is required')
+    console.log('Starting profile update with data:', data);
+
+    // Lấy _id từ localStorage
+    const userData = localStorage.getItem('user');
+    console.log('Raw user data from localStorage:', userData);
+    
+    if (!userData) {
+      throw new Error('User not found in localStorage');
     }
 
-    const formData = new FormData()
-    formData.append('userId', data.userId)
-    formData.append('name', data.name)
-    formData.append('bio', data.bio)
-    if (data.avatar) {
-      formData.append('avatar', data.avatar)
+    const parsedUserData = JSON.parse(userData);
+    console.log('Parsed user data:', parsedUserData);
+    
+    const { _id } = parsedUserData;
+    if (!_id) {
+      throw new Error('User ID is required');
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/users/updateProfile`, {
-      method: 'POST',
-      body: formData,
-    })
+    console.log('User ID:', _id);
+
+    // Convert File to base64 if it's a file
+    let avatarData = data.avatar;
+    if (data.avatar instanceof File) {
+      avatarData = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data.avatar);
+      });
+    }
+
+    // Gửi yêu cầu cập nhật đến API
+    const response = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        _id,
+        name: data.name,
+        bio: data.bio,
+        avatar: avatarData
+      }),
+    });
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Failed to update profile')
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to update profile');
     }
 
-    const updatedUser = await response.json()
+    const result = await response.json();
+    console.log('Profile update result:', result);
+
+    // Cập nhật localStorage
+    const updatedUser = {
+      ...parsedUserData,
+      name: result.name || parsedUserData.name,
+      bio: result.bio || parsedUserData.bio,
+      avatar: result.avatar || parsedUserData.avatar,
+      updatedAt: new Date().toISOString()
+    };
     
-    // Cập nhật thông tin người dùng trong localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser))
-    }
+    console.log('Updating localStorage with:', updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
 
-    return updatedUser
+    return updatedUser;
   } catch (error) {
-    console.error('Error updating profile:', error)
-    throw error
+    console.error('Error updating user profile:', error);
+    throw error;
   }
 }
 
@@ -300,5 +426,34 @@ export async function likeVideo(videoId) {
   } catch (error) {
     console.error('Error liking video:', error)
     throw error
+  }
+}
+
+// Upload avatar lên Cloudinary
+export async function uploadAvatar(file) {
+  try {
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'looply_avatars');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/dcnmynqty/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload avatar');
+    }
+
+    const data = await response.json();
+    return data.secure_url;
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    throw error;
   }
 }

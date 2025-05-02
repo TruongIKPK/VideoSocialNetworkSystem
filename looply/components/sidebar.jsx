@@ -66,7 +66,13 @@ export default function Sidebar() {
       <div className="p-4">
         <Link href="/" className="flex items-center mb-8">
           <div className="relative w-12 h-12">
-            <Image src="/logo.png" alt="Looply" width={48} height={48} className="object-contain" />
+            <Image
+              src="http://localhost:3000/logo.png"
+              alt="Logo"
+              width={48}
+              height={48}
+              className="object-contain"
+            />
           </div>
           <span className="ml-2 text-xl font-bold">LOOPLY</span>
         </Link>
