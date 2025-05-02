@@ -12,12 +12,12 @@ const client = new MongoClient(uri, {
 
 let db = null;
 
-async function connectDB() {
+export async function connectDB() {
   if (db) return db;
   
   try {
     await client.connect();
-    db = client.db("looply");
+    db = client.db("Looply_DB");
     console.log("Successfully connected to MongoDB!");
     return db;
   } catch (error) {
