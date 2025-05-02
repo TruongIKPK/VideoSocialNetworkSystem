@@ -80,7 +80,11 @@ export default function EditProfile() {
     const file = e.target.files[0]
     if (file) {
       setAvatar(file)
-      setPreview(URL.createObjectURL(file))
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreview(reader.result)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -114,11 +118,12 @@ export default function EditProfile() {
               <div className="flex items-center">
                 <div className="w-24 h-24 rounded-full overflow-hidden">
                   <Image
-                    src={preview}
+                    src={preview || user?.avatar || "/no_avatar.png"}
                     alt={name}
                     width={96}
                     height={96}
                     className="object-cover"
+                    style={{ width: 'auto', height: 'auto' }}
                   />
                 </div>
                 <input
