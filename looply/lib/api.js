@@ -1,6 +1,6 @@
 // Simulated API functions for the Looply app
 
-// Đọc danh sách người dùng từ API
+// Đọc danh sách người dùng từ API với xử lý lỗi tốt hơn
 async function readUsersFromAPI() {
   try {
     // Kiểm tra môi trường trước khi sử dụng window
@@ -12,13 +12,27 @@ async function readUsersFromAPI() {
     url.searchParams.append('collection', 'users');
     url.searchParams.append('action', 'find');
     
-    const response = await fetch(url.toString());
+    console.log('Fetching users from:', url.toString());
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch users');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch users');
     }
-    return await response.json();
+    
+    const data = await response.json();
+    console.log(`Retrieved ${data.length} users from database`);
+    return data;
   } catch (error) {
     console.error('Error reading users from API:', error);
+    // Trả về mảng rỗng thay vì throw lỗi để ứng dụng không bị crash
     return [];
   }
 }
