@@ -67,7 +67,7 @@ export default function Sidebar() {
         <Link href="/" className="flex items-center mb-8">
           <div className="relative w-12 h-12">
             <Image
-              src="http://localhost:3000/logo.png"
+              src="/logo.png"
               alt="Logo"
               width={48}
               height={48}
