@@ -60,11 +60,12 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row items-center">
             <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden">
               <Image
-                src={user.avatar || "/placeholder.svg?height=128&width=128"}
+                src={user.avatar}
                 alt={user.name}
                 width={128}
                 height={128}
                 className="object-cover"
+                priority
               />
             </div>
 

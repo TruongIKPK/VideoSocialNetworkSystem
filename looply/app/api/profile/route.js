@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '../mongodb/route';
 import { ObjectId } from 'mongodb';
+import cloudinary from '@/lib/cloudinary';
 
 export async function PUT(request) {
   try {
@@ -14,36 +15,33 @@ export async function PUT(request) {
     
     // Handle avatar upload if a new file is provided
     let avatarUrl = data.avatar;
+
     if (data.avatar && typeof data.avatar === 'string' && data.avatar.startsWith('data:')) {
       try {
-        // Handle base64 image data
-        const formData = new FormData();
+        // Convert base64 to buffer
         const base64Data = data.avatar.split(',')[1];
-        const binaryData = atob(base64Data);
-        const arrayBuffer = new ArrayBuffer(binaryData.length);
-        const uint8Array = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < binaryData.length; i++) {
-          uint8Array[i] = binaryData.charCodeAt(i);
-        }
-        const blob = new Blob([arrayBuffer], { type: 'image/png' });
-        formData.append('file', blob);
-        formData.append('upload_preset', 'looply_avatars');
+        const buffer = Buffer.from(base64Data, 'base64');
 
-        console.log('Uploading to Cloudinary...');
-        const response = await fetch(`https://api.cloudinary.com/v1_1/dcnmynqty/image/upload`, {
-          method: 'POST',
-          body: formData,
+        // Upload to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            {
+              folder: 'avatars',
+              format: 'jpg',
+              transformation: [
+                { width: 400, height: 400, crop: 'fill' },
+                { quality: 'auto' }
+              ]
+            },
+            (error, result) => {
+              if (error) reject(error);
+              resolve(result);
+            }
+          ).end(buffer);
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Cloudinary upload error:', errorData);
-          throw new Error(`Cloudinary upload failed: ${errorData.message || 'Unknown error'}`);
-        }
-
-        const result = await response.json();
-        console.log('Cloudinary upload result:', result);
         avatarUrl = result.secure_url;
+        console.log('Avatar uploaded successfully:', avatarUrl);
       } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
         // If upload fails, keep the existing avatar URL
@@ -58,7 +56,7 @@ export async function PUT(request) {
         $set: {
           name: data.name,
           bio: data.bio,
-          avatar: avatarUrl,
+          avatar: avatarUrl || '/no_avatar.png', // Ensure avatar has a default value
           updatedAt: new Date().toISOString()
         }
       }
@@ -70,7 +68,7 @@ export async function PUT(request) {
 
     return NextResponse.json({ 
       success: true, 
-      avatar: avatarUrl,
+      avatar: avatarUrl || '/no_avatar.png', // Ensure avatar has a default value
       name: data.name,
       bio: data.bio
     });

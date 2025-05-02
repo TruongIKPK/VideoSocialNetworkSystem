@@ -8,7 +8,7 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-    domains: ["localhost"],
+    domains: ["localhost", "res.cloudinary.com"],
   },
   webpack: (config, { isServer }) => {
     if (isServer) {

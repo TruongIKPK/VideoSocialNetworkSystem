@@ -323,14 +323,41 @@ export async function updateUserProfile(data) {
 
     console.log('User ID:', _id);
 
-    // Convert File to base64 if it's a file
+    // Xử lý avatar nếu là file mới
     let avatarData = data.avatar;
     if (data.avatar instanceof File) {
-      avatarData = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(data.avatar);
-      });
+      try {
+        // Convert file to base64
+        const base64Data = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(data.avatar);
+        });
+
+        // Upload to Cloudinary using their API
+        const response = await fetch('/api/upload-avatar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: base64Data,
+            folder: 'avatars'
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to upload avatar');
+        }
+
+        const result = await response.json();
+        avatarData = result.secure_url;
+        console.log('Avatar uploaded successfully:', avatarData);
+      } catch (error) {
+        console.error('Error uploading avatar:', error);
+        throw new Error('Failed to upload avatar: ' + error.message);
+      }
     }
 
     // Gửi yêu cầu cập nhật đến API
@@ -360,7 +387,7 @@ export async function updateUserProfile(data) {
       ...parsedUserData,
       name: result.name || parsedUserData.name,
       bio: result.bio || parsedUserData.bio,
-      avatar: result.avatar || parsedUserData.avatar,
+      avatar: result.avatar || parsedUserData.avatar || '/no_avatar.png', // Ensure avatar has a default value
       updatedAt: new Date().toISOString()
     };
     
@@ -381,7 +408,19 @@ export async function uploadVideo(file, title, description, onProgress) {
     formData.append('file', file)
     formData.append('title', title)
     formData.append('description', description)
-    formData.append('user', JSON.stringify(JSON.parse(localStorage.getItem('currentUser'))))
+    
+    // Get user ID from localStorage
+    const userData = localStorage.getItem('user')
+    if (!userData) {
+      throw new Error('User not found')
+    }
+    const user = JSON.parse(userData)
+    
+    if (!user._id) {
+      throw new Error('User ID is required')
+    }
+    
+    formData.append('userId', user._id)
 
     const response = await fetch('/api/upload', {
       method: 'POST',
@@ -389,7 +428,8 @@ export async function uploadVideo(file, title, description, onProgress) {
     })
 
     if (!response.ok) {
-      throw new Error('Failed to upload video')
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to upload video')
     }
 
     return await response.json()

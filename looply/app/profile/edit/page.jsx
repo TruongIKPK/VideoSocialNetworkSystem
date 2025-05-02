@@ -80,18 +80,33 @@ export default function EditProfile() {
     }
   }
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0]
-    console.log('Avatar file selected:', file)
-    if (file) {
-      setAvatar(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreview(reader.result)
-      }
-      reader.readAsDataURL(file)
+  // Handle avatar change
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Kiểm tra kích thước file (tối đa 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError(language === "en" ? "Avatar size must be less than 5MB" : "Kích thước ảnh đại diện phải nhỏ hơn 5MB");
+      return;
     }
-  }
+
+    // Kiểm tra định dạng file
+    if (!file.type.startsWith('image/')) {
+      setError(language === "en" ? "Please select an image file" : "Vui lòng chọn file ảnh");
+      return;
+    }
+
+    setError("");
+    setAvatar(file);
+
+    // Tạo preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (userLoading || !user) {
     return (

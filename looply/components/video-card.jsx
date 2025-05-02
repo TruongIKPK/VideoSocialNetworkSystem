@@ -133,11 +133,12 @@ export default function VideoCard({ video }) {
         <Link href={`/user/${video.user.id}`} className="flex items-center">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <Image
-              src={video.user.avatar || "/placeholder.svg?height=40&width=40"}
+              src={video.user.avatar || "/no_avatar.png"}
               alt={video.user.name}
               width={40}
               height={40}
               className="object-cover"
+              priority
             />
           </div>
           <div className="ml-3">

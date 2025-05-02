@@ -22,7 +22,9 @@ export function UserProvider({ children }) {
       try {
         const userData = localStorage.getItem("user")
         if (userData) {
-          setUser(JSON.parse(userData))
+          const parsedUser = JSON.parse(userData)
+          console.log('Loaded user data:', parsedUser)
+          setUser(parsedUser)
         }
       } catch (error) {
         console.error("Failed to load user data:", error)
@@ -36,6 +38,7 @@ export function UserProvider({ children }) {
 
   // Login function
   const login = (userData) => {
+    console.log('Logging in user:', userData)
     // Save user data to localStorage
     localStorage.setItem("user", JSON.stringify(userData))
     setUser(userData)
@@ -50,7 +53,9 @@ export function UserProvider({ children }) {
 
   // Update user profile
   const updateProfile = (updatedData) => {
+    console.log('Updating profile with:', updatedData)
     const updatedUser = { ...user, ...updatedData }
+    console.log('Updated user data:', updatedUser)
     localStorage.setItem("user", JSON.stringify(updatedUser))
     setUser(updatedUser)
   }
