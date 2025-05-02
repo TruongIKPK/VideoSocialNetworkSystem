@@ -62,11 +62,12 @@ export default function Header() {
             <button onClick={toggleUserMenu} className="flex items-center space-x-2">
               <div className="w-10 h-10 rounded-full overflow-hidden">
                 <Image
-                  src={user.avatar || "/placeholder.svg?height=40&width=40"}
+                  src={user.avatar || "/no_avatar.png"}
                   alt={user.name}
                   width={40}
                   height={40}
                   className="object-cover"
+                  priority
                 />
               </div>
             </button>

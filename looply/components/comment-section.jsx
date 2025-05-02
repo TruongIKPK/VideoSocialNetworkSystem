@@ -54,11 +54,12 @@ export default function CommentSection({ videoId }) {
         <form onSubmit={handleSubmit} className="flex mb-6">
           <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
             <Image
-              src={user.avatar || "/placeholder.svg?height=32&width=32"}
+              src={user.avatar || "/no_avatar.png"}
               alt={user.name}
               width={32}
               height={32}
               className="object-cover"
+              priority
             />
           </div>
           <input
@@ -92,11 +93,12 @@ export default function CommentSection({ videoId }) {
             <div key={comment.id} className="flex">
               <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
                 <Image
-                  src={comment.user.avatar || "/placeholder.svg?height=32&width=32"}
+                  src={comment.user.avatar || "/no_avatar.png"}
                   alt={comment.user.name}
                   width={32}
                   height={32}
                   className="object-cover"
+                  priority
                 />
               </div>
               <div>

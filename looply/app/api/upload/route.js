@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import cloudinary from '@/lib/cloudinary'
 import { connectDB } from '../mongodb/route'
+import { ObjectId } from 'mongodb'
 
 export async function POST(request) {
   try {
@@ -8,9 +9,9 @@ export async function POST(request) {
     const file = formData.get('file')
     const title = formData.get('title')
     const description = formData.get('description')
-    const user = JSON.parse(formData.get('user'))
+    const userId = formData.get('userId')
 
-    if (!file || !title || !user) {
+    if (!file || !title || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -44,6 +45,20 @@ export async function POST(request) {
       uploadStream.end(buffer)
     })
 
+    // Get user information from database
+    const db = await connectDB()
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(userId) },
+      { projection: { _id: 1, name: 1, avatar: 1 } }
+    )
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
     // Create new video object
     const newVideo = {
       title,
@@ -54,12 +69,15 @@ export async function POST(request) {
       comments: 0,
       saves: 0,
       shares: 0,
-      user,
+      user: {
+        _id: user._id.toString(), // Convert ObjectId to string
+        name: user.name,
+        avatar: user.avatar || '/no_avatar.png' // Use default avatar if none exists
+      },
       createdAt: new Date().toISOString()
     }
 
     // Save to MongoDB
-    const db = await connectDB()
     const videoResult = await db.collection('videos').insertOne(newVideo)
 
     return NextResponse.json({ ...newVideo, _id: videoResult.insertedId })
