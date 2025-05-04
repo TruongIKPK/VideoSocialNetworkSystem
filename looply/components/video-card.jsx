@@ -8,7 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
-import { likeVideo, saveVideo } from "@/lib/api"
+import { likeVideo, saveVideo, shareVideo } from "@/lib/api"
 
 // Helper function to extract ID from MongoDB structure
 function extractMongoId(id) {
@@ -42,6 +42,7 @@ export default function VideoCard({ video }) {
   const [saved, setSaved] = useState(false)
   const [likesCount, setLikesCount] = useState(video.likes || 0)
   const [savesCount, setSavesCount] = useState(video.saves || 0)
+  const [sharesCount, setSharesCount] = useState(video.shares || 0)
   const videoRef = useRef(null)
 
   // Extract normalized user id from the video object
@@ -93,6 +94,13 @@ export default function VideoCard({ video }) {
       saves = Number(video.saves.$numberInt);
     }
     setSavesCount(saves || 0);
+
+    // Cập nhật số lượng shares từ video
+    let shares = video.shares;
+    if (typeof video.shares === 'object' && video.shares.$numberInt) {
+      shares = Number(video.shares.$numberInt);
+    }
+    setSharesCount(shares || 0);
   }, [user, video]);
 
   // Intersection Observer logic
@@ -213,6 +221,49 @@ export default function VideoCard({ video }) {
     setShowComments(!showComments)
   }
 
+  // Handle share button click
+  const handleShare = async () => {
+    if (!user) {
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      // Hiển thị thay đổi UI ngay lập tức (optimistic UI update)
+      setSharesCount(prevCount => prevCount + 1);
+      
+      // Gọi API để cập nhật số lượt chia sẻ
+      const videoId = extractMongoId(video._id) || video.id;
+      const response = await shareVideo(videoId);
+      
+      // Cập nhật lại UI dựa trên phản hồi từ server
+      setSharesCount(response.shares);
+      
+      // Mở cửa sổ chia sẻ của trình duyệt
+      if (navigator.share) {
+        await navigator.share({
+          title: video.title || 'Video từ Looply',
+          text: video.description || 'Hãy xem video này trên Looply!',
+          url: window.location.href
+        });
+      } else {
+        // Nếu API Web Share không được hỗ trợ, sử dụng phương thức thay thế
+        const videoUrl = window.location.href;
+        await navigator.clipboard.writeText(videoUrl);
+        alert('Đã sao chép liên kết video vào clipboard!');
+      }
+      
+      console.log('Video shared successfully:', response);
+    } catch (error) {
+      // Nếu có lỗi, khôi phục trạng thái UI ban đầu
+      console.error("Failed to share video:", error);
+      setSharesCount(video.shares || 0);
+      
+      // Hiển thị thông báo lỗi
+      alert(error.message || "Không thể chia sẻ video");
+    }
+  }
+
   // Format view count
   const formatCount = (count) => {
     if (count >= 1000000) {
@@ -296,7 +347,7 @@ export default function VideoCard({ video }) {
             <span className="text-xs mt-1 block">{formatCount(savesCount)}</span>
           </button>
 
-          <button className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
+          <button onClick={handleShare} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <Share2 className="h-6 w-6" />
             <span className="text-xs mt-1 block">{formatCount(
               typeof video.shares === 'object' && video.shares.$numberInt 

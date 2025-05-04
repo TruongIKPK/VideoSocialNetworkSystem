@@ -84,21 +84,31 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-6">{language === "en" ? "Recommended for you" : "Đề xuất cho bạn"}</h1>
 
       <div className="space-y-8">
-        {videos.map((video) => (
-          <VideoCard 
-            key={video._id || video.id} 
-            video={{
-              ...video,
-              // Đảm bảo ID được truyền đúng cách
-              _id: video._id || video.id,
-              // Đảm bảo các thuộc tính người dùng được truyền đúng cách
-              user: video.user ? {
-                ...video.user,
-                _id: video.user._id || video.user.id
-              } : null
-            }} 
-          />
-        ))}
+        {videos.length > 0 ? (
+          videos.map((video) => (
+            <VideoCard 
+              key={video._id || video.id} 
+              video={{
+                ...video,
+                // Đảm bảo ID được truyền đúng cách
+                _id: video._id || video.id,
+                // Đảm bảo các thuộc tính người dùng được truyền đúng cách
+                user: video.user ? {
+                  ...video.user,
+                  _id: video.user._id || video.user.id
+                } : null
+              }} 
+            />
+          ))
+        ) : (
+          <div className="text-center py-12 bg-white rounded-lg shadow">
+            <p className="text-xl text-gray-500">
+              {language === "en" 
+                ? "No videos found." 
+                : "Không tìm thấy video nào."}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

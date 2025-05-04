@@ -13,6 +13,7 @@ export default function Header() {
   const { user, logout } = useUser()
   const { language } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const userMenuRef = useRef(null)
   const router = useRouter()
 
@@ -41,19 +42,35 @@ export default function Header() {
     router.push("/login")
   }
 
+  // Handle search form submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
   return (
     <header className="border-b border-gray-200 py-3 px-6 flex items-center justify-between">
       <div className="w-full max-w-xl">
-        <div className="relative">
+        <form onSubmit={handleSearchSubmit} className="relative">
           <input
             type="text"
-            placeholder={language === "en" ? "Search" : "Tìm kiếm"}
+            placeholder={language === "en" ? "Search videos..." : "Tìm kiếm video..."}
             className="w-full bg-gray-100 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
-        </div>
+          <button 
+            type="submit" 
+            className={`absolute inset-y-0 right-0 pr-3 flex items-center ${searchQuery.trim() ? 'text-red-500' : 'text-gray-400'}`}
+          >
+            <span className="text-sm font-medium">{language === "en" ? "Search" : "Tìm"}</span>
+          </button>
+        </form>
       </div>
 
       <div className="flex items-center">
