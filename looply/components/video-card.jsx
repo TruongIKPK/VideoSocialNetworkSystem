@@ -10,6 +10,27 @@ import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
 import { likeVideo } from "@/lib/api"
 
+// Helper function to extract ID from MongoDB structure
+function extractMongoId(id) {
+  if (!id) return null;
+  
+  if (typeof id === 'object' && id.$oid) {
+    return id.$oid;
+  }
+  
+  if (typeof id === 'string' && id.includes('$oid')) {
+    try {
+      const parsed = JSON.parse(id);
+      return parsed.$oid || id;
+    } catch (e) {
+      // If not valid JSON, return as is
+      return id;
+    }
+  }
+  
+  return id;
+}
+
 // Video card component for displaying videos
 export default function VideoCard({ video }) {
   const { user } = useUser()
@@ -22,18 +43,34 @@ export default function VideoCard({ video }) {
   const [likesCount, setLikesCount] = useState(video.likes || 0)
   const videoRef = useRef(null)
 
+  // Extract normalized user id from the video object
+  const userId = video.user && (extractMongoId(video.user._id) || video.user.id || video.userId);
+
   // Initialize liked state when component mounts or video/user changes
   useEffect(() => {
     if (user && video.likedBy) {
       // Kiểm tra xem user hiện tại đã like video này chưa
-      const userId = user._id || user.id;
-      setLiked(video.likedBy.includes(userId));
+      const currentUserId = extractMongoId(user._id) || user.id;
+      
+      // Kiểm tra trong likedBy array, xử lý cả ObjectId và string
+      const isLiked = Array.isArray(video.likedBy) && video.likedBy.some(id => {
+        const extractedId = extractMongoId(id);
+        return extractedId === currentUserId;
+      });
+      
+      setLiked(isLiked);
     } else {
       setLiked(false);
     }
     
     // Cập nhật số lượng likes từ video
-    setLikesCount(video.likes || 0);
+    // Xử lý trường hợp likes là object với $numberInt
+    let likes = video.likes;
+    if (typeof video.likes === 'object' && video.likes.$numberInt) {
+      likes = Number(video.likes.$numberInt);
+    }
+    
+    setLikesCount(likes || 0);
   }, [user, video]);
 
   // Intersection Observer logic
@@ -92,7 +129,7 @@ export default function VideoCard({ video }) {
       setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
       
       // Gọi API để cập nhật trạng thái like
-      const videoId = video._id || video.id;
+      const videoId = extractMongoId(video._id) || video.id;
       const response = await likeVideo(videoId);
       
       // Cập nhật lại UI dựa trên phản hồi từ server
@@ -106,7 +143,7 @@ export default function VideoCard({ video }) {
       setLiked(!liked);
       setLikesCount(video.likes || 0);
       
-      // Hiển thị thông báo lỗi (có thể thêm toast notification ở đây)
+      // Hiển thị thông báo lỗi
       alert(error.message || "Không thể cập nhật trạng thái like video");
     }
   }
@@ -145,7 +182,7 @@ export default function VideoCard({ video }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="p-4 flex items-center">
-        <Link href={`/user/${video.user?.id || video.userId}`} className="flex items-center">
+        <Link href={`/user/${userId}`} className="flex items-center">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <Image
               src={video.user?.avatar || "/no_avatar.png"}
@@ -200,7 +237,11 @@ export default function VideoCard({ video }) {
 
           <button onClick={handleComment} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <MessageCircle className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.comments || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(
+              typeof video.comments === 'object' && video.comments.$numberInt 
+                ? Number(video.comments.$numberInt) 
+                : video.comments || 0
+            )}</span>
           </button>
 
           <button
@@ -208,17 +249,25 @@ export default function VideoCard({ video }) {
             className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${saved ? "text-yellow-500" : "text-white"}`}
           >
             <Bookmark className="h-6 w-6" fill={saved ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(video.saves || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(
+              typeof video.saves === 'object' && video.saves.$numberInt 
+                ? Number(video.saves.$numberInt) 
+                : video.saves || 0
+            )}</span>
           </button>
 
           <button className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <Share2 className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.shares || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(
+              typeof video.shares === 'object' && video.shares.$numberInt 
+                ? Number(video.shares.$numberInt) 
+                : video.shares || 0
+            )}</span>
           </button>
         </div>
       </div>
 
-      {showComments && <CommentSection videoId={video._id || video.id} />}
+      {showComments && <CommentSection videoId={extractMongoId(video._id) || video.id} />}
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>
