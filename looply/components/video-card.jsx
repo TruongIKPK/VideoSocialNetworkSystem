@@ -8,7 +8,28 @@ import Link from "next/link"
 import Image from "next/image"
 import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
-import { likeVideo } from "@/lib/api"
+import { likeVideo, saveVideo, shareVideo } from "@/lib/api"
+
+// Helper function to extract ID from MongoDB structure
+function extractMongoId(id) {
+  if (!id) return null;
+  
+  if (typeof id === 'object' && id.$oid) {
+    return id.$oid;
+  }
+  
+  if (typeof id === 'string' && id.includes('$oid')) {
+    try {
+      const parsed = JSON.parse(id);
+      return parsed.$oid || id;
+    } catch (e) {
+      // If not valid JSON, return as is
+      return id;
+    }
+  }
+  
+  return id;
+}
 
 // Video card component for displaying videos
 export default function VideoCard({ video }) {
@@ -20,20 +41,66 @@ export default function VideoCard({ video }) {
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
   const [likesCount, setLikesCount] = useState(video.likes || 0)
+  const [savesCount, setSavesCount] = useState(video.saves || 0)
+  const [sharesCount, setSharesCount] = useState(video.shares || 0)
   const videoRef = useRef(null)
+
+  // Extract normalized user id from the video object
+  const userId = video.user && (extractMongoId(video.user._id) || video.user.id || video.userId);
 
   // Initialize liked state when component mounts or video/user changes
   useEffect(() => {
     if (user && video.likedBy) {
       // Kiểm tra xem user hiện tại đã like video này chưa
-      const userId = user._id || user.id;
-      setLiked(video.likedBy.includes(userId));
+      const currentUserId = extractMongoId(user._id) || user.id;
+      
+      // Kiểm tra trong likedBy array, xử lý cả ObjectId và string
+      const isLiked = Array.isArray(video.likedBy) && video.likedBy.some(id => {
+        const extractedId = extractMongoId(id);
+        return extractedId === currentUserId;
+      });
+      
+      setLiked(isLiked);
     } else {
       setLiked(false);
     }
     
+    // Kiểm tra xem user hiện tại đã save video này chưa
+    if (user && video.savedBy) {
+      const currentUserId = extractMongoId(user._id) || user.id;
+      
+      // Kiểm tra trong savedBy array, xử lý cả ObjectId và string
+      const isSaved = Array.isArray(video.savedBy) && video.savedBy.some(id => {
+        const extractedId = extractMongoId(id);
+        return extractedId === currentUserId;
+      });
+      
+      setSaved(isSaved);
+    } else {
+      setSaved(false);
+    }
+    
     // Cập nhật số lượng likes từ video
-    setLikesCount(video.likes || 0);
+    // Xử lý trường hợp likes là object với $numberInt
+    let likes = video.likes;
+    if (typeof video.likes === 'object' && video.likes.$numberInt) {
+      likes = Number(video.likes.$numberInt);
+    }
+    setLikesCount(likes || 0);
+    
+    // Cập nhật số lượng saves từ video
+    let saves = video.saves;
+    if (typeof video.saves === 'object' && video.saves.$numberInt) {
+      saves = Number(video.saves.$numberInt);
+    }
+    setSavesCount(saves || 0);
+
+    // Cập nhật số lượng shares từ video
+    let shares = video.shares;
+    if (typeof video.shares === 'object' && video.shares.$numberInt) {
+      shares = Number(video.shares.$numberInt);
+    }
+    setSharesCount(shares || 0);
   }, [user, video]);
 
   // Intersection Observer logic
@@ -92,7 +159,7 @@ export default function VideoCard({ video }) {
       setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
       
       // Gọi API để cập nhật trạng thái like
-      const videoId = video._id || video.id;
+      const videoId = extractMongoId(video._id) || video.id;
       const response = await likeVideo(videoId);
       
       // Cập nhật lại UI dựa trên phản hồi từ server
@@ -106,20 +173,42 @@ export default function VideoCard({ video }) {
       setLiked(!liked);
       setLikesCount(video.likes || 0);
       
-      // Hiển thị thông báo lỗi (có thể thêm toast notification ở đây)
+      // Hiển thị thông báo lỗi
       alert(error.message || "Không thể cập nhật trạng thái like video");
     }
   }
 
   // Handle save button click
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) {
       setShowLoginModal(true)
       return
     }
 
-    setSaved(!saved)
-    // Here you would typically make an API call to update the save status
+    try {
+      // Hiển thị thay đổi UI ngay lập tức (optimistic UI update)
+      const newSavedState = !saved;
+      setSaved(newSavedState);
+      setSavesCount(prevCount => newSavedState ? prevCount + 1 : prevCount - 1);
+      
+      // Gọi API để cập nhật trạng thái save
+      const videoId = extractMongoId(video._id) || video.id;
+      const response = await saveVideo(videoId);
+      
+      // Cập nhật lại UI dựa trên phản hồi từ server
+      setSaved(response.hasSaved);
+      setSavesCount(response.saves);
+      
+      console.log('Video save updated:', response);
+    } catch (error) {
+      // Nếu có lỗi, khôi phục trạng thái UI ban đầu
+      console.error("Failed to save video:", error);
+      setSaved(!saved);
+      setSavesCount(video.saves || 0);
+      
+      // Hiển thị thông báo lỗi
+      alert(error.message || "Không thể cập nhật trạng thái lưu video");
+    }
   }
 
   // Handle comment button click
@@ -130,6 +219,49 @@ export default function VideoCard({ video }) {
     }
 
     setShowComments(!showComments)
+  }
+
+  // Handle share button click
+  const handleShare = async () => {
+    if (!user) {
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      // Hiển thị thay đổi UI ngay lập tức (optimistic UI update)
+      setSharesCount(prevCount => prevCount + 1);
+      
+      // Gọi API để cập nhật số lượt chia sẻ
+      const videoId = extractMongoId(video._id) || video.id;
+      const response = await shareVideo(videoId);
+      
+      // Cập nhật lại UI dựa trên phản hồi từ server
+      setSharesCount(response.shares);
+      
+      // Mở cửa sổ chia sẻ của trình duyệt
+      if (navigator.share) {
+        await navigator.share({
+          title: video.title || 'Video từ Looply',
+          text: video.description || 'Hãy xem video này trên Looply!',
+          url: window.location.href
+        });
+      } else {
+        // Nếu API Web Share không được hỗ trợ, sử dụng phương thức thay thế
+        const videoUrl = window.location.href;
+        await navigator.clipboard.writeText(videoUrl);
+        alert('Đã sao chép liên kết video vào clipboard!');
+      }
+      
+      console.log('Video shared successfully:', response);
+    } catch (error) {
+      // Nếu có lỗi, khôi phục trạng thái UI ban đầu
+      console.error("Failed to share video:", error);
+      setSharesCount(video.shares || 0);
+      
+      // Hiển thị thông báo lỗi
+      alert(error.message || "Không thể chia sẻ video");
+    }
   }
 
   // Format view count
@@ -145,7 +277,7 @@ export default function VideoCard({ video }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="p-4 flex items-center">
-        <Link href={`/user/${video.user?.id || video.userId}`} className="flex items-center">
+        <Link href={`/user/${userId}`} className="flex items-center">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <Image
               src={video.user?.avatar || "/no_avatar.png"}
@@ -200,7 +332,11 @@ export default function VideoCard({ video }) {
 
           <button onClick={handleComment} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <MessageCircle className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.comments || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(
+              typeof video.comments === 'object' && video.comments.$numberInt 
+                ? Number(video.comments.$numberInt) 
+                : video.comments || 0
+            )}</span>
           </button>
 
           <button
@@ -208,17 +344,21 @@ export default function VideoCard({ video }) {
             className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${saved ? "text-yellow-500" : "text-white"}`}
           >
             <Bookmark className="h-6 w-6" fill={saved ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(video.saves || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(savesCount)}</span>
           </button>
 
-          <button className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
+          <button onClick={handleShare} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
             <Share2 className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(video.shares || 0)}</span>
+            <span className="text-xs mt-1 block">{formatCount(
+              typeof video.shares === 'object' && video.shares.$numberInt 
+                ? Number(video.shares.$numberInt) 
+                : video.shares || 0
+            )}</span>
           </button>
         </div>
       </div>
 
-      {showComments && <CommentSection videoId={video._id || video.id} />}
+      {showComments && <CommentSection videoId={extractMongoId(video._id) || video.id} />}
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>

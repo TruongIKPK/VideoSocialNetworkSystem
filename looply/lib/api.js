@@ -78,85 +78,114 @@ export async function fetchVideos() {
 
 // Fetch comments for a video
 export async function fetchComments(videoId) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-
-  // Return mock data
-  return [
-    {
-      id: "1001",
-      text: "Video hay quá!",
-      timestamp: "2 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1002",
-      text: "Video hay quá!",
-      timestamp: "3 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1003",
-      text: "Video hay quá!",
-      timestamp: "5 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1004",
-      text: "Video hay quá!",
-      timestamp: "6 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1005",
-      text: "Video hay quá!",
-      timestamp: "8 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1006",
-      text: "Video hay quá!",
-      timestamp: "10 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-  ]
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    // Xử lý trường hợp ID là ObjectId
+    let normalizedVideoId = videoId;
+    if (typeof videoId === 'object' && videoId !== null) {
+      if (videoId.$oid) {
+        normalizedVideoId = videoId.$oid;
+      }
+    } else if (typeof videoId === 'string' && videoId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(videoId);
+        normalizedVideoId = parsed.$oid || videoId;
+      } catch (e) {
+        // Nếu không parse được, giữ nguyên giá trị
+      }
+    }
+    
+    console.log('Fetching comments for video:', normalizedVideoId);
+    
+    const url = new URL(`${baseUrl}/api/videos/comments`);
+    url.searchParams.append('videoId', normalizedVideoId);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Error fetching comments:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch comments');
+    }
+    
+    const comments = await response.json();
+    
+    return comments;
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return [];
+  }
 }
 
 // Add a comment to a video
-export async function addComment(videoId, text) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
+export async function addComment(videoId, text, parentId = null) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để bình luận');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    // Xử lý trường hợp ID là ObjectId
+    let normalizedVideoId = videoId;
+    if (typeof videoId === 'object' && videoId !== null) {
+      if (videoId.$oid) {
+        normalizedVideoId = videoId.$oid;
+      }
+    } else if (typeof videoId === 'string' && videoId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(videoId);
+        normalizedVideoId = parsed.$oid || videoId;
+      } catch (e) {
+        // Nếu không parse được, giữ nguyên giá trị
+      }
+    }
+    
+    // Thêm baseUrl để đảm bảo tương thích
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify({ 
+        videoId: normalizedVideoId,
+        userId,
+        text,
+        parentId
+      }),
+    });
 
-  // Return mock data
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    text,
-    timestamp: "Vừa xong",
-    user: JSON.parse(localStorage.getItem("user")),
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Comment error:', errorData);
+      throw new Error(errorData.error || 'Không thể thêm bình luận');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw error;
   }
 }
 
@@ -168,7 +197,22 @@ export async function fetchUserVideos(userId) {
       ? window.location.origin 
       : 'http://localhost:3000';
     
-    console.log('Fetching videos for user ID:', userId);
+    // Trích xuất ID thực từ cấu trúc MongoDB nếu cần
+    let extractedId = userId;
+    if (typeof userId === 'object' && userId !== null) {
+      if (userId.$oid) {
+        extractedId = userId.$oid;
+      }
+    } else if (typeof userId === 'string' && userId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(userId);
+        extractedId = parsed.$oid || userId;
+      } catch (e) {
+        // Nếu không phải chuỗi JSON hợp lệ, giữ nguyên giá trị
+      }
+    }
+    
+    console.log('Fetching videos for user ID:', extractedId);
     
     const response = await fetch(`${baseUrl}/api/videos`, {
       headers: {
@@ -185,34 +229,39 @@ export async function fetchUserVideos(userId) {
     }
     
     const allVideos = await response.json();
-    console.log(`Retrieved ${allVideos.length} total videos, filtering for user: ${userId}`);
+    console.log(`Retrieved ${allVideos.length} total videos, filtering for user: ${extractedId}`);
     
     // Lọc video theo userId với nhiều cấu trúc dữ liệu khác nhau có thể có
     const userVideos = allVideos.filter(video => {
+      // Xử lý trường hợp video.user._id là object với $oid
+      if (video.user && video.user._id && typeof video.user._id === 'object' && video.user._id.$oid) {
+        return video.user._id.$oid === extractedId;
+      }
+      
       // Trường hợp 1: Nếu video có trường user.id
-      if (video.user && video.user.id === userId) {
+      if (video.user && video.user.id === extractedId) {
         return true;
       }
       
-      // Trường hợp 2: Nếu video có trường user._id
-      if (video.user && video.user._id === userId) {
+      // Trường hợp 2: Nếu video có trường user._id (string)
+      if (video.user && video.user._id === extractedId) {
         return true;
       }
       
       // Trường hợp 3: Nếu video có trường userId trực tiếp
-      if (video.userId === userId) {
+      if (video.userId === extractedId) {
         return true;
       }
       
       // Trường hợp 4: Video có thể lưu userId dưới dạng ObjectId string
-      if (video.userId && video.userId.toString() === userId) {
+      if (video.userId && video.userId.toString() === extractedId) {
         return true;
       }
       
       return false;
     });
     
-    console.log(`Found ${userVideos.length} videos for user ${userId}`);
+    console.log(`Found ${userVideos.length} videos for user ${extractedId}`);
     return userVideos;
   } catch (error) {
     console.error('Error fetching user videos:', error);
@@ -256,6 +305,46 @@ export async function fetchLikedVideos(userId) {
     return likedVideos;
   } catch (error) {
     console.error('Error fetching liked videos:', error);
+    return [];
+  }
+}
+
+// Fetch videos that user has saved
+export async function fetchSavedVideos(userId) {
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos`, {
+      headers: {
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      // Thiết lập thời gian chờ tối đa là 10 giây
+      signal: AbortSignal.timeout(10000)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error when fetching videos:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch videos');
+    }
+    
+    const allVideos = await response.json();
+    console.log(`Retrieved ${allVideos.length} total videos, finding saved videos for user: ${userId}`);
+    
+    // Lọc video có mảng savedBy chứa userId
+    const savedVideos = allVideos.filter(video => 
+      video.savedBy && 
+      Array.isArray(video.savedBy) && 
+      video.savedBy.includes(userId)
+    );
+    
+    console.log(`Found ${savedVideos.length} saved videos for user ${userId}`);
+    return savedVideos;
+  } catch (error) {
+    console.error('Error fetching saved videos:', error);
     return [];
   }
 }
@@ -588,6 +677,108 @@ export async function likeVideo(videoId) {
   }
 }
 
+// Save video
+export async function saveVideo(videoId) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để lưu video');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    console.log('Sending save request for video:', videoId, 'by user:', userId);
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      body: JSON.stringify({ 
+        videoId,
+        userId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Save video error:', errorData);
+      throw new Error(errorData.error || 'Không thể lưu video');
+    }
+
+    const result = await response.json();
+    console.log('Save video result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error saving video:', error);
+    throw error;
+  }
+}
+
+// Share video
+export async function shareVideo(videoId) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để chia sẻ video');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    console.log('Sending share request for video:', videoId, 'by user:', userId);
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/share`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      body: JSON.stringify({ 
+        videoId,
+        userId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Share video error:', errorData);
+      throw new Error(errorData.error || 'Không thể chia sẻ video');
+    }
+
+    const result = await response.json();
+    console.log('Share video result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sharing video:', error);
+    throw error;
+  }
+}
+
 // Upload avatar lên Cloudinary
 export async function uploadAvatar(file) {
   try {
@@ -663,6 +854,244 @@ export async function deleteVideo(videoId) {
     return result;
   } catch (error) {
     console.error('Error deleting video:', error);
+    throw error;
+  }
+}
+
+// Theo dõi/hủy theo dõi người dùng
+export async function followUser(userId) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để theo dõi người dùng');
+    }
+    
+    const follower = JSON.parse(userData);
+    if (!follower._id && !follower.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const followerId = follower._id || follower.id;
+    
+    console.log('Sending follow request:', { followerId, userId });
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/users/follow`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      body: JSON.stringify({ 
+        followerId,
+        userId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Follow user error:', errorData);
+      throw new Error(errorData.error || 'Không thể theo dõi người dùng');
+    }
+
+    const result = await response.json();
+    console.log('Follow user result:', result);
+    
+    // Cập nhật localStorage với số lượng following mới
+    if (result.success && typeof window !== 'undefined') {
+      try {
+        const currentUserData = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+        currentUserData.following = result.followingCount;
+        
+        if (localStorage.getItem('user')) {
+          localStorage.setItem('user', JSON.stringify(currentUserData));
+        }
+        if (localStorage.getItem('currentUser')) {
+          localStorage.setItem('currentUser', JSON.stringify(currentUserData));
+        }
+      } catch (err) {
+        console.error('Error updating localStorage:', err);
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error following user:', error);
+    throw error;
+  }
+}
+
+// Lấy thông tin người dùng
+export async function getUserProfile(userId) {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+      
+    // Xử lý trường hợp ID là ObjectId hoặc string
+    let queryParam = userId;
+    if (typeof userId === 'object' && userId !== null) {
+      if (userId.$oid) {
+        queryParam = userId.$oid;
+      }
+    } else if (typeof userId === 'string') {
+      // Nếu có dạng JSON với $oid
+      if (userId.includes('$oid')) {
+        try {
+          const parsed = JSON.parse(userId);
+          if (parsed.$oid) {
+            queryParam = parsed.$oid;
+          }
+        } catch (e) {
+          // Nếu không parse được, giữ nguyên giá trị
+        }
+      }
+    }
+    
+    console.log('Fetching user with ID:', queryParam);
+    
+    // Cách 1: Thử truy vấn trực tiếp với ID
+    const directUrl = new URL(`${baseUrl}/api/mongodb`);
+    directUrl.searchParams.append('collection', 'users');
+    directUrl.searchParams.append('action', 'findOne');
+    directUrl.searchParams.append('query', JSON.stringify({ 
+      _id: queryParam
+    }));
+    
+    console.log('Trying direct query first:', directUrl.toString());
+    
+    let response = await fetch(directUrl.toString(), {
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    });
+    
+    let userData = null;
+    
+    if (response.ok) {
+      userData = await response.json();
+    }
+    
+    // Nếu không tìm thấy, thử cách khác với $or query
+    if (!userData) {
+      console.log('User not found with direct query, trying alternative methods');
+      
+      const alternativeUrl = new URL(`${baseUrl}/api/mongodb`);
+      alternativeUrl.searchParams.append('collection', 'users');
+      alternativeUrl.searchParams.append('action', 'findOne');
+      
+      // Tạo truy vấn với nhiều điều kiện để đảm bảo tìm được người dùng
+      const orQuery = {
+        $or: [
+          { _id: queryParam },
+          { "id": queryParam },
+          { "username": queryParam }
+        ]
+      };
+      
+      console.log('Trying $or query:', JSON.stringify(orQuery));
+      alternativeUrl.searchParams.append('query', JSON.stringify(orQuery));
+      
+      response = await fetch(alternativeUrl.toString(), {
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
+      
+      if (response.ok) {
+        userData = await response.json();
+      }
+    }
+    
+    // Nếu vẫn không tìm thấy, thử tìm tất cả user và debug
+    if (!userData) {
+      console.log('Still not found, getting all users to debug');
+      
+      const allUsersUrl = new URL(`${baseUrl}/api/mongodb`);
+      allUsersUrl.searchParams.append('collection', 'users');
+      allUsersUrl.searchParams.append('action', 'find');
+      
+      response = await fetch(allUsersUrl.toString(), {
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
+      
+      if (response.ok) {
+        const allUsers = await response.json();
+        console.log(`Found ${allUsers.length} total users in database`);
+        
+        if (allUsers.length > 0) {
+          // Log ra một vài user để debug
+          console.log('Sample users:', allUsers.slice(0, 2).map(u => ({
+            _id: u._id,
+            name: u.name,
+            username: u.username
+          })));
+          
+          // Tìm user có ID tương tự trong danh sách
+          const foundUser = allUsers.find(u => {
+            // Kiểm tra trường hợp _id là object với $oid
+            if (u._id && typeof u._id === 'object' && u._id.$oid === queryParam) {
+              return true;
+            }
+            
+            // Kiểm tra trường hợp _id là string
+            if (u._id === queryParam) {
+              return true;
+            }
+            
+            return false;
+          });
+          
+          if (foundUser) {
+            console.log('Found user by manual search:', foundUser.name);
+            userData = foundUser;
+          }
+        }
+      }
+    }
+    
+    if (!userData) {
+      console.error('User not found with ID:', queryParam);
+      throw new Error('User not found');
+    }
+    
+    // Kiểm tra xem người dùng hiện tại đã theo dõi người dùng này chưa
+    let isFollowingUser = false;
+    const currentUserData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    
+    if (currentUserData && userData) {
+      const currentUser = JSON.parse(currentUserData);
+      const currentUserId = currentUser._id || currentUser.id;
+      
+      // Kiểm tra trong danh sách follower của người dùng đang xem
+      if (userData.followersList && Array.isArray(userData.followersList)) {
+        isFollowingUser = userData.followersList.some(id => {
+          // So sánh cả trường hợp ObjectId và string
+          if (typeof id === 'object' && id.$oid) {
+            return id.$oid === currentUserId;
+          }
+          return id === currentUserId || id.toString() === currentUserId;
+        });
+      }
+    }
+    
+    return { ...userData, isFollowingUser };
+    
+  } catch (error) {
+    console.error('Error getting user profile:', error);
     throw error;
   }
 }
