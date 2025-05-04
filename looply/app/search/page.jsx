@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import VideoCard from "@/components/video-card"
 import { useLanguage } from "@/context/language-context"
@@ -8,8 +8,17 @@ import { fetchVideos } from "@/lib/api"
 import { Search, X, Filter } from "lucide-react"
 import Link from "next/link"
 
-// Search page component
-export default function SearchPage() {
+// Loading component for Suspense
+function SearchPageLoading() {
+  return (
+    <div className="flex justify-center items-center h-[calc(100vh-64px)]">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+    </div>
+  );
+}
+
+// Search page content component
+function SearchPageContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ""
   
@@ -112,11 +121,7 @@ export default function SearchPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[calc(100vh-64px)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
-      </div>
-    )
+    return <SearchPageLoading />
   }
 
   return (
@@ -228,5 +233,14 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  )
+}
+
+// Main Search page component with Suspense boundary
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchPageLoading />}>
+      <SearchPageContent />
+    </Suspense>
   )
 }

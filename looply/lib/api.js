@@ -3,12 +3,11 @@
 // Đọc danh sách người dùng từ API với xử lý lỗi tốt hơn
 async function readUsersFromAPI() {
   try {
-    // Kiểm tra môi trường trước khi sử dụng window
-    const baseUrl = typeof window !== 'undefined' 
+    // Sử dụng đường dẫn tương đối thay vì tuyệt đối
+    const url = new URL('/api/mongodb', typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app');
     
-    const url = new URL('/api/mongodb', baseUrl);
     url.searchParams.append('collection', 'users');
     url.searchParams.append('action', 'find');
     
@@ -82,7 +81,7 @@ export async function fetchComments(videoId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     // Xử lý trường hợp ID là ObjectId
     let normalizedVideoId = videoId;
@@ -160,7 +159,7 @@ export async function addComment(videoId, text, parentId = null) {
     // Thêm baseUrl để đảm bảo tương thích
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos/comments`, {
       method: 'POST',
@@ -195,7 +194,7 @@ export async function fetchUserVideos(userId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     // Trích xuất ID thực từ cấu trúc MongoDB nếu cần
     let extractedId = userId;
@@ -275,7 +274,7 @@ export async function fetchLikedVideos(userId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos`, {
       headers: {
@@ -315,7 +314,7 @@ export async function fetchSavedVideos(userId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos`, {
       headers: {
@@ -648,7 +647,7 @@ export async function likeVideo(videoId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos/like`, {
       method: 'POST',
@@ -699,7 +698,7 @@ export async function saveVideo(videoId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos/save`, {
       method: 'POST',
@@ -750,7 +749,7 @@ export async function shareVideo(videoId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/videos/share`, {
       method: 'POST',
@@ -830,7 +829,7 @@ export async function deleteVideo(videoId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const url = new URL(`${baseUrl}/api/videos`);
     url.searchParams.append('id', videoId);
@@ -880,7 +879,7 @@ export async function followUser(userId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
     
     const response = await fetch(`${baseUrl}/api/users/follow`, {
       method: 'POST',
@@ -937,7 +936,7 @@ export async function getUserProfile(userId) {
     // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
     const baseUrl = typeof window !== 'undefined' 
       ? window.location.origin 
-      : 'http://localhost:3000';
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
       
     // Xử lý trường hợp ID là ObjectId hoặc string
     let queryParam = userId;
