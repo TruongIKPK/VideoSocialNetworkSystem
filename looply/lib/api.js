@@ -78,85 +78,114 @@ export async function fetchVideos() {
 
 // Fetch comments for a video
 export async function fetchComments(videoId) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 800))
-
-  // Return mock data
-  return [
-    {
-      id: "1001",
-      text: "Video hay quá!",
-      timestamp: "2 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1002",
-      text: "Video hay quá!",
-      timestamp: "3 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1003",
-      text: "Video hay quá!",
-      timestamp: "5 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1004",
-      text: "Video hay quá!",
-      timestamp: "6 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1005",
-      text: "Video hay quá!",
-      timestamp: "8 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-    {
-      id: "1006",
-      text: "Video hay quá!",
-      timestamp: "10 giờ trước",
-      user: {
-        id: "201",
-        name: "Thanh Hiền",
-        avatar: "/placeholder.svg?height=40&width=40",
-      },
-    },
-  ]
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    // Xử lý trường hợp ID là ObjectId
+    let normalizedVideoId = videoId;
+    if (typeof videoId === 'object' && videoId !== null) {
+      if (videoId.$oid) {
+        normalizedVideoId = videoId.$oid;
+      }
+    } else if (typeof videoId === 'string' && videoId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(videoId);
+        normalizedVideoId = parsed.$oid || videoId;
+      } catch (e) {
+        // Nếu không parse được, giữ nguyên giá trị
+      }
+    }
+    
+    console.log('Fetching comments for video:', normalizedVideoId);
+    
+    const url = new URL(`${baseUrl}/api/videos/comments`);
+    url.searchParams.append('videoId', normalizedVideoId);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Error fetching comments:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch comments');
+    }
+    
+    const comments = await response.json();
+    
+    return comments;
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return [];
+  }
 }
 
 // Add a comment to a video
-export async function addComment(videoId, text) {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
+export async function addComment(videoId, text, parentId = null) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để bình luận');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    // Xử lý trường hợp ID là ObjectId
+    let normalizedVideoId = videoId;
+    if (typeof videoId === 'object' && videoId !== null) {
+      if (videoId.$oid) {
+        normalizedVideoId = videoId.$oid;
+      }
+    } else if (typeof videoId === 'string' && videoId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(videoId);
+        normalizedVideoId = parsed.$oid || videoId;
+      } catch (e) {
+        // Nếu không parse được, giữ nguyên giá trị
+      }
+    }
+    
+    // Thêm baseUrl để đảm bảo tương thích
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify({ 
+        videoId: normalizedVideoId,
+        userId,
+        text,
+        parentId
+      }),
+    });
 
-  // Return mock data
-  return {
-    id: Math.random().toString(36).substr(2, 9),
-    text,
-    timestamp: "Vừa xong",
-    user: JSON.parse(localStorage.getItem("user")),
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Comment error:', errorData);
+      throw new Error(errorData.error || 'Không thể thêm bình luận');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw error;
   }
 }
 
