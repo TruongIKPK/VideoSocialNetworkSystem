@@ -309,6 +309,46 @@ export async function fetchLikedVideos(userId) {
   }
 }
 
+// Fetch videos that user has saved
+export async function fetchSavedVideos(userId) {
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos`, {
+      headers: {
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      // Thiết lập thời gian chờ tối đa là 10 giây
+      signal: AbortSignal.timeout(10000)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error when fetching videos:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch videos');
+    }
+    
+    const allVideos = await response.json();
+    console.log(`Retrieved ${allVideos.length} total videos, finding saved videos for user: ${userId}`);
+    
+    // Lọc video có mảng savedBy chứa userId
+    const savedVideos = allVideos.filter(video => 
+      video.savedBy && 
+      Array.isArray(video.savedBy) && 
+      video.savedBy.includes(userId)
+    );
+    
+    console.log(`Found ${savedVideos.length} saved videos for user ${userId}`);
+    return savedVideos;
+  } catch (error) {
+    console.error('Error fetching saved videos:', error);
+    return [];
+  }
+}
+
 // Hàm kiểm tra tất cả người dùng trong database
 export async function getAllUsers() {
   try {
@@ -633,6 +673,57 @@ export async function likeVideo(videoId) {
     return result;
   } catch (error) {
     console.error('Error liking video:', error);
+    throw error;
+  }
+}
+
+// Save video
+export async function saveVideo(videoId) {
+  try {
+    // Lấy thông tin người dùng từ localStorage
+    const userData = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!userData) {
+      throw new Error('Bạn cần đăng nhập để lưu video');
+    }
+    
+    const user = JSON.parse(userData);
+    if (!user._id && !user.id) {
+      throw new Error('Không tìm thấy thông tin người dùng');
+    }
+    
+    // Sử dụng _id hoặc id tùy vào cấu trúc dữ liệu người dùng
+    const userId = user._id || user.id;
+    
+    console.log('Sending save request for video:', videoId, 'by user:', userId);
+    
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    const response = await fetch(`${baseUrl}/api/videos/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache', // Tránh cache
+      },
+      body: JSON.stringify({ 
+        videoId,
+        userId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Save video error:', errorData);
+      throw new Error(errorData.error || 'Không thể lưu video');
+    }
+
+    const result = await response.json();
+    console.log('Save video result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error saving video:', error);
     throw error;
   }
 }

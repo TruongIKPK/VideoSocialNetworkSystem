@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/language-context"
 import { Pencil, Settings, MoreVertical, Trash2, Share2, Edit } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { fetchUserVideos, fetchLikedVideos, deleteVideo } from "@/lib/api"
+import { fetchUserVideos, fetchLikedVideos, fetchSavedVideos, deleteVideo } from "@/lib/api"
 
 // Profile page component
 export default function Profile() {
@@ -45,7 +45,7 @@ export default function Profile() {
     }
   }, [user, userLoading, router])
 
-  // Fetch user videos and liked videos on component mount
+  // Fetch user videos, liked videos and saved videos on component mount
   useEffect(() => {
     if (user) {
       const loadData = async () => {
@@ -54,10 +54,11 @@ export default function Profile() {
           // Lấy ID người dùng, hỗ trợ cả hai cấu trúc dữ liệu (_id hoặc id)
           const userId = user._id || user.id;
           
-          // Tải song song dữ liệu video của user và video đã thích
-          const [userVideosData, likedVideosData] = await Promise.all([
+          // Tải song song dữ liệu video của user, video đã thích và video đã lưu
+          const [userVideosData, likedVideosData, savedVideosData] = await Promise.all([
             fetchUserVideos(userId),
-            fetchLikedVideos(userId)
+            fetchLikedVideos(userId),
+            fetchSavedVideos(userId)
           ]);
           
           // Sắp xếp video theo thời gian tạo (mới nhất trước)
@@ -69,9 +70,8 @@ export default function Profile() {
           
           setVideos(sortVideos(userVideosData));
           setLikedVideos(sortVideos(likedVideosData));
+          setSavedVideos(sortVideos(savedVideosData));
           
-          // Video đã lưu - tạm thời để trống, sẽ cập nhật sau khi có API
-          setSavedVideos([]);
         } catch (error) {
           console.error("Failed to fetch user data:", error);
         } finally {

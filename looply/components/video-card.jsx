@@ -8,7 +8,7 @@ import Link from "next/link"
 import Image from "next/image"
 import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
-import { likeVideo } from "@/lib/api"
+import { likeVideo, saveVideo } from "@/lib/api"
 
 // Helper function to extract ID from MongoDB structure
 function extractMongoId(id) {
@@ -41,6 +41,7 @@ export default function VideoCard({ video }) {
   const [liked, setLiked] = useState(false)
   const [saved, setSaved] = useState(false)
   const [likesCount, setLikesCount] = useState(video.likes || 0)
+  const [savesCount, setSavesCount] = useState(video.saves || 0)
   const videoRef = useRef(null)
 
   // Extract normalized user id from the video object
@@ -63,14 +64,35 @@ export default function VideoCard({ video }) {
       setLiked(false);
     }
     
+    // Kiểm tra xem user hiện tại đã save video này chưa
+    if (user && video.savedBy) {
+      const currentUserId = extractMongoId(user._id) || user.id;
+      
+      // Kiểm tra trong savedBy array, xử lý cả ObjectId và string
+      const isSaved = Array.isArray(video.savedBy) && video.savedBy.some(id => {
+        const extractedId = extractMongoId(id);
+        return extractedId === currentUserId;
+      });
+      
+      setSaved(isSaved);
+    } else {
+      setSaved(false);
+    }
+    
     // Cập nhật số lượng likes từ video
     // Xử lý trường hợp likes là object với $numberInt
     let likes = video.likes;
     if (typeof video.likes === 'object' && video.likes.$numberInt) {
       likes = Number(video.likes.$numberInt);
     }
-    
     setLikesCount(likes || 0);
+    
+    // Cập nhật số lượng saves từ video
+    let saves = video.saves;
+    if (typeof video.saves === 'object' && video.saves.$numberInt) {
+      saves = Number(video.saves.$numberInt);
+    }
+    setSavesCount(saves || 0);
   }, [user, video]);
 
   // Intersection Observer logic
@@ -149,14 +171,36 @@ export default function VideoCard({ video }) {
   }
 
   // Handle save button click
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) {
       setShowLoginModal(true)
       return
     }
 
-    setSaved(!saved)
-    // Here you would typically make an API call to update the save status
+    try {
+      // Hiển thị thay đổi UI ngay lập tức (optimistic UI update)
+      const newSavedState = !saved;
+      setSaved(newSavedState);
+      setSavesCount(prevCount => newSavedState ? prevCount + 1 : prevCount - 1);
+      
+      // Gọi API để cập nhật trạng thái save
+      const videoId = extractMongoId(video._id) || video.id;
+      const response = await saveVideo(videoId);
+      
+      // Cập nhật lại UI dựa trên phản hồi từ server
+      setSaved(response.hasSaved);
+      setSavesCount(response.saves);
+      
+      console.log('Video save updated:', response);
+    } catch (error) {
+      // Nếu có lỗi, khôi phục trạng thái UI ban đầu
+      console.error("Failed to save video:", error);
+      setSaved(!saved);
+      setSavesCount(video.saves || 0);
+      
+      // Hiển thị thông báo lỗi
+      alert(error.message || "Không thể cập nhật trạng thái lưu video");
+    }
   }
 
   // Handle comment button click
@@ -249,11 +293,7 @@ export default function VideoCard({ video }) {
             className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${saved ? "text-yellow-500" : "text-white"}`}
           >
             <Bookmark className="h-6 w-6" fill={saved ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(
-              typeof video.saves === 'object' && video.saves.$numberInt 
-                ? Number(video.saves.$numberInt) 
-                : video.saves || 0
-            )}</span>
+            <span className="text-xs mt-1 block">{formatCount(savesCount)}</span>
           </button>
 
           <button className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
