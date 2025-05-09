@@ -35,4 +35,24 @@ body {
   .input-field {
     @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500;
   }
+  
+  /* Classes mới cho responsive video */
+  .landscape-video-container {
+    @apply fixed inset-0 z-50 bg-black flex items-center justify-center;
+  }
+  
+  /* CSS để xử lý nút tương tác video tốt hơn trên thiết bị nhỏ */
+  @media (max-width: 640px) {
+    .video-actions-mobile {
+      @apply flex flex-row justify-evenly items-center space-x-2 py-2;
+    }
+    
+    .video-action-button-mobile {
+      @apply p-1.5 rounded-full;
+    }
+    
+    .video-action-icon-mobile {
+      @apply h-5 w-5;
+    }
+  }
 }
