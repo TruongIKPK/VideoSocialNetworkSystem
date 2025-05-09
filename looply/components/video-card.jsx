@@ -10,6 +10,9 @@ import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
 import { likeVideo, saveVideo, shareVideo } from "@/lib/api"
 
+// Thêm import cho hook useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile"
+
 // Helper function to extract ID from MongoDB structure
 function extractMongoId(id) {
   if (!id) return null;
@@ -44,9 +47,30 @@ export default function VideoCard({ video }) {
   const [savesCount, setSavesCount] = useState(video.saves || 0)
   const [sharesCount, setSharesCount] = useState(video.shares || 0)
   const videoRef = useRef(null)
+  const isMobile = useIsMobile() // Sử dụng hook để xác định thiết bị mobile
+  const [orientation, setOrientation] = useState('portrait') // Định hướng màn hình
 
   // Extract normalized user id from the video object
   const userId = video.user && (extractMongoId(video.user._id) || video.user.id || video.userId);
+
+  // Theo dõi sự thay đổi về hướng màn hình (chỉ cho mobile)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleOrientation = () => {
+        setOrientation(window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
+      };
+      
+      // Khởi tạo giá trị ban đầu
+      handleOrientation();
+      
+      // Theo dõi sự thay đổi
+      window.addEventListener('resize', handleOrientation);
+      
+      return () => {
+        window.removeEventListener('resize', handleOrientation);
+      };
+    }
+  }, []);
 
   // Initialize liked state when component mounts or video/user changes
   useEffect(() => {
@@ -273,12 +297,11 @@ export default function VideoCard({ video }) {
     }
     return count.toString()
   }
-
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <div className="p-4 flex items-center">
-        <Link href={`/user/${userId}`} className="flex items-center">
-          <div className="w-10 h-10 rounded-full overflow-hidden">
+    <div className="border border-gray-200 rounded-lg overflow-hidden sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto">
+      <div className="p-3 sm:p-4 flex items-center">
+        <Link href={`/user/${userId}`} className="flex items-center flex-grow min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex-shrink-0">
             <Image
               src={video.user?.avatar || "/no_avatar.png"}
               alt={video.user?.name || "User"}
@@ -288,22 +311,26 @@ export default function VideoCard({ video }) {
               priority
             />
           </div>
-          <div className="ml-3">
-            <div className="font-semibold">{video.user?.name || "User"}</div>
-            <div className="text-sm text-gray-500">{video.title}</div>
+          <div className="ml-2 sm:ml-3 truncate">
+            <div className="font-semibold text-sm sm:text-base truncate">{video.user?.name || "User"}</div>
+            <div className="text-xs sm:text-sm text-gray-500 truncate">{video.title}</div>
           </div>
         </Link>
 
-        <button className="ml-auto text-gray-500">
+        <button className="ml-2 text-gray-500 flex-shrink-0">
           <MoreHorizontal className="h-5 w-5" />
         </button>
-      </div>
-
-      <div className="relative">
+      </div>      <div className={`relative ${isMobile && orientation === 'landscape' ? 'fixed inset-0 z-50 bg-black flex items-center justify-center' : ''}`}>
         <video
           ref={videoRef}
           src={video.url}
-          className="w-full max-h-[80vh] object-contain bg-black"
+          className={`w-full ${
+            isMobile 
+              ? orientation === 'landscape' 
+                ? 'h-[85vh] md:max-h-[80vh]' 
+                : 'max-h-[60vh] sm:max-h-[70vh]'
+              : 'max-h-[80vh]'
+          } object-contain bg-black`}
           onClick={togglePlay}
           loop
           playsInline
@@ -313,52 +340,98 @@ export default function VideoCard({ video }) {
 
         {!isPlaying && (
           <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={togglePlay}>
-            <div className="bg-black bg-opacity-50 rounded-full p-4">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="bg-black bg-opacity-50 rounded-full p-3 sm:p-4">
+              <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
           </div>
-        )}
-
-        <div className="absolute right-4 bottom-4 flex flex-col items-center space-y-4">
+        )}        {/* Điều chỉnh vị trí nút tương tác dựa trên thiết bị và hướng màn hình */}
+        <div 
+          className={`${
+            isMobile 
+              ? orientation === 'landscape'
+                ? "absolute right-4 bottom-4 flex flex-col items-center space-y-3"
+                : "absolute bottom-2 right-0 left-0 flex justify-evenly items-center px-2"
+              : "absolute right-4 bottom-4 flex flex-col items-center space-y-4"
+          }`}
+        >
           <button
             onClick={handleLike}
-            className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${liked ? "text-red-500" : "text-white"}`}
+            className={`bg-gray-800 bg-opacity-50 rounded-full ${
+              isMobile && orientation === 'portrait' ? "p-1.5" : "p-2"
+            } ${liked ? "text-red-500" : "text-white"}`}
           >
-            <Heart className="h-6 w-6" fill={liked ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(likesCount)}</span>
+            <Heart 
+              className={`${isMobile && orientation === 'portrait' ? "h-5 w-5" : "h-6 w-6"}`} 
+              fill={liked ? "currentColor" : "none"} 
+            />
+            <span className={`text-xs mt-1 block ${isMobile && orientation === 'portrait' ? "text-[10px]" : ""}`}>
+              {formatCount(likesCount)}
+            </span>
           </button>
 
-          <button onClick={handleComment} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
-            <MessageCircle className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(
-              typeof video.comments === 'object' && video.comments.$numberInt 
-                ? Number(video.comments.$numberInt) 
-                : video.comments || 0
-            )}</span>
+          <button 
+            onClick={handleComment} 
+            className={`bg-gray-800 bg-opacity-50 rounded-full ${
+              isMobile && orientation === 'portrait' ? "p-1.5" : "p-2"
+            } text-white`}
+          >
+            <MessageCircle 
+              className={`${isMobile && orientation === 'portrait' ? "h-5 w-5" : "h-6 w-6"}`}
+            />
+            <span className={`text-xs mt-1 block ${isMobile && orientation === 'portrait' ? "text-[10px]" : ""}`}>
+              {formatCount(
+                typeof video.comments === 'object' && video.comments.$numberInt 
+                  ? Number(video.comments.$numberInt) 
+                  : video.comments || 0
+              )}
+            </span>
           </button>
 
           <button
             onClick={handleSave}
-            className={`bg-gray-800 bg-opacity-50 rounded-full p-2 ${saved ? "text-yellow-500" : "text-white"}`}
+            className={`bg-gray-800 bg-opacity-50 rounded-full ${
+              isMobile && orientation === 'portrait' ? "p-1.5" : "p-2"
+            } ${saved ? "text-yellow-500" : "text-white"}`}
           >
-            <Bookmark className="h-6 w-6" fill={saved ? "currentColor" : "none"} />
-            <span className="text-xs mt-1 block">{formatCount(savesCount)}</span>
+            <Bookmark 
+              className={`${isMobile && orientation === 'portrait' ? "h-5 w-5" : "h-6 w-6"}`}
+              fill={saved ? "currentColor" : "none"} 
+            />
+            <span className={`text-xs mt-1 block ${isMobile && orientation === 'portrait' ? "text-[10px]" : ""}`}>
+              {formatCount(savesCount)}
+            </span>
           </button>
 
-          <button onClick={handleShare} className="bg-gray-800 bg-opacity-50 rounded-full p-2 text-white">
-            <Share2 className="h-6 w-6" />
-            <span className="text-xs mt-1 block">{formatCount(
-              typeof video.shares === 'object' && video.shares.$numberInt 
-                ? Number(video.shares.$numberInt) 
-                : video.shares || 0
-            )}</span>
+          <button 
+            onClick={handleShare} 
+            className={`bg-gray-800 bg-opacity-50 rounded-full ${
+              isMobile && orientation === 'portrait' ? "p-1.5" : "p-2"
+            } text-white`}
+          >
+            <Share2 
+              className={`${isMobile && orientation === 'portrait' ? "h-5 w-5" : "h-6 w-6"}`}
+            />
+            <span className={`text-xs mt-1 block ${isMobile && orientation === 'portrait' ? "text-[10px]" : ""}`}>
+              {formatCount(
+                typeof video.shares === 'object' && video.shares.$numberInt 
+                  ? Number(video.shares.$numberInt) 
+                  : video.shares || 0
+              )}
+            </span>
           </button>
+        </div></div>      {showComments && (
+        <div className={`${
+          isMobile 
+            ? orientation === 'landscape' 
+              ? "max-h-[40vh] overflow-y-auto"
+              : "max-h-[50vh] overflow-y-auto" 
+            : "max-h-[400px] overflow-y-auto"
+        }`}>
+          <CommentSection videoId={extractMongoId(video._id) || video.id} />
         </div>
-      </div>
-
-      {showComments && <CommentSection videoId={extractMongoId(video._id) || video.id} />}
+      )}
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>

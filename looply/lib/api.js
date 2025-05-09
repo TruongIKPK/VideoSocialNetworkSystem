@@ -348,6 +348,72 @@ export async function fetchSavedVideos(userId) {
   }
 }
 
+// Fetch a video by ID
+export async function fetchVideoById(videoId) {
+  try {
+    // Thêm baseUrl để đảm bảo tương thích khi chạy ở server-side
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://looply-ten.vercel.app';
+    
+    // Xử lý trường hợp ID là ObjectId
+    let normalizedVideoId = videoId;
+    if (typeof videoId === 'object' && videoId !== null) {
+      if (videoId.$oid) {
+        normalizedVideoId = videoId.$oid;
+      }
+    } else if (typeof videoId === 'string' && videoId.includes('$oid')) {
+      try {
+        const parsed = JSON.parse(videoId);
+        normalizedVideoId = parsed.$oid || videoId;
+      } catch (e) {
+        // Nếu không parse được, giữ nguyên giá trị
+      }
+    }
+    
+    console.log('Fetching video with ID:', normalizedVideoId);
+    
+    // Fetch tất cả video trước
+    const response = await fetch(`${baseUrl}/api/videos`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error when fetching videos:', errorData);
+      throw new Error(errorData.error || 'Failed to fetch video');
+    }
+    
+    const allVideos = await response.json();
+    console.log(`Retrieved ${allVideos.length} total videos, finding video with ID: ${normalizedVideoId}`);
+    
+    // Tìm video với ID tương ứng
+    const video = allVideos.find(v => {
+      // Xử lý trường hợp MongoDB ObjectId
+      if (v._id && typeof v._id === 'object' && v._id.$oid) {
+        return v._id.$oid === normalizedVideoId;
+      }
+      
+      // Trường hợp thông thường
+      const videoId = v._id || v.id;
+      return videoId === normalizedVideoId;
+    });
+    
+    if (!video) {
+      console.error('Video not found with ID:', normalizedVideoId);
+      throw new Error('Video not found');
+    }
+    
+    return video;
+  } catch (error) {
+    console.error('Error fetching video by ID:', error);
+    throw error;
+  }
+}
+
 // Hàm kiểm tra tất cả người dùng trong database
 export async function getAllUsers() {
   try {
