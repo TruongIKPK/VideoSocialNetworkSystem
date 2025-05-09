@@ -33,5 +33,12 @@ export default function RootLayout({ children }) {
 }
 
 export const metadata = {
-      generator: 'v0.dev'
-    };
+  title: 'Looply',
+  description: 'Looply - Video Social Network',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png'
+  },
+  generator: 'v0.dev'
+};
