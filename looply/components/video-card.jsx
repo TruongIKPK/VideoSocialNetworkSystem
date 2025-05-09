@@ -9,6 +9,7 @@ import Image from "next/image"
 import LoginModal from "./login-modal"
 import CommentSection from "./comment-section"
 import { likeVideo, saveVideo, shareVideo } from "@/lib/api"
+import { formatTimeAgo } from "@/lib/utils"; // Import for formatting time
 
 // Thêm import cho hook useIsMobile
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -298,8 +299,7 @@ export default function VideoCard({ video }) {
     return count.toString()
   }
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto">
-      <div className="p-3 sm:p-4 flex items-center">
+    <div className="border border-gray-200 rounded-lg overflow-hidden sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto">      <div className="p-3 sm:p-4 flex items-center">
         <Link href={`/user/${userId}`} className="flex items-center flex-grow min-w-0">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex-shrink-0">
             <Image
@@ -313,14 +313,17 @@ export default function VideoCard({ video }) {
           </div>
           <div className="ml-2 sm:ml-3 truncate">
             <div className="font-semibold text-sm sm:text-base truncate">{video.user?.name || "User"}</div>
-            <div className="text-xs sm:text-sm text-gray-500 truncate">{video.title}</div>
+            <div className="text-xs sm:text-sm text-gray-500 truncate">
+              {video.title}
+            </div>
           </div>
         </Link>
 
         <button className="ml-2 text-gray-500 flex-shrink-0">
           <MoreHorizontal className="h-5 w-5" />
         </button>
-      </div>      <div className={`relative ${isMobile && orientation === 'landscape' ? 'fixed inset-0 z-50 bg-black flex items-center justify-center' : ''}`}>
+      </div>
+      <div className={`relative ${isMobile && orientation === 'landscape' ? 'fixed inset-0 z-50 bg-black flex items-center justify-center' : ''}`}>
         <video
           ref={videoRef}
           src={video.url}
@@ -419,9 +422,25 @@ export default function VideoCard({ video }) {
                   ? Number(video.shares.$numberInt) 
                   : video.shares || 0
               )}
-            </span>
-          </button>
-        </div></div>      {showComments && (
+            </span>          </button>
+        </div>
+      </div>
+      
+      {/* Hiển thị thời gian đăng bên dưới video */}
+      {video.createdAt && (
+        <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800">
+          {video.description && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+              {video.description}
+            </p>
+          )}
+          <p className="text-xs text-gray-500">
+            Đăng vào: {new Date(video.createdAt).toLocaleDateString()} • {formatTimeAgo(video.createdAt)}
+          </p>
+        </div>
+      )}
+      
+      {showComments && (
         <div className={`${
           isMobile 
             ? orientation === 'landscape' 
