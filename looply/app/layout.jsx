@@ -1,6 +1,5 @@
 // "use client"
 
-import { Inter } from "next/font/google"
 import "./globals.css"
 import Sidebar from "@/components/sidebar"
 import Header from "@/components/header"
@@ -8,12 +7,10 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { UserProvider } from "@/context/user-context"
 import { LanguageProvider } from "@/context/language-context"
 
-const inter = Inter({ subsets: ["latin"] })
-
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <body className={inter.className} suppressHydrationWarning={true}>
+      <body className="font-sans" suppressHydrationWarning={true}>
         <ThemeProvider attribute="class" defaultTheme="light">
           <LanguageProvider>
             <UserProvider>

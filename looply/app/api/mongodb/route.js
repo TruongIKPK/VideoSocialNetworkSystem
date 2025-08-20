@@ -1,8 +1,8 @@
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
-// Sử dụng biến môi trường hoặc URI mặc định
-const uri = process.env.MONGODB_URI || "mongodb+srv://looply:12345@cluster0.itbnhsw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const dbName = process.env.MONGODB_DB || "Looply_DB";
+// Use environment variables for MongoDB connection
+const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
+const dbName = process.env.MONGODB_DB || "video_social_db";
 
 const options = {
   serverApi: {

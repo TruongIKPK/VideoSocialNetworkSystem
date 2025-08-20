@@ -1,0 +1,58 @@
+# Docker ignore file for Next.js Video Social Network Application
+
+# Dependencies
+looply/node_modules
+looply/npm-debug.log*
+looply/yarn-debug.log*
+looply/yarn-error.log*
+looply/pnpm-debug.log*
+
+# Build outputs
+looply/.next/
+looply/out/
+looply/build/
+looply/dist/
+
+# Environment files
+.env*
+!.env.example
+
+# Development files
+looply/.vercel
+README.md
+*.md
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.github
+
+# Package manager
+looply/package-lock.json
+looply/yarn.lock
+
+# TypeScript
+looply/*.tsbuildinfo
+looply/next-env.d.ts

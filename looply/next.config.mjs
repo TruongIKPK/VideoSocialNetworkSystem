@@ -10,6 +10,9 @@ const nextConfig = {
     unoptimized: true,
     domains: ["localhost", "res.cloudinary.com"],
   },
+  // Enable standalone output for Docker
+  output: 'standalone',
+  
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.resolve.fallback = {
