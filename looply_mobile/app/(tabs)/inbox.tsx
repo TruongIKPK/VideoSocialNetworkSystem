@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function Explore() {
+export default function Inbox() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Explore Screen</Text>
+      <Text style={styles.text}>Inbox Screen</Text>
     </View>
   );
 }

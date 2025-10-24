@@ -1,33 +1,93 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#fff',
+        tabBarInactiveTintColor: '#666',
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarStyle: {
+          position: 'absolute', 
+          backgroundColor: 'rgba(0,0,0,0.4)',
+          borderTopWidth: 0,
+          paddingBottom: 25,
+          paddingTop: 15,
+          height: 80,
+          bottom: 0, 
+          left: 0,
+          right: 0,
+          elevation: 10, 
+          zIndex: 10,
+          borderTopLeftRadius: 10,
+          borderTopRightRadius: 10,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="home" 
+              size={28} 
+              color={focused ? '#fff' : '#666'} 
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="compass" 
+              size={28} 
+              color={focused ? '#fff' : '#666'} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="camera"
+        options={{
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="camera" 
+              size={32} 
+              color={focused ? '#fff' : '#666'} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="chatbubble" 
+              size={28} 
+              color={focused ? '#fff' : '#666'} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              name="person" 
+              size={28} 
+              color={focused ? '#fff' : '#666'} 
+            />
+          ),
         }}
       />
     </Tabs>
