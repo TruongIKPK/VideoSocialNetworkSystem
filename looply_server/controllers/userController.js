@@ -113,3 +113,152 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
+    }
+
+
+    const users = await User.find({
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { username: { $regex: q, $options: 'i' } }
+      ]
+    }).select("-password");
+
+    res.json({
+      total: users.length,
+      users: users
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Follow user
+export const followUser = async (req, res) => {
+  try {
+    const { id } = req.params; // ID của người được follow
+    const currentUserId = req.user._id.toString(); // Lấy từ req.user._id thay vì req.user.userId
+
+    // Không thể follow chính mình
+    if (id === currentUserId) {
+      return res.status(400).json({ message: "Không thể follow chính mình" });
+    }
+
+    // Kiểm tra user được follow tồn tại
+    const userToFollow = await User.findById(id);
+    if (!userToFollow) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Kiểm tra đã follow chưa
+    if (req.user.followingList.includes(id)) {
+      return res.status(400).json({ message: "Đã follow người dùng này rồi" });
+    }
+
+    // Thêm vào followingList của user hiện tại và tăng following count
+    await User.findByIdAndUpdate(currentUserId, {
+      $push: { followingList: id },
+      $inc: { following: 1 }
+    });
+
+    // Thêm vào followersList của user được follow và tăng followers count
+    await User.findByIdAndUpdate(id, {
+      $push: { followersList: currentUserId },
+      $inc: { followers: 1 }
+    });
+
+    res.json({ 
+      message: "Follow thành công",
+      following: req.user.following + 1
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Unfollow user
+export const unfollowUser = async (req, res) => {
+  try {
+    const { id } = req.params; // ID của người được unfollow
+    const currentUserId = req.user._id.toString(); // Lấy từ req.user._id thay vì req.user.userId
+
+    // Không thể unfollow chính mình
+    if (id === currentUserId) {
+      return res.status(400).json({ message: "Không thể unfollow chính mình" });
+    }
+
+    // Kiểm tra đã follow chưa
+    if (!req.user.followingList.includes(id)) {
+      return res.status(400).json({ message: "Chưa follow người dùng này" });
+    }
+
+    // Xóa khỏi followingList của user hiện tại và giảm following count
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { followingList: id },
+      $inc: { following: -1 }
+    });
+
+    // Xóa khỏi followersList của user được unfollow và giảm followers count
+    await User.findByIdAndUpdate(id, {
+      $pull: { followersList: currentUserId },
+      $inc: { followers: -1 }
+    });
+
+    res.json({ 
+      message: "Unfollow thành công",
+      following: req.user.following - 1
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy danh sách followers
+export const getFollowers = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findById(id)
+      .populate('followersList', '-password')
+      .select('followersList followers');
+    
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    res.json({
+      total: user.followers,
+      followers: user.followersList
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy danh sách following
+export const getFollowing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await User.findById(id)
+      .populate('followingList', '-password')
+      .select('followingList following');
+    
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    res.json({
+      total: user.following,
+      following: user.followingList
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
