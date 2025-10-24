@@ -62,3 +62,25 @@ export const deleteVideo = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const searchVideos = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
+    }
+
+    const videos = await Video.find({
+      title: { $regex: q, $options: 'i' }
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      total: videos.length,
+      videos: videos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
