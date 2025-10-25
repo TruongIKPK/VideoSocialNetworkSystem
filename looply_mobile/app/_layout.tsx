@@ -5,8 +5,6 @@ import {
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, TextInput, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -14,7 +12,10 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-function CustomHeader() {
+import { View, TextInput, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+
+export function CustomHeader() {
   return (
     <View
       style={{
@@ -44,12 +45,7 @@ function CustomHeader() {
           placeholder="Search"
           placeholderTextColor="#fff"
         />
-        <Ionicons
-          name="search"
-          size={20}
-          color="#fff"
-          style={{ marginLeft: 10 }}
-        />
+        <Ionicons name="search" size={20} color="#fff" style={{ marginLeft: 10 }} />
       </View>
       <TouchableOpacity>
         <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
@@ -58,32 +54,20 @@ function CustomHeader() {
   );
 }
 
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
-        <Stack.Screen
-          name="login"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="register"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            headerShown: true,
-            header: () => <CustomHeader />,
-            headerTransparent: true,
-          }}
-        />
+        {/* Ẩn header ở các màn hình ngoài */}
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+
+        {/* Tabs có header riêng */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}

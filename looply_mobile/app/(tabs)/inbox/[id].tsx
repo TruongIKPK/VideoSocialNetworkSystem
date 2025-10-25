@@ -9,12 +9,13 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ChatDetail() {
   const { id } = useLocalSearchParams();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Image
@@ -79,7 +80,7 @@ export default function ChatDetail() {
           <Ionicons name="send" size={22} color="red" />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -159,3 +160,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+
+export const unstable_settings = {
+  initialRouteName: "index",
+  // Ẩn khỏi tab bar
+  tabBarVisible: false,
+};
+
+// Cấu hình để ẩn khỏi tab bar
+export const options = {
+  href: null,
+};
