@@ -21,7 +21,7 @@ export default function RegisterScreen() {
 
   const handleRegister = () => {
     console.log("Register:", fullName, email, password);
-    router.replace("/(tabs)");
+    router.replace("/(tabs)/home");
   };
 
   return (
@@ -143,6 +143,11 @@ export default function RegisterScreen() {
           {/* Chat Support */}
           <TouchableOpacity style={styles.chatButton}>
             <Text style={styles.chatButtonText}>Chat</Text>
+          </TouchableOpacity>
+
+          {/* Back to Home Link */}
+          <TouchableOpacity onPress={() => router.replace("/(tabs)/home")}>
+            <Text style={styles.forgotPassword}>Quay về trang chủ</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -279,5 +284,11 @@ const styles = StyleSheet.create({
   chatButtonText: {
     color: "#999",
     fontSize: 14,
+  },
+  forgotPassword: {
+    marginTop: 10,
+    color: "#007AFF",
+    fontSize: 14,
+    textAlign: "center",
   },
 });

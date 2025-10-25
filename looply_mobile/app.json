@@ -39,7 +39,12 @@
           }
         }
       ],
-      "expo-video"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The app needs access to your camera to take photos and record videos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

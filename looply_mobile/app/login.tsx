@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const handleLogin = () => {
     // Xử lý đăng nhập
     console.log("Login:", email, password);
+    router.replace("/(tabs)/home");
   };
 
   return (
@@ -91,6 +92,10 @@ export default function LoginScreen() {
           {/* Forgot Password */}
           <TouchableOpacity onPress={() => router.push("/register")}>
             <Text style={styles.forgotPassword}>Đăng kí tại đây</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.replace("/(tabs)/home")}>
+            <Text style={styles.forgotPassword}>Quay về trang chủ</Text>
           </TouchableOpacity>
 
           {/* Divider */}
