@@ -41,8 +41,3 @@ app-example
 # generated native folders
 /ios
 /android
-
-node_modules/
-.env
-uploads/
-.DS_Store
