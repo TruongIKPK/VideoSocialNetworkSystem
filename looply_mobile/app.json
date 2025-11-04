@@ -44,7 +44,9 @@
         {
           "cameraPermission": "The app needs access to your camera to take photos and record videos."
         }
-      ]
+      ],
+      "expo-video",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
