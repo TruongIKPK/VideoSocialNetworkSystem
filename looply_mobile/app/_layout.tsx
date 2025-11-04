@@ -74,7 +74,6 @@ export default function RootLayout() {
     const hideNavBar = async () => {
       try {
         await NavigationBar.setVisibilityAsync("hidden");
-        await NavigationBar.setBehaviorAsync("overlay-swipe");
       } catch (error) {
         console.warn("Failed to hide nav bar:", error);
       }
