@@ -12,7 +12,7 @@ import { Video as ExpoVideo } from "expo-av";
 
 export default function UploadScreen() {
   const { uri } = useLocalSearchParams(); // lấy video từ camera
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(""); 
   const [desc, setDesc] = useState("");
 
   return (
