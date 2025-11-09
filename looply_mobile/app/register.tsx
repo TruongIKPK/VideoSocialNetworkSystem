@@ -9,7 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
+import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -17,11 +20,124 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    terms: "",
+  });
   const router = useRouter();
 
-  const handleRegister = () => {
-    console.log("Register:", fullName, email, password);
-    router.replace("/(tabs)");
+  // Hàm validate email
+  const validateEmail = (text: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(text);
+  };
+
+  // Hàm validate mật khẩu mạnh
+  const validatePassword = (text: string) => {
+    const hasUpperCase = /[A-Z]/.test(text);
+    const hasLowerCase = /[a-z]/.test(text);
+    const hasNumbers = /\d/.test(text);
+    const isLongEnough = text.length >= 8;
+    return hasUpperCase && hasLowerCase && hasNumbers && isLongEnough;
+  };
+
+  // Hàm validate form
+  const validateForm = () => {
+    let newErrors = {
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      terms: "",
+    };
+    let isValid = true;
+
+    // Validate Họ và tên
+    if (!fullName.trim()) {
+      newErrors.fullName = "Họ và tên không được để trống";
+      isValid = false;
+    } else if (fullName.trim().length < 3) {
+      newErrors.fullName = "Họ và tên phải có ít nhất 3 ký tự";
+      isValid = false;
+    }
+
+    // Validate Email
+    if (!email.trim()) {
+      newErrors.email = "Email không được để trống";
+      isValid = false;
+    } else if (!validateEmail(email)) {
+      newErrors.email = "Email không hợp lệ";
+      isValid = false;
+    }
+
+    // Validate Mật khẩu
+    if (!password.trim()) {
+      newErrors.password = "Mật khẩu không được để trống";
+      isValid = false;
+    } else if (!validatePassword(password)) {
+      newErrors.password =
+        "Mật khẩu phải có 8+ ký tự, chứa chữ hoa, chữ thường, số";
+      isValid = false;
+    }
+
+    // Validate Xác nhận mật khẩu
+    if (!confirmPassword.trim()) {
+      newErrors.confirmPassword = "Xác nhận mật khẩu không được để trống";
+      isValid = false;
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Mật khẩu xác nhận không trùng khớp";
+      isValid = false;
+    }
+
+    // Validate Điều khoản
+    if (!agreeTerms) {
+      newErrors.terms = "Bạn phải đồng ý với điều khoản sử dụng";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // TODO: Gọi API đăng kí ở đây
+      console.log("Register:", {
+        fullName,
+        email,
+        password,
+      });
+
+      // Tạm thời: Nếu validation pass thì thành công
+      setTimeout(() => {
+        setIsLoading(false);
+        Alert.alert(
+          "Thành công",
+          "Đăng kí tài khoản thành công! Vui lòng đăng nhập.",
+          [{ text: "OK", onPress: () => router.push("/login") }]
+        );
+      }, 1500);
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert("Lỗi", "Đăng kí thất bại. Vui lòng thử lại!");
+    }
+  };
+
+  const clearFieldError = (field: string) => {
+    setErrors({ ...errors, [field]: "" });
   };
 
   return (
@@ -33,6 +149,19 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            disabled={isLoading}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={28} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Đăng kí</Text>
+          <View style={{ width: 28 }} />
+        </View>
+
         <View style={styles.content}>
           {/* Logo */}
           <View style={styles.logoContainer}>
@@ -41,7 +170,6 @@ export default function RegisterScreen() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.logoText}>LOOPLY</Text>
           </View>
 
           {/* Title */}
@@ -55,7 +183,7 @@ export default function RegisterScreen() {
             <Ionicons
               name="person-outline"
               size={20}
-              color="#999"
+              color={errors.fullName ? "#FF3B30" : "#999"}
               style={styles.inputIcon}
             />
             <TextInput
@@ -63,16 +191,23 @@ export default function RegisterScreen() {
               placeholder="Họ và tên"
               placeholderTextColor="#999"
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(text) => {
+                setFullName(text);
+                if (errors.fullName) clearFieldError("fullName");
+              }}
+              editable={!isLoading}
             />
           </View>
+          {errors.fullName ? (
+            <Text style={styles.errorText}>{errors.fullName}</Text>
+          ) : null}
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
             <Ionicons
               name="mail-outline"
               size={20}
-              color="#999"
+              color={errors.email ? "#FF3B30" : "#999"}
               style={styles.inputIcon}
             />
             <TextInput
@@ -80,18 +215,25 @@ export default function RegisterScreen() {
               placeholder="Địa chỉ thư điện tử"
               placeholderTextColor="#999"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email) clearFieldError("email");
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!isLoading}
             />
           </View>
+          {errors.email ? (
+            <Text style={styles.errorText}>{errors.email}</Text>
+          ) : null}
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <Ionicons
               name="lock-closed-outline"
               size={20}
-              color="#999"
+              color={errors.password ? "#FF3B30" : "#999"}
               style={styles.inputIcon}
             />
             <TextInput
@@ -99,23 +241,108 @@ export default function RegisterScreen() {
               placeholder="Mật khẩu"
               placeholderTextColor="#999"
               value={password}
-              onChangeText={setPassword}
-              secureTextEntry
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) clearFieldError("password");
+              }}
+              secureTextEntry={!showPassword}
+              editable={!isLoading}
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              disabled={isLoading}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#999"
+              />
+            </TouchableOpacity>
           </View>
+          {errors.password ? (
+            <Text style={styles.errorText}>{errors.password}</Text>
+          ) : null}
+
+          {/* Confirm Password Input */}
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={errors.confirmPassword ? "#FF3B30" : "#999"}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Xác nhận mật khẩu"
+              placeholderTextColor="#999"
+              value={confirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                if (errors.confirmPassword) clearFieldError("confirmPassword");
+              }}
+              secureTextEntry={!showConfirmPassword}
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              disabled={isLoading}
+            >
+              <Ionicons
+                name={showConfirmPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#999"
+              />
+            </TouchableOpacity>
+          </View>
+          {errors.confirmPassword ? (
+            <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+          ) : null}
+
+          {/* Terms Agreement */}
+          <View style={styles.termsContainer}>
+            <Checkbox
+              value={agreeTerms}
+              onValueChange={(value) => {
+                setAgreeTerms(value);
+                if (errors.terms) clearFieldError("terms");
+              }}
+              disabled={isLoading}
+              style={styles.checkbox}
+              color={agreeTerms ? "#007AFF" : undefined}
+            />
+            <Text style={styles.termsText}>
+              Tôi đồng ý với{" "}
+              <Text style={styles.termsLink}>Điều khoản sử dụng</Text> và{" "}
+              <Text style={styles.termsLink}>Chính sách bảo mật</Text>
+            </Text>
+          </View>
+          {errors.terms ? (
+            <Text style={styles.errorText}>{errors.terms}</Text>
+          ) : null}
 
           {/* Register Button */}
           <TouchableOpacity
-            style={styles.registerButton}
+            style={[
+              styles.registerButton,
+              isLoading && styles.registerButtonDisabled,
+            ]}
             onPress={handleRegister}
+            disabled={isLoading}
           >
-            <Text style={styles.registerButtonText}>ĐĂNG KÍ</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.registerButtonText}>ĐĂNG KÍ</Text>
+            )}
           </TouchableOpacity>
 
           {/* Login Link */}
           <View style={styles.loginLinkContainer}>
             <Text style={styles.loginLinkText}>Đã có tài khoản? </Text>
-            <TouchableOpacity onPress={() => router.push("/login")}>
+            <TouchableOpacity
+              onPress={() => router.push("/login")}
+              disabled={isLoading}
+            >
               <Text style={styles.loginLink}>Đăng nhập</Text>
             </TouchableOpacity>
           </View>
@@ -139,11 +366,6 @@ export default function RegisterScreen() {
               <Ionicons name="logo-apple" size={24} color="#000" />
             </TouchableOpacity>
           </View>
-
-          {/* Chat Support */}
-          <TouchableOpacity style={styles.chatButton}>
-            <Text style={styles.chatButtonText}>Chat</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -157,6 +379,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000",
   },
   content: {
     flex: 1,
@@ -216,6 +457,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
   },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 12,
+    marginBottom: 12,
+    marginLeft: 20,
+  },
+  termsContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 5,
+    paddingHorizontal: 10,
+  },
+  checkbox: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#666",
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: "#007AFF",
+    fontWeight: "600",
+  },
   registerButton: {
     backgroundColor: "#007AFF",
     borderRadius: 25,
@@ -224,6 +491,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
     marginBottom: 15,
+  },
+  registerButtonDisabled: {
+    backgroundColor: "#0051CC",
+    opacity: 0.7,
   },
   registerButtonText: {
     color: "#FFF",
