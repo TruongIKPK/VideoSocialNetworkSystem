@@ -15,6 +15,7 @@ import {
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import authService, { validateRegisterForm } from "@/service/authService";
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
@@ -34,105 +35,43 @@ export default function RegisterScreen() {
   });
   const router = useRouter();
 
-  // Hàm validate email
-  const validateEmail = (text: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(text);
-  };
-
-  // Hàm validate mật khẩu mạnh
-  const validatePassword = (text: string) => {
-    const hasUpperCase = /[A-Z]/.test(text);
-    const hasLowerCase = /[a-z]/.test(text);
-    const hasNumbers = /\d/.test(text);
-    const isLongEnough = text.length >= 8;
-    return hasUpperCase && hasLowerCase && hasNumbers && isLongEnough;
-  };
-
-  // Hàm validate form
-  const validateForm = () => {
-    let newErrors = {
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      terms: "",
-    };
-    let isValid = true;
-
-    // Validate Họ và tên
-    if (!fullName.trim()) {
-      newErrors.fullName = "Họ và tên không được để trống";
-      isValid = false;
-    } else if (fullName.trim().length < 3) {
-      newErrors.fullName = "Họ và tên phải có ít nhất 3 ký tự";
-      isValid = false;
-    }
-
-    // Validate Email
-    if (!email.trim()) {
-      newErrors.email = "Email không được để trống";
-      isValid = false;
-    } else if (!validateEmail(email)) {
-      newErrors.email = "Email không hợp lệ";
-      isValid = false;
-    }
-
-    // Validate Mật khẩu
-    if (!password.trim()) {
-      newErrors.password = "Mật khẩu không được để trống";
-      isValid = false;
-    } else if (!validatePassword(password)) {
-      newErrors.password =
-        "Mật khẩu phải có 8+ ký tự, chứa chữ hoa, chữ thường, số";
-      isValid = false;
-    }
-
-    // Validate Xác nhận mật khẩu
-    if (!confirmPassword.trim()) {
-      newErrors.confirmPassword = "Xác nhận mật khẩu không được để trống";
-      isValid = false;
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Mật khẩu xác nhận không trùng khớp";
-      isValid = false;
-    }
-
-    // Validate Điều khoản
-    if (!agreeTerms) {
-      newErrors.terms = "Bạn phải đồng ý với điều khoản sử dụng";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
   const handleRegister = async () => {
-    if (!validateForm()) {
+    // Validate form
+    const validationErrors = validateRegisterForm(
+      fullName,
+      email,
+      password,
+      confirmPassword,
+      agreeTerms
+    );
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
     setIsLoading(true);
     try {
-      // TODO: Gọi API đăng kí ở đây
-      console.log("Register:", {
+      const response = await authService.register({
         fullName,
         email,
         password,
       });
 
-      // Tạm thời: Nếu validation pass thì thành công
-      setTimeout(() => {
-        setIsLoading(false);
-        Alert.alert(
-          "Thành công",
-          "Đăng kí tài khoản thành công! Vui lòng đăng nhập.",
-          [{ text: "OK", onPress: () => router.push("/login") }]
-        );
-      }, 1500);
+      if (response.success) {
+        Alert.alert("Thành công", response.message, [
+          {
+            text: "OK",
+            onPress: () => router.push("/login"),
+          },
+        ]);
+      } else {
+        Alert.alert("Lỗi", response.message);
+      }
     } catch (error) {
-      setIsLoading(false);
       Alert.alert("Lỗi", "Đăng kí thất bại. Vui lòng thử lại!");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -422,11 +361,6 @@ const styles = StyleSheet.create({
     height: 80,
     marginBottom: 10,
   },
-  logoText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000",
-  },
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -446,7 +380,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F8F8",
     borderRadius: 25,
     paddingHorizontal: 20,
-    marginBottom: 15,
+    marginBottom: 5,
     height: 50,
   },
   inputIcon: {
