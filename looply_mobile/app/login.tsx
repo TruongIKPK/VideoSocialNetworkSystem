@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -16,11 +18,63 @@ import { useRouter } from "expo-router";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({ email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = () => {
-    // Xử lý đăng nhập
-    console.log("Login:", email, password);
+  // Hàm validate email
+  const validateEmail = (text: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(text);
+  };
+
+  // Hàm validate form
+  const validateForm = () => {
+    let newErrors = { email: "", password: "" };
+    let isValid = true;
+
+    if (!email.trim()) {
+      newErrors.email = "Email không được để trống";
+      isValid = false;
+    } else if (!validateEmail(email)) {
+      newErrors.email = "Email không hợp lệ";
+      isValid = false;
+    }
+
+    if (!password.trim()) {
+      newErrors.password = "Mật khẩu không được để trống";
+      isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleLogin = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // TODO: Gọi API đăng nhập ở đây
+      console.log("Login:", email, password);
+
+      // Tạm thời: Nếu validation pass thì vào home
+      // Sẽ thay thế bằng API call thực tế
+      setTimeout(() => {
+        setIsLoading(false);
+        Alert.alert("Thành công", "Đăng nhập thành công!", [
+          { text: "OK", onPress: () => router.push("/(tabs)") },
+        ]);
+      }, 1000);
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert("Lỗi", "Đăng nhập thất bại. Vui lòng thử lại!");
+    }
   };
 
   return (
@@ -51,7 +105,7 @@ export default function LoginScreen() {
             <Ionicons
               name="mail-outline"
               size={20}
-              color="#999"
+              color={errors.email ? "#FF3B30" : "#999"}
               style={styles.inputIcon}
             />
             <TextInput
@@ -59,18 +113,25 @@ export default function LoginScreen() {
               placeholder="Địa chỉ thư điện tử"
               placeholderTextColor="#999"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email) setErrors({ ...errors, email: "" });
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!isLoading}
             />
           </View>
+          {errors.email ? (
+            <Text style={styles.errorText}>{errors.email}</Text>
+          ) : null}
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <Ionicons
               name="lock-closed-outline"
               size={20}
-              color="#999"
+              color={errors.password ? "#FF3B30" : "#999"}
               style={styles.inputIcon}
             />
             <TextInput
@@ -78,18 +139,39 @@ export default function LoginScreen() {
               placeholder="Mật khẩu"
               placeholderTextColor="#999"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) setErrors({ ...errors, password: "" });
+              }}
               secureTextEntry
+              editable={!isLoading}
             />
           </View>
+          {errors.password ? (
+            <Text style={styles.errorText}>{errors.password}</Text>
+          ) : null}
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
+          <TouchableOpacity
+            style={[
+              styles.loginButton,
+              isLoading && styles.loginButtonDisabled,
+            ]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
+            )}
           </TouchableOpacity>
 
           {/* Forgot Password */}
-          <TouchableOpacity onPress={() => router.push("/register")}>
+          <TouchableOpacity
+            onPress={() => router.push("/register")}
+            disabled={isLoading}
+          >
             <Text style={styles.forgotPassword}>Đăng kí tại đây</Text>
           </TouchableOpacity>
 
@@ -102,13 +184,13 @@ export default function LoginScreen() {
 
           {/* Social Login */}
           <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
               <Ionicons name="logo-google" size={24} color="#DB4437" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
               <Ionicons name="logo-facebook" size={24} color="#4267B2" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
               <Ionicons name="logo-apple" size={24} color="#000" />
             </TouchableOpacity>
           </View>
@@ -184,6 +266,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
   },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 12,
+    marginBottom: 10,
+    marginLeft: 20,
+  },
   loginButton: {
     backgroundColor: "#007AFF",
     borderRadius: 25,
@@ -192,6 +280,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
     marginBottom: 15,
+  },
+  loginButtonDisabled: {
+    backgroundColor: "#0051CC",
+    opacity: 0.7,
   },
   loginButtonText: {
     color: "#FFF",
