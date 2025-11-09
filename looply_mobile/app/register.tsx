@@ -284,7 +284,7 @@ export default function RegisterScreen() {
               editable={!isLoading}
             />
             <TouchableOpacity
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
               disabled={isLoading}
             >
               <Ionicons
