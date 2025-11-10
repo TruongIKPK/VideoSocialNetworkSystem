@@ -114,18 +114,62 @@ export default function SearchScreen() {
     </TouchableOpacity>
   );
 
-  const renderUserItem = ({ item }: { item: UserItem }) => (
+   const getAvatarUri = (avatar: string) => {
+    if (!avatar) {
+      return require("@/assets/images/no_avatar.png");
+    }
+    
+    // Nếu avatar là URL đầy đủ (https://...)
+    if (avatar.startsWith("http")) {
+      return { uri: avatar };
+    }
+    
+    // Nếu avatar là path tương đối (/no_avatar.png)
+    if (avatar === "/no_avatar.png") {
+      return require("@/assets/images/no_avatar.png");
+    }
+    
+    // Nếu avatar là path khác
+    return { uri: `https://videosocialnetworksystem.onrender.com${avatar}` };
+  };
+
+  const renderUserItem = ({ item }: { item: UserSearchResult }) => (
     <TouchableOpacity style={styles.userCard}>
-      <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+      <Image
+        source={getAvatarUri(item.avatar)}
+        style={styles.userAvatar}
+      />
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userUsername}>{item.username}</Text>
-        <Text style={styles.userFollowers}>
-          {item.followers.toLocaleString()} followers
-        </Text>
+        <Text style={styles.userUsername}>@{item.username}</Text>
+        {item.bio ? (
+          <Text style={styles.userBio} numberOfLines={1}>
+            {item.bio}
+          </Text>
+        ) : null}
+        <View style={styles.userStats}>
+          <Text style={styles.userFollowers}>
+            {item.followers.toLocaleString()} followers
+          </Text>
+          <Text style={styles.userFollowing}>
+            · {item.following.toLocaleString()} following
+          </Text>
+        </View>
       </View>
-      <TouchableOpacity style={styles.followButton}>
-        <Text style={styles.followButtonText}>Follow</Text>
+      <TouchableOpacity 
+        style={[
+          styles.followButton,
+          item.followingList && item.followingList.length > 0 && styles.followingButton
+        ]}
+      >
+        <Text 
+          style={[
+            styles.followButtonText,
+            item.followingList && item.followingList.length > 0 && styles.followingButtonText
+          ]}
+        >
+          {item.followingList && item.followingList.length > 0 ? "Following" : "Follow"}
+        </Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -419,6 +463,76 @@ const styles = StyleSheet.create({
   },
   hashtagCount: {
     fontSize: 13,
+    color: "#666",
+    },
+    // User Card
+  userCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+  },
+  userAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F0F0F0",
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000",
+    marginBottom: 2,
+  },
+  userUsername: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 4,
+  },
+  userBio: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 4,
+  },
+  userStats: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  userFollowers: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  userFollowing: {
+    fontSize: 12,
+    color: "#999",
+    marginLeft: 4,
+  },
+  followButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+  },
+  followingButton: {
+    backgroundColor: "#F0F0F0",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  followButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  followingButtonText: {
     color: "#666",
   },
 });
