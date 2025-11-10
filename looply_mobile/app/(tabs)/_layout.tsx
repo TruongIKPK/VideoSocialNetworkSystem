@@ -1,14 +1,16 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { CustomHeader } from "../_layout"; // Import CustomHeader từ ngoài
 
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
+        headerShown: false,
         tabBarActiveTintColor: "#fff",
         tabBarInactiveTintColor: "#666",
-        headerShown: false,
+        tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: "rgba(0,0,0,0.4)",
@@ -24,66 +26,68 @@ export default function TabLayout() {
           borderTopLeftRadius: 10,
           borderTopRightRadius: 10,
         },
-      }}
+      })}
     >
       <Tabs.Screen
-        name="index"
+        name="home/index"
         options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="home" size={28} color={focused ? "#fff" : "#666"} />
+          title: "Home",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="home" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+          headerShown: true,
+          header: () => <CustomHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore/index"
+        options={{
+          title: "Explore",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="compass" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+          headerShown: true,
+          header: () => <CustomHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="camera/index"
+        options={{
+          title: "Camera",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="camera" size={32} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="inbox/index"
         options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name="compass"
-              size={28}
-              color={focused ? "#fff" : "#666"}
-            />
+          title: "Inbox",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="chatbubble" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />
       <Tabs.Screen
-        name="camera"
+        name="inbox/[id]"
         options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name="camera"
-              size={32}
-              color={focused ? "#fff" : "#666"}
-            />
-          ),
+          href: null, 
         }}
       />
+
       <Tabs.Screen
-        name="inbox"
+        name="settings/index"
         options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name="chatbubble"
-              size={28}
-              color={focused ? "#fff" : "#666"}
-            />
-          ),
+          href: null, 
         }}
       />
+
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
-          title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name="person"
-              size={28}
-              color={focused ? "#fff" : "#666"}
-            />
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="person" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />

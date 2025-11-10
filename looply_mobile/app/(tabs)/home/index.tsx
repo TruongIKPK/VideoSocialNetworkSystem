@@ -10,44 +10,160 @@ import {
   ActivityIndicator,
   StatusBar,
 } from "react-native";
-import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
-interface Author {
+interface User {
   _id: string;
   name: string;
-  username: string;
   avatar: string;
 }
 
 interface VideoPost {
   _id: string;
-  videoUrl: string;
+  url: string;
   thumbnail: string;
   title: string;
   description?: string;
-  author: Author;
-  likes: number;
-  likesList: string[];
-  comments: number;
-  shares: number;
-  views: number;
+  user: User;
+  likes?: number;
+  likesCount?: number;
+  likedBy: string[];
+  comments?: number;
+  commentsCount?: number;
+  shares?: number;
+  saves?: number;
+  views?: number;
+  viewedBy?: string[];
+  savedBy?: string[];
   hashtags?: string[];
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   __v?: number;
 }
 
-interface APIResponse {
-  videos: VideoPost[];
-  total: number;
-  page: number;
-  limit: number;
-}
+// Component riêng cho mỗi video item
+const VideoItem = ({
+  item,
+  index,
+  isCurrent,
+  onLike,
+}: {
+  item: VideoPost;
+  index: number;
+  isCurrent: boolean;
+  onLike: (videoId: string) => void;
+}) => {
+  const isLiked = item.likedBy && item.likedBy.includes("currentUserId");
+  const likesCount = item.likes || item.likesCount || 0;
+  const commentsCount = item.comments || item.commentsCount || 0;
+  const sharesCount = item.shares || 0;
+  const viewsCount = item.views || 0;
+
+  const player = useVideoPlayer(item.url, (player) => {
+    player.loop = true;
+    if (isCurrent) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
+
+  useEffect(() => {
+    if (isCurrent) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isCurrent, player]);
+
+  return (
+    <View style={styles.videoContainer}>
+      {/* Video Player */}
+      <VideoView
+        player={player}
+        style={styles.video}
+        contentFit="cover"
+        allowsPictureInPicture={false}
+      />
+
+      {/* Gradient Overlay */}
+      <View style={styles.gradientOverlay} />
+
+      {/* User Info */}
+      <View style={styles.userInfo}>
+        <View style={styles.userInfoLeft}>
+          <Image
+            source={getAvatarUri(item.user.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.userText}>
+            <Text style={styles.username}>{item.user.name}</Text>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {item.description ? (
+              <Text style={styles.description} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+            {item.hashtags && item.hashtags.length > 0 ? (
+              <Text style={styles.hashtags} numberOfLines={1}>
+                {item.hashtags.map((tag) => `#${tag}`).join(" ")}
+              </Text>
+            ) : null}
+            {viewsCount > 0 ? (
+              <View style={styles.videoStats}>
+                <Ionicons name="eye-outline" size={14} color="#FFF" />
+                <Text style={styles.statsText}>{formatNumber(viewsCount)}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <TouchableOpacity style={styles.followButton}>
+          <Text style={styles.followButtonText}>Follow</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {/* Like */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onLike(item._id)}
+        >
+          <Ionicons
+            name={isLiked ? "heart" : "heart-outline"}
+            size={32}
+            color={isLiked ? "#FF3B30" : "#FFF"}
+          />
+          <Text style={styles.actionText}>{formatNumber(likesCount)}</Text>
+        </TouchableOpacity>
+
+        {/* Comment */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>{formatNumber(commentsCount)}</Text>
+        </TouchableOpacity>
+
+        {/* Save */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="bookmark-outline" size={30} color="#FFF" />
+        </TouchableOpacity>
+
+        {/* Share */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="share-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function HomeScreen() {
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -55,7 +171,6 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  const videoRefs = useRef<{ [key: string]: Video | null }>({});
 
   useEffect(() => {
     fetchVideos();
@@ -73,10 +188,11 @@ export default function HomeScreen() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: APIResponse = await response.json();
+      const data = await response.json();
 
-      if (data.videos && data.videos.length > 0) {
-        setVideos(data.videos);
+      // API trả về mảng video trực tiếp, không phải object với property videos
+      if (Array.isArray(data) && data.length > 0) {
+        setVideos(data);
       } else {
         setError("No videos available");
       }
@@ -92,18 +208,6 @@ export default function HomeScreen() {
     if (viewableItems.length > 0) {
       const visibleIndex = viewableItems[0].index;
       setCurrentIndex(visibleIndex);
-
-      // Pause all videos except the current one
-      Object.keys(videoRefs.current).forEach((key) => {
-        const video = videoRefs.current[key];
-        if (video) {
-          if (parseInt(key) === visibleIndex) {
-            video.playAsync().catch((err) => console.log("Play error:", err));
-          } else {
-            video.pauseAsync().catch((err) => console.log("Pause error:", err));
-          }
-        }
-      });
     }
   }).current;
 
@@ -114,19 +218,22 @@ export default function HomeScreen() {
   const handleLike = async (videoId: string) => {
     // Optimistic UI update
     setVideos((prev) =>
-      prev.map((video) =>
-        video._id === videoId
-          ? {
-              ...video,
-              likes: video.likesList.includes("currentUserId")
-                ? video.likes - 1
-                : video.likes + 1,
-              likesList: video.likesList.includes("currentUserId")
-                ? video.likesList.filter((id) => id !== "currentUserId")
-                : [...video.likesList, "currentUserId"],
-            }
-          : video
-      )
+      prev.map((video) => {
+        if (video._id === videoId) {
+          const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+          const currentLikes = video.likes || video.likesCount || 0;
+          
+          return {
+            ...video,
+            likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+            likesCount: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+            likedBy: isCurrentlyLiked
+              ? video.likedBy.filter((id) => id !== "currentUserId")
+              : [...video.likedBy, "currentUserId"],
+          };
+        }
+        return video;
+      })
     );
 
     try {
@@ -139,19 +246,22 @@ export default function HomeScreen() {
       console.error("Like error:", error);
       // Revert on error
       setVideos((prev) =>
-        prev.map((video) =>
-          video._id === videoId
-            ? {
-                ...video,
-                likes: video.likesList.includes("currentUserId")
-                  ? video.likes + 1
-                  : video.likes - 1,
-                likesList: video.likesList.includes("currentUserId")
-                  ? [...video.likesList, "currentUserId"]
-                  : video.likesList.filter((id) => id !== "currentUserId"),
-              }
-            : video
-        )
+        prev.map((video) => {
+          if (video._id === videoId) {
+            const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+            const currentLikes = video.likes || video.likesCount || 0;
+            
+            return {
+              ...video,
+              likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+              likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+              likedBy: isCurrentlyLiked
+                ? [...video.likedBy, "currentUserId"]
+                : video.likedBy.filter((id) => id !== "currentUserId"),
+            };
+          }
+          return video;
+        })
       );
     }
   };
@@ -163,100 +273,13 @@ export default function HomeScreen() {
     item: VideoPost;
     index: number;
   }) => {
-    const isLiked = item.likesList && item.likesList.includes("currentUserId");
-
     return (
-      <View style={styles.videoContainer}>
-        {/* Video Player */}
-        <Video
-          ref={(ref) => {
-            if (ref) {
-              videoRefs.current[index.toString()] = ref;
-            }
-          }}
-          source={{ uri: item.videoUrl }}
-          style={styles.video}
-          resizeMode={ResizeMode.COVER}
-          isLooping
-          shouldPlay={index === currentIndex}
-          useNativeControls={false}
-          onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-            if (status.isLoaded && status.didJustFinish) {
-              // Video finished, replay
-              videoRefs.current[index.toString()]?.replayAsync();
-            }
-          }}
-        />
-
-        {/* Gradient Overlay */}
-        <View style={styles.gradientOverlay} />
-
-        {/* User Info */}
-        <View style={styles.userInfo}>
-          <View style={styles.userInfoLeft}>
-            <Image
-              source={getAvatarUri(item.author.avatar)}
-              style={styles.avatar}
-            />
-            <View style={styles.userText}>
-              <Text style={styles.username}>@{item.author.username}</Text>
-              <Text style={styles.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {item.description ? (
-                <Text style={styles.description} numberOfLines={2}>
-                  {item.description}
-                </Text>
-              ) : null}
-              {item.hashtags && item.hashtags.length > 0 ? (
-                <Text style={styles.hashtags} numberOfLines={1}>
-                  {item.hashtags.map((tag) => `#${tag}`).join(" ")}
-                </Text>
-              ) : null}
-              <View style={styles.videoStats}>
-                <Ionicons name="eye-outline" size={14} color="#FFF" />
-                <Text style={styles.statsText}>{formatNumber(item.views)}</Text>
-              </View>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>Follow</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          {/* Like */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleLike(item._id)}
-          >
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={32}
-              color={isLiked ? "#FF3B30" : "#FFF"}
-            />
-            <Text style={styles.actionText}>{formatNumber(item.likes)}</Text>
-          </TouchableOpacity>
-
-          {/* Comment */}
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
-            <Text style={styles.actionText}>{formatNumber(item.comments)}</Text>
-          </TouchableOpacity>
-
-          {/* Save */}
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="bookmark-outline" size={30} color="#FFF" />
-          </TouchableOpacity>
-
-          {/* Share */}
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={30} color="#FFF" />
-            <Text style={styles.actionText}>{formatNumber(item.shares)}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <VideoItem
+        item={item}
+        index={index}
+        isCurrent={index === currentIndex}
+        onLike={handleLike}
+      />
     );
   };
 

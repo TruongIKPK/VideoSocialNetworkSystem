@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -6,8 +6,8 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Dimensions,
-  SafeAreaView 
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,20 +15,14 @@ const { width } = Dimensions.get('window');
 const itemWidth = (width - 60) / 3; // 3 columns with margins
 
 export default function Profile() {
+  const [activeTab, setActiveTab] = useState('video'); // 'video', 'favorites', 'liked'
+  
   const videos = Array(9).fill(null); // Sample data for 9 videos
+  const favorites = Array(6).fill(null); // Sample data for 6 favorites
+  const liked = Array(12).fill(null); // Sample data for 12 liked videos
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.scrollView}>
         {/* Profile Info */}
         <View style={styles.profileSection}>
@@ -66,27 +60,74 @@ export default function Profile() {
 
           {/* Tab Bar */}
           <View style={styles.tabContainer}>
-            <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-              <Ionicons name="grid" size={16} color="#000" />
-              <Text style={styles.activeTabText}>Video</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'video' && styles.activeTab]}
+              onPress={() => setActiveTab('video')}
+            >
+              <Ionicons 
+                name="grid" 
+                size={16} 
+                color={activeTab === 'video' ? "#000" : "#666"} 
+              />
+              <Text style={activeTab === 'video' ? styles.activeTabText : styles.tabText}>
+                Video
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.tab}>
-              <Ionicons name="bookmark-outline" size={16} color="#666" />
-              <Text style={styles.tabText}>Yêu thích</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}
+              onPress={() => setActiveTab('favorites')}
+            >
+              <Ionicons 
+                name="bookmark-outline" 
+                size={16} 
+                color={activeTab === 'favorites' ? "#000" : "#666"} 
+              />
+              <Text style={activeTab === 'favorites' ? styles.activeTabText : styles.tabText}>
+                Yêu thích
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.tab}>
-              <Ionicons name="heart-outline" size={16} color="#666" />
-              <Text style={styles.tabText}>Đã thích</Text>
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'liked' && styles.activeTab]}
+              onPress={() => setActiveTab('liked')}
+            >
+              <Ionicons 
+                name="heart-outline" 
+                size={16} 
+                color={activeTab === 'liked' ? "#000" : "#666"} 
+              />
+              <Text style={activeTab === 'liked' ? styles.activeTabText : styles.tabText}>
+                Đã thích
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Video Grid */}
+        {/* Content based on active tab */}
         <View style={styles.videoGrid}>
-          {videos.map((_, index) => (
+          {activeTab === 'video' && videos.map((_, index) => (
             <TouchableOpacity key={index} style={styles.videoItem}>
               <Image 
                 source={{ uri: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba' }}
+                style={styles.videoThumbnail}
+                contentFit="cover"
+              />
+            </TouchableOpacity>
+          ))}
+          
+          {activeTab === 'favorites' && favorites.map((_, index) => (
+            <TouchableOpacity key={index} style={styles.videoItem}>
+              <Image 
+                source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b' }}
+                style={styles.videoThumbnail}
+                contentFit="cover"
+              />
+            </TouchableOpacity>
+          ))}
+          
+          {activeTab === 'liked' && liked.map((_, index) => (
+            <TouchableOpacity key={index} style={styles.videoItem}>
+              <Image 
+                source={{ uri: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256' }}
                 style={styles.videoThumbnail}
                 contentFit="cover"
               />
@@ -118,7 +159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#fff',
   },
   avatar: {
     width: 80,

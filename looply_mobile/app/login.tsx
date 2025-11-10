@@ -158,6 +158,10 @@ export default function LoginScreen() {
             <Text style={styles.registerLink}>Đăng kí tại đây</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity onPress={() => router.replace("/(tabs)/home")}>
+            <Text style={styles.forgotPassword}>Quay về trang chủ</Text>
+          </TouchableOpacity>
+
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />

@@ -453,4 +453,10 @@ const styles = StyleSheet.create({
     color: "#999",
     fontSize: 14,
   },
+  forgotPassword: {
+    marginTop: 10,
+    color: "#007AFF",
+    fontSize: 14,
+    textAlign: "center",
+  },
 });
