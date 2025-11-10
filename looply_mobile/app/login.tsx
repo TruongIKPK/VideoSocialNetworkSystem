@@ -19,6 +19,7 @@ import authService, { validateLoginForm } from "@/service/authService";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -115,9 +116,19 @@ export default function LoginScreen() {
                 setPassword(text);
                 if (errors.password) setErrors({ ...errors, password: "" });
               }}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               editable={!isLoading}
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              disabled={isLoading}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#999"
+              />
+            </TouchableOpacity>
           </View>
           {errors.password ? (
             <Text style={styles.errorText}>{errors.password}</Text>

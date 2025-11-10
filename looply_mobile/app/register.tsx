@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F8F8",
     borderRadius: 25,
     paddingHorizontal: 20,
-    marginBottom: 5,
+    marginBottom: 20,
     height: 50,
   },
   inputIcon: {
