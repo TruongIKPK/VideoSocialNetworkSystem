@@ -18,6 +18,11 @@ import searchService, {
   HashtagSearchResult,
 } from "@/service/searchService";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  getAvatarUri,
+  getThumbnailUri,
+  formatNumber,
+} from "@/utils/imageHelpers";
 
 const { width } = Dimensions.get("window");
 const ITEM_WIDTH = (width - 48) / 2;
@@ -119,28 +124,11 @@ export default function SearchScreen() {
     }
   };
 
-  const getAvatarUri = (avatar: string) => {
-    if (!avatar) {
-      return require("@/assets/images/no_avatar.png");
-    }
-
-    if (avatar.startsWith("http")) {
-      return { uri: avatar };
-    }
-
-    if (avatar === "/no_avatar.png" || avatar === "no_avatar.png") {
-      return require("@/assets/images/no_avatar.png");
-    }
-
-    return { uri: `https://videosocialnetworksystem.onrender.com${avatar}` };
-  };
-
   const renderVideoItem = ({ item }: { item: VideoSearchResult }) => (
     <TouchableOpacity style={styles.videoCard}>
       <Image
-        source={{ uri: item.thumbnail }}
+        source={getThumbnailUri(item.thumbnail)}
         style={styles.videoThumbnail}
-        defaultSource={require("@/assets/images/placeholder.png")}
       />
       <View style={styles.videoInfo}>
         <Text style={styles.videoTitle} numberOfLines={2}>
@@ -148,7 +136,7 @@ export default function SearchScreen() {
         </Text>
         <View style={styles.videoMeta}>
           <Image
-            source={getAvatarUri(item.author?.avatar || "")}
+            source={getAvatarUri(item.author?.avatar)}
             style={styles.authorAvatar}
           />
           <Text style={styles.videoAuthor} numberOfLines={1}>
@@ -157,18 +145,14 @@ export default function SearchScreen() {
         </View>
         <View style={styles.videoStats}>
           <Ionicons name="eye-outline" size={12} color="#999" />
-          <Text style={styles.videoStatsText}>
-            {item.views?.toLocaleString() || 0}
-          </Text>
+          <Text style={styles.videoStatsText}>{formatNumber(item.views)}</Text>
           <Ionicons
             name="heart-outline"
             size={12}
             color="#999"
             style={{ marginLeft: 8 }}
           />
-          <Text style={styles.videoStatsText}>
-            {item.likes?.toLocaleString() || 0}
-          </Text>
+          <Text style={styles.videoStatsText}>{formatNumber(item.likes)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -194,10 +178,10 @@ export default function SearchScreen() {
           ) : null}
           <View style={styles.userStatsContainer}>
             <Text style={styles.userFollowers}>
-              {item.followers?.toLocaleString() || 0} followers
+              {formatNumber(item.followers)} followers
             </Text>
             <Text style={styles.userFollowing}>
-              · {item.following?.toLocaleString() || 0} following
+              · {formatNumber(item.following)} following
             </Text>
           </View>
         </View>
@@ -227,7 +211,7 @@ export default function SearchScreen() {
           #{item.name}
         </Text>
         <Text style={styles.hashtagCount}>
-          {item.count?.toLocaleString() || 0} bài viết
+          {formatNumber(item.count)} bài viết
         </Text>
       </View>
       {item.trending && (

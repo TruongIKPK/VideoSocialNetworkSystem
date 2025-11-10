@@ -13,6 +13,7 @@ import {
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -108,19 +109,6 @@ export default function HomeScreen() {
 
   const viewabilityConfig = {
     itemVisiblePercentThreshold: 50,
-  };
-
-  const getAvatarUri = (avatar: string) => {
-    if (!avatar) {
-      return require("@/assets/images/no_avatar.png");
-    }
-    if (avatar.startsWith("http")) {
-      return { uri: avatar };
-    }
-    if (avatar === "/no_avatar.png") {
-      return require("@/assets/images/no_avatar.png");
-    }
-    return { uri: `https://videosocialnetworksystem.onrender.com${avatar}` };
   };
 
   const handleLike = async (videoId: string) => {
@@ -227,9 +215,7 @@ export default function HomeScreen() {
               ) : null}
               <View style={styles.videoStats}>
                 <Ionicons name="eye-outline" size={14} color="#FFF" />
-                <Text style={styles.statsText}>
-                  {item.views?.toLocaleString() || 0}
-                </Text>
+                <Text style={styles.statsText}>{formatNumber(item.views)}</Text>
               </View>
             </View>
           </View>
@@ -250,17 +236,13 @@ export default function HomeScreen() {
               size={32}
               color={isLiked ? "#FF3B30" : "#FFF"}
             />
-            <Text style={styles.actionText}>
-              {item.likes?.toLocaleString() || 0}
-            </Text>
+            <Text style={styles.actionText}>{formatNumber(item.likes)}</Text>
           </TouchableOpacity>
 
           {/* Comment */}
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
-            <Text style={styles.actionText}>
-              {item.comments?.toLocaleString() || 0}
-            </Text>
+            <Text style={styles.actionText}>{formatNumber(item.comments)}</Text>
           </TouchableOpacity>
 
           {/* Save */}
@@ -271,9 +253,7 @@ export default function HomeScreen() {
           {/* Share */}
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="share-outline" size={30} color="#FFF" />
-            <Text style={styles.actionText}>
-              {item.shares?.toLocaleString() || 0}
-            </Text>
+            <Text style={styles.actionText}>{formatNumber(item.shares)}</Text>
           </TouchableOpacity>
         </View>
       </View>
