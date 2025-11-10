@@ -88,19 +88,6 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            disabled={isLoading}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back" size={28} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Đăng kí</Text>
-          <View style={{ width: 28 }} />
-        </View>
-
         <View style={styles.content}>
           {/* Logo */}
           <View style={styles.logoContainer}>
@@ -318,17 +305,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: "#FFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    paddingHorizontal: 30,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   backButton: {
     padding: 4,
@@ -340,17 +319,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: "#FFF",
-    marginHorizontal: 20,
-    marginTop: 60,
-    marginBottom: 20,
-    borderRadius: 20,
-    padding: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
   },
   logoContainer: {
     alignItems: "center",

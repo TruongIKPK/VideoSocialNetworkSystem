@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import authService, { validateLoginForm } from "@/service/authService";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -22,58 +23,28 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  // Hàm validate email
-  const validateEmail = (text: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(text);
-  };
-
-  // Hàm validate form
-  const validateForm = () => {
-    let newErrors = { email: "", password: "" };
-    let isValid = true;
-
-    if (!email.trim()) {
-      newErrors.email = "Email không được để trống";
-      isValid = false;
-    } else if (!validateEmail(email)) {
-      newErrors.email = "Email không hợp lệ";
-      isValid = false;
-    }
-
-    if (!password.trim()) {
-      newErrors.password = "Mật khẩu không được để trống";
-      isValid = false;
-    } else if (password.length < 6) {
-      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
   const handleLogin = async () => {
-    if (!validateForm()) {
+    const validationErrors = validateLoginForm(email, password);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
     setIsLoading(true);
     try {
-      // TODO: Gọi API đăng nhập ở đây
-      console.log("Login:", email, password);
+      const response = await authService.login({ email, password });
 
-      // Tạm thời: Nếu validation pass thì vào home
-      // Sẽ thay thế bằng API call thực tế
-      setTimeout(() => {
-        setIsLoading(false);
-        Alert.alert("Thành công", "Đăng nhập thành công!", [
+      if (response.success) {
+        Alert.alert("Thành công", response.message, [
           { text: "OK", onPress: () => router.push("/(tabs)") },
         ]);
-      }, 1000);
+      } else {
+        Alert.alert("Lỗi", response.message);
+      }
     } catch (error) {
-      setIsLoading(false);
       Alert.alert("Lỗi", "Đăng nhập thất bại. Vui lòng thử lại!");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,6 +56,7 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
           {/* Logo */}
@@ -167,12 +139,12 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Forgot Password */}
+          {/* Register Link */}
           <TouchableOpacity
             onPress={() => router.push("/register")}
             disabled={isLoading}
           >
-            <Text style={styles.forgotPassword}>Đăng kí tại đây</Text>
+            <Text style={styles.registerLink}>Đăng kí tại đây</Text>
           </TouchableOpacity>
 
           {/* Divider */}
@@ -207,20 +179,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 30,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   content: {
     flex: 1,
-    backgroundColor: "#FFF",
-    marginHorizontal: 20,
-    marginTop: 60,
-    marginBottom: 20,
-    borderRadius: 20,
-    padding: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
   },
   logoContainer: {
     alignItems: "center",
@@ -295,6 +259,13 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 14,
     marginBottom: 30,
+  },
+  registerLink: {
+    textAlign: "center",
+    color: "#007AFF",
+    fontSize: 15,
+    marginBottom: 32,
+    fontWeight: "500",
   },
   divider: {
     flexDirection: "row",
