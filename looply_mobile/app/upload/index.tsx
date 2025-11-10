@@ -27,7 +27,6 @@ export default function UploadScreen() {
         <VideoView
           player={player}
           style={styles.preview}
-          allowsFullscreen
           allowsPictureInPicture
         />
       ) : null}
