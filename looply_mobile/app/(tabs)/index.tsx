@@ -1,204 +1,353 @@
-import React, { use, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { Video, ResizeMode } from "expo-av";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width, height } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+
+interface VideoPost {
+  _id: string;
+  videoUrl: string;
+  thumbnail: string;
+  title: string;
+  description: string;
+  author: {
+    _id: string;
+    name: string;
+    username: string;
+    avatar: string;
+  };
+  likes: number;
+  comments: number;
+  shares: number;
+  views: number;
+  isLiked: boolean;
+  isSaved: boolean;
+  createdAt: string;
+}
 
 export default function HomeScreen() {
-  const video = useRef(null);
-  const [isLike, setIsLike] = useState(false);
-  const [isSave, setIsSave] = useState(false);
-  const [status, setStatus] = useState({});
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [videos, setVideos] = useState<VideoPost[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const flatListRef = useRef<FlatList>(null);
+  const videoRefs = useRef<{ [key: string]: Video | null }>({});
 
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      video.current.pauseAsync();
-    } else {
-      video.current.playAsync();
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
+  const fetchVideos = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        "https://videosocialnetworksystem.onrender.com/api/videos/feed"
+      );
+      const data = await response.json();
+
+      if (data.videos) {
+        setVideos(data.videos);
+      }
+    } catch (error) {
+      console.error("Fetch videos error:", error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Background Video */}
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      const visibleIndex = viewableItems[0].index;
+      setCurrentIndex(visibleIndex);
+
+      // Pause all videos except the current one
+      Object.keys(videoRefs.current).forEach((key) => {
+        const video = videoRefs.current[key];
+        if (video) {
+          if (parseInt(key) === visibleIndex) {
+            video.playAsync();
+          } else {
+            video.pauseAsync();
+          }
+        }
+      });
+    }
+  }).current;
+
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 50,
+  };
+
+  const handleLike = async (videoId: string) => {
+    setVideos((prev) =>
+      prev.map((video) =>
+        video._id === videoId
+          ? {
+              ...video,
+              isLiked: !video.isLiked,
+              likes: video.isLiked ? video.likes - 1 : video.likes + 1,
+            }
+          : video
+      )
+    );
+
+    // TODO: Call API to like/unlike
+  };
+
+  const handleSave = async (videoId: string) => {
+    setVideos((prev) =>
+      prev.map((video) =>
+        video._id === videoId ? { ...video, isSaved: !video.isSaved } : video
+      )
+    );
+
+    // TODO: Call API to save/unsave
+  };
+
+  const renderVideoItem = ({
+    item,
+    index,
+  }: {
+    item: VideoPost;
+    index: number;
+  }) => (
+    <View style={styles.videoContainer}>
+      {/* Video Player */}
       <Video
-        ref={video}
-        style={styles.backgroundVideo}
-        source={{
-          uri: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/vnjldnkahpmji1fywijl.mp4',
+        ref={(ref) => {
+          if (ref) {
+            videoRefs.current[index.toString()] = ref;
+          }
         }}
-        useNativeControls={false}
+        source={{ uri: item.videoUrl }}
+        style={styles.video}
         resizeMode={ResizeMode.COVER}
         isLooping
-        shouldPlay={isPlaying}
-        onPlaybackStatusUpdate={status => setStatus(() => status)}
+        shouldPlay={index === currentIndex}
+        useNativeControls={false}
       />
-      
-      {/* Overlay để nhấn play/pause */}
-      <TouchableOpacity 
-        style={styles.videoOverlay} 
-        onPress={togglePlayPause}
-        activeOpacity={1} // Không có hiệu ứng khi nhấn
-      />
-      
-      {/* Right Side Actions */}
-      <View style={styles.rightActions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e' }}
+
+      {/* User Info */}
+      <View style={styles.userInfo}>
+        <View style={styles.userInfoLeft}>
+          <Image
+            source={{
+              uri: item.author.avatar || "https://via.placeholder.com/40",
+            }}
             style={styles.avatar}
           />
-          <View style={styles.followButton}>
-            <Text style={styles.plusIcon}>+</Text>
+          <View style={styles.userText}>
+            <Text style={styles.username}>@{item.author.username}</Text>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {item.description ? (
+              <Text style={styles.description} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
           </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="heart" size={32} color={isLike ? "red" : "#fff"} onPress={() => setIsLike(!isLike)}/>
-          <Text style={styles.actionText}>94.6M</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble" size={28} color="#fff" />
-          <Text style={styles.actionText}>320K</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="arrow-redo" size={28} color="#fff" />
-          <Text style={styles.actionText}>81.7K</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="bookmark" size={28} color={isSave ? "yellow" : "#fff"} onPress={() => setIsSave(!isSave)}/>
-          <Text style={styles.actionText}>59M</Text>
+        </View>
+        <TouchableOpacity style={styles.followButton}>
+          <Text style={styles.followButtonText}>Follow</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Bottom Content */}
-      <View style={styles.bottomSection}>
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
-          style={styles.bottomGradient}
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {/* Like */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLike(item._id)}
         >
-          <View style={styles.bottomContent}>
-            <View style={styles.userInfo}>
-              <Text style={styles.username}>@Abd_Hakim_Zayd ✓</Text>
-              <Text style={styles.description}>living 🐱</Text>
-              <Text style={styles.soundInfo}>🎵 Original sound</Text>
-            </View>
-          </View>
-        </LinearGradient>
+          <Ionicons
+            name={item.isLiked ? "heart" : "heart-outline"}
+            size={32}
+            color={item.isLiked ? "#FF3B30" : "#FFF"}
+          />
+          <Text style={styles.actionText}>
+            {item.likes?.toLocaleString() || 0}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Comment */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>
+            {item.comments?.toLocaleString() || 0}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Save */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleSave(item._id)}
+        >
+          <Ionicons
+            name={item.isSaved ? "bookmark" : "bookmark-outline"}
+            size={30}
+            color="#FFF"
+          />
+          <Text style={styles.actionText}>Save</Text>
+        </TouchableOpacity>
+
+        {/* Share */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="share-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>
+            {item.shares?.toLocaleString() || 0}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading videos...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <FlatList
+        ref={flatListRef}
+        data={videos}
+        renderItem={renderVideoItem}
+        keyExtractor={(item) => item._id}
+        pagingEnabled
+        showsVerticalScrollIndicator={false}
+        snapToInterval={SCREEN_HEIGHT}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(data, index) => ({
+          length: SCREEN_HEIGHT,
+          offset: SCREEN_HEIGHT * index,
+          index,
+        })}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
-  backgroundVideo: {
-    position: 'absolute',
-    width: width,
-    height: height,
-    top: 0,
-    left: 0,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
   },
-  videoOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 1,
-  },
-  rightActions: {
-    position: 'absolute',
-    right: 15,
-    top: height * 0.3,
-    alignItems: 'center',
-    zIndex: 2, 
-  },
-  actionButton: {
-    alignItems: 'center',
-    marginVertical: 15,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  followButton: {
-    backgroundColor: '#ff4444',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -12,
-  },
-  plusIcon: {
-    color: '#fff',
+  loadingText: {
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: 'bold',
+    marginTop: 12,
   },
-  actionText: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 5,
-    fontWeight: '600',
+  videoContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    position: "relative",
   },
-  bottomSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    zIndex: 2, // Đảm bảo nó ở trên overlay
-  },
-  bottomGradient: {
-    flex: 1,
-    padding: 10,
-  },
-  bottomContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    marginBottom: 80,
+  video: {
+    width: "100%",
+    height: "100%",
   },
   userInfo: {
-    maxWidth: width * 0.7,
+    position: "absolute",
+    bottom: 120,
+    left: 0,
+    right: 80,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  userInfoLeft: {
+    flexDirection: "row",
+    flex: 1,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#FFF",
+    marginRight: 12,
+  },
+  userText: {
+    flex: 1,
   },
   username: {
-    color: '#fff',
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: "600",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  title: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   description: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 5,
-  },
-  soundInfo: {
-    color: '#fff',
+    color: "#FFF",
     fontSize: 13,
-    opacity: 0.8,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  playButton: {
-    padding: 10,
+  followButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    marginLeft: 12,
   },
-  volumeButton: {
-    padding: 10,
+  followButtonText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  actionButtons: {
+    position: "absolute",
+    right: 12,
+    bottom: 120,
+    gap: 24,
+  },
+  actionButton: {
+    alignItems: "center",
+    gap: 4,
+  },
+  actionText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "600",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });
