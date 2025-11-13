@@ -1,33 +1,94 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Tabs } from "expo-router";
+import React from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { CustomHeader } from "../_layout"; // Import CustomHeader từ ngoài
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: "#fff",
+        tabBarInactiveTintColor: "#666",
+        tabBarShowLabel: true,
+        tabBarStyle: {
+          position: "absolute",
+          backgroundColor: "rgba(0,0,0,0.4)",
+          borderTopWidth: 0,
+          paddingBottom: 25,
+          paddingTop: 15,
+          height: 80,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 10,
+          zIndex: 10,
+          borderTopLeftRadius: 10,
+          borderTopRightRadius: 10,
+        },
+      })}
+    >
       <Tabs.Screen
-        name="index"
+        name="home/index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="home" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+          headerShown: true,
+          header: () => <CustomHeader />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="explore/index"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Explore",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="compass" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+          headerShown: true,
+          header: () => <CustomHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="camera/index"
+        options={{
+          title: "Camera",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="camera" size={32} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inbox/index"
+        options={{
+          title: "Inbox",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="chatbubble" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="inbox/[id]"
+        options={{
+          href: null, 
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings/index"
+        options={{
+          href: null, 
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile/index"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons name="person" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+          ),
         }}
       />
     </Tabs>

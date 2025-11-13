@@ -10,6 +10,7 @@ import { router } from "expo-router";
 import { IMAGES } from "../../../assets";
 import { format, isToday, isYesterday, isThisYear } from "date-fns";
 import { vi } from "date-fns/locale";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const messages = [
   {
@@ -56,7 +57,7 @@ function formatChatTime(dateInput: Date | string | number) {
 
 export default function InboxList() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.header}>Hộp thư</Text>
 
       <FlatList
@@ -88,7 +89,7 @@ export default function InboxList() {
           );
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
