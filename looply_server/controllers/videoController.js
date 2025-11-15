@@ -84,3 +84,18 @@ export const searchVideos = async (req, res) => {
   }
 };
 
+export const getLatestVideos = async (req, res) => {
+  try {
+    const videos = await Video.find()
+      .sort({ createdAt: -1 })
+      .limit(3);
+    
+    res.json({
+      total: videos.length,
+      videos: videos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
