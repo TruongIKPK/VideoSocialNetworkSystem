@@ -256,6 +256,27 @@ export const authService = {
       return null;
     }
   },
+
+  /**
+   * Lấy headers với Authorization Bearer token để dùng trong các API calls
+   * @returns Promise với headers object chứa Authorization Bearer token nếu có
+   */
+  async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const token = await getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Error getting token for headers:", error);
+    }
+
+    return headers;
+  },
 };
 
 export default authService;
