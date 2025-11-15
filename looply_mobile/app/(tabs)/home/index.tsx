@@ -54,17 +54,22 @@ const VideoItem = ({
   index,
   isCurrent,
   onLike,
+  onVideoProgress,
 }: {
   item: VideoPost;
   index: number;
   isCurrent: boolean;
   onLike: (videoId: string) => void;
+  onVideoProgress: (videoId: string, duration: number) => void;
 }) => {
   const isLiked = item.likedBy && item.likedBy.includes("currentUserId");
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
   const viewsCount = item.views || 0;
+
+  const watchTimeRef = useRef(0);
+  const intervalRef = useRef<number | null>(null);
 
   const player = useVideoPlayer(item.url, (player) => {
     player.loop = true;
@@ -78,9 +83,33 @@ const VideoItem = ({
   useEffect(() => {
     if (isCurrent) {
       player.play();
+      // Bắt đầu đếm thời gian xem
+      watchTimeRef.current = 0;
+      intervalRef.current = setInterval(() => {
+        watchTimeRef.current += 1;
+
+        // Gửi thông tin sau mỗi 5 giây
+        if (watchTimeRef.current % 5 === 0) {
+          onVideoProgress(item._id, watchTimeRef.current);
+        }
+      }, 1000);
     } else {
       player.pause();
+
+      // Dừng đếm và gửi thông tin cuối cùng
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        if (watchTimeRef.current > 0) {
+          onVideoProgress(item._id, watchTimeRef.current);
+        }
+      }
     }
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [isCurrent, player]);
 
   return (
@@ -172,38 +201,129 @@ export default function HomeScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     fetchVideos();
   }, []);
 
-  const fetchVideos = async () => {
+  // Theo dõi khi xem đến video thứ 2 để load thêm
+  useEffect(() => {
+      if (currentIndex === 1 && videos.length === 3) {
+        // Đã xem đến video thứ 2, load thêm 3 video
+        fetchMoreVideos();
+      }
+    }, [currentIndex]);
+
+    const fetchVideos = async () => {
+    console.log("🔄 Starting fetchVideos...");
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        "https://videosocialnetworksystem.onrender.com/api/videos"
-      );
+      const url = `${API_BASE_URL}/videos/latest`;
+      console.log("📡 Fetching from URL:", url);
+      
+      const response = await fetch(url);
+      console.log("📥 Response status:", response.status);
+      console.log("📥 Response ok:", response.ok);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("📦 Raw data received:", data);
+      console.log("📦 Data type:", typeof data);
+      console.log("📦 Is array:", Array.isArray(data));
 
-      // API trả về mảng video trực tiếp, không phải object với property videos
-      if (Array.isArray(data) && data.length > 0) {
-        setVideos(data);
+      // API có thể trả về { total, videos } hoặc trực tiếp array
+      const videoList = data.videos || data;
+      console.log("🎬 Video list:", videoList);
+      console.log("🎬 Video list length:", videoList?.length);
+      console.log("🎬 Is videoList array:", Array.isArray(videoList));
+
+      if (Array.isArray(videoList) && videoList.length > 0) {
+        console.log("✅ Setting videos:", videoList.length, "videos");
+        setVideos(videoList);
       } else {
+        console.log("❌ No videos available");
+        console.log("❌ videoList:", videoList);
         setError("No videos available");
       }
     } catch (error) {
-      console.error("Fetch videos error:", error);
+      console.error("❌ Fetch videos error:", error);
+      console.error("❌ Error details:", JSON.stringify(error, null, 2));
       setError("Failed to load videos. Please try again.");
     } finally {
+      console.log("🏁 Setting isLoading to false");
       setIsLoading(false);
     }
+  };
+
+  const fetchMoreVideos = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/videos/random?limit=3`
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const videoList = data.videos || data;
+
+      if (Array.isArray(videoList) && videoList.length > 0) {
+        // Thêm video mới vào danh sách
+        setVideos((prev) => [...prev, ...videoList]);
+      }
+    } catch (error) {
+      console.error("Fetch more videos error:", error);
+    }
+  };
+
+  const recordVideoView = async (videoId: string, watchDuration: number) => {
+    try {
+      // Lấy token nếu user đã đăng nhập
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        // Nếu chưa đăng nhập, chỉ lưu local
+        console.log(`Video ${videoId} watched for ${watchDuration}s (not logged in)`);
+        return;
+      }
+
+      // Kiểm tra đã gửi chưa để tránh spam
+      if (viewedVideos.has(videoId)) {
+        return;
+      }
+
+      const completed = watchDuration > 10; // Coi như xem hết nếu xem > 10s
+
+      const response = await fetch(`${API_BASE_URL}/video-views/record`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          videoId,
+          watchDuration,
+          completed,
+        }),
+      });
+
+      if (response.ok) {
+        setViewedVideos((prev) => new Set(prev).add(videoId));
+        console.log(`✅ Recorded view for video ${videoId}: ${watchDuration}s`);
+      }
+    } catch (error) {
+      console.error("Record video view error:", error);
+    }
+  };
+
+  const handleVideoProgress = (videoId: string, duration: number) => {
+    // Gửi thông tin xem video về server
+    recordVideoView(videoId, duration);
   };
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -224,7 +344,7 @@ export default function HomeScreen() {
         if (video._id === videoId) {
           const isCurrentlyLiked = video.likedBy.includes("currentUserId");
           const currentLikes = video.likes || video.likesCount || 0;
-          
+
           return {
             ...video,
             likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
@@ -239,11 +359,25 @@ export default function HomeScreen() {
     );
 
     try {
-      // TODO: Call API to like/unlike
-      // const response = await fetch(`API_URL/videos/${videoId}/like`, {
-      //   method: 'POST',
-      //   headers: { 'Authorization': 'Bearer TOKEN' }
-      // });
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        console.log("User not logged in");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/likes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to like video");
+      }
     } catch (error) {
       console.error("Like error:", error);
       // Revert on error
@@ -252,7 +386,7 @@ export default function HomeScreen() {
           if (video._id === videoId) {
             const isCurrentlyLiked = video.likedBy.includes("currentUserId");
             const currentLikes = video.likes || video.likesCount || 0;
-            
+
             return {
               ...video,
               likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
@@ -281,6 +415,7 @@ export default function HomeScreen() {
         index={index}
         isCurrent={index === currentIndex}
         onLike={handleLike}
+        onVideoProgress={handleVideoProgress}
       />
     );
   };
