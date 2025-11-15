@@ -10,6 +10,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: "#fff",
         tabBarInactiveTintColor: "#666",
+        tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: "rgba(0,0,0,0.4)",
@@ -23,61 +24,65 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="home/index"
         options={{
-          tabBarLabel: "Home",
+          title: "Home",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="home" size={28} color={focused ? "#fff" : "#666"} />
+            <Ionicons name="home" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
           headerShown: true,
           header: () => <CustomHeader />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="explore/index"
         options={{
-          tabBarLabel: "Explore",
+          title: "Explore",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="compass" size={28} color={focused ? "#fff" : "#666"} />
+            <Ionicons name="compass" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
           headerShown: true,
           header: () => <CustomHeader />,
         }}
       />
       <Tabs.Screen
-        name="camera"
+        name="camera/index"
         options={{
           title: "Camera",
-          tabBarLabel: "Camera",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="camera" size={30} color={focused ? "#fff" : "#666"} />
+            <Ionicons name="camera" size={32} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />
       <Tabs.Screen
-        name="inbox"
+        name="inbox/index"
         options={{
-          tabBarLabel: "Inbox",
+          title: "Inbox",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="chatbubble" size={28} color={focused ? "#fff" : "#666"} />
+            <Ionicons name="chatbubble" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarLabel: "Profile",
-          tabBarIcon: ({ focused }) => (
-            <Ionicons name="person" size={28} color={focused ? "#fff" : "#666"} />
-          ),
+          href: null, 
         }}
       />
+
       <Tabs.Screen
-        name="settings"
+        name="settings/index"
         options={{
-          tabBarLabel: "Settings",
+          href: null, 
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile/index"
+        options={{
+          title: "Profile",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="settings" size={28} color={focused ? "#fff" : "#666"} />
+            <Ionicons name="person" size={28} color={focused ? "#fff" : "#B5B5B5"} />
           ),
         }}
       />

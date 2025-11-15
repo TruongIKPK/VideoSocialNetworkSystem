@@ -6,25 +6,30 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Video,
 } from "react-native";
-import { Video as ExpoVideo } from "expo-av";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 export default function UploadScreen() {
-  const { uri } = useLocalSearchParams(); // lấy video từ camera
+  const { uri } = useLocalSearchParams();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
+  const videoUri = Array.isArray(uri) ? uri[0] : uri ?? "";
+
+  const player = useVideoPlayer(videoUri, (player) => {
+    player.loop = true;
+    player.play();
+  });
+
   return (
     <View style={styles.container}>
-      {uri && (
-        <ExpoVideo
-          source={{ uri }}
+      {uri ? (
+        <VideoView
+          player={player}
           style={styles.preview}
-          useNativeControls
-          resizeMode="contain"
+          allowsPictureInPicture
         />
-      )}
+      ) : null}
 
       <Text style={styles.label}>Tiêu đề:</Text>
       <TextInput
