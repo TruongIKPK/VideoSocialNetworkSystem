@@ -12,7 +12,7 @@ export const saveToken = async (token: string): Promise<boolean> => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     return true;
   } catch (error) {
-    console.error("Error saving token:", error);
+    console.error("Lỗi khi lưu token:", error);
     return false;
   }
 };
@@ -26,8 +26,8 @@ export const getToken = async (): Promise<string | null> => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     return token;
   } catch (error) {
-    console.error("Error getting token:", error);
-    return null;
+      console.error("Lỗi khi lấy token:", error);
+      return null;
   }
 };
 
@@ -40,7 +40,7 @@ export const removeToken = async (): Promise<boolean> => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     return true;
   } catch (error) {
-    console.error("Error removing token:", error);
+    console.error("Lỗi khi xóa token:", error);
     return false;
   }
 };
@@ -54,7 +54,7 @@ export const hasToken = async (): Promise<boolean> => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     return token !== null;
   } catch (error) {
-    console.error("Error checking token:", error);
+    console.error("Lỗi khi kiểm tra token:", error);
     return false;
   }
 };
