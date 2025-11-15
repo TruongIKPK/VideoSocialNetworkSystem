@@ -1,336 +1,498 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  StatusBar,
+} from "react-native";
+import { VideoView, useVideoPlayer } from "expo-video";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 
-const { width, height } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Dữ liệu mẫu cho các video
-const videoData = [
-  {
-    id: '1',
-    videoUrl: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/vnjldnkahpmji1fywijl.mp4',
-    username: '@Abd_Hakim_Zayd ✓',
-    description: 'living 🐱',
-    soundInfo: '🎵 Original sound',
-    likes: '94.6M',
-    comments: '320K',
-    shares: '81.7K',
-    saves: '59M',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
-  },
-  {
-    id: '2',
-    videoUrl: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/cymmx9xquwcboi0gryfa.mp4',
-    username: '@user2 ✓',
-    description: 'Amazing content!',
-    soundInfo: '🎵 Trending sound',
-    likes: '2.1M',
-    comments: '15K',
-    shares: '8.2K',
-    saves: '12M',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786',
-  },
-  {
-    id: '3',
-    videoUrl: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/cymmx9xquwcboi0gryfa.mp4',
-    username: '@user3 ✓',
-    description: 'Fun times!',
-    soundInfo: '🎵 Popular sound',
-    likes: '5.3M',
-    comments: '45K',
-    shares: '12K',
-    saves: '8M',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
-  },
-  {
-    id: '4',
-    videoUrl: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/vnjldnkahpmji1fywijl.mp4',
-    username: '@user4 ✓',
-    description: 'Another amazing video!',
-    soundInfo: '🎵 Viral sound',
-    likes: '8.2M',
-    comments: '67K',
-    shares: '15K',
-    saves: '25M',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80',
-  },
-  {
-    id: '5',
-    videoUrl: 'https://res.cloudinary.com/dcnmynqty/video/upload/videos/cymmx9xquwcboi0gryfa.mp4',
-    username: '@user5 ✓',
-    description: 'Creative content!',
-    soundInfo: '🎵 Original sound',
-    likes: '3.7M',
-    comments: '28K',
-    shares: '9K',
-    saves: '18M',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
-  },
-];
+interface User {
+  _id: string;
+  name: string;
+  avatar: string;
+}
+
+interface VideoPost {
+  _id: string;
+  url: string;
+  thumbnail: string;
+  title: string;
+  description?: string;
+  user: User;
+  likes?: number;
+  likesCount?: number;
+  likedBy: string[];
+  comments?: number;
+  commentsCount?: number;
+  shares?: number;
+  saves?: number;
+  views?: number;
+  viewedBy?: string[];
+  savedBy?: string[];
+  hashtags?: string[];
+  createdAt: string;
+  updatedAt?: string;
+  __v?: number;
+}
+
+// Component riêng cho mỗi video item
+const VideoItem = ({
+  item,
+  index,
+  isCurrent,
+  onLike,
+}: {
+  item: VideoPost;
+  index: number;
+  isCurrent: boolean;
+  onLike: (videoId: string) => void;
+}) => {
+  const isLiked = item.likedBy && item.likedBy.includes("currentUserId");
+  const likesCount = item.likes || item.likesCount || 0;
+  const commentsCount = item.comments || item.commentsCount || 0;
+  const sharesCount = item.shares || 0;
+  const viewsCount = item.views || 0;
+
+  const player = useVideoPlayer(item.url, (player) => {
+    player.loop = true;
+    if (isCurrent) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
+
+  useEffect(() => {
+    if (isCurrent) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isCurrent, player]);
+
+  return (
+    <View style={styles.videoContainer}>
+      {/* Video Player */}
+      <VideoView
+        player={player}
+        style={styles.video}
+        contentFit="cover"
+        allowsPictureInPicture={false}
+      />
+
+      {/* Gradient Overlay */}
+      <View style={styles.gradientOverlay} />
+
+      {/* User Info */}
+      <View style={styles.userInfo}>
+        <View style={styles.userInfoLeft}>
+          <Image
+            source={getAvatarUri(item.user.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.userText}>
+            <Text style={styles.username}>{item.user.name}</Text>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            {item.description ? (
+              <Text style={styles.description} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+            {item.hashtags && item.hashtags.length > 0 ? (
+              <Text style={styles.hashtags} numberOfLines={1}>
+                {item.hashtags.map((tag) => `#${tag}`).join(" ")}
+              </Text>
+            ) : null}
+            {viewsCount > 0 ? (
+              <View style={styles.videoStats}>
+                <Ionicons name="eye-outline" size={14} color="#FFF" />
+                <Text style={styles.statsText}>{formatNumber(viewsCount)}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+        <TouchableOpacity style={styles.followButton}>
+          <Text style={styles.followButtonText}>Follow</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {/* Like */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onLike(item._id)}
+        >
+          <Ionicons
+            name={isLiked ? "heart" : "heart-outline"}
+            size={32}
+            color={isLiked ? "#FF3B30" : "#FFF"}
+          />
+          <Text style={styles.actionText}>{formatNumber(likesCount)}</Text>
+        </TouchableOpacity>
+
+        {/* Comment */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>{formatNumber(commentsCount)}</Text>
+        </TouchableOpacity>
+
+        {/* Save */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="bookmark-outline" size={30} color="#FFF" />
+        </TouchableOpacity>
+
+        {/* Share */}
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="share-outline" size={30} color="#FFF" />
+          <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export default function HomeScreen() {
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [isLike, setIsLike] = useState(false);
-  const [isSave, setIsSave] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const videoRefs = useRef<{ [key: number]: any }>({});
+  const [videos, setVideos] = useState<VideoPost[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList>(null);
 
-  // Xử lý dừng video khi rời khỏi tab
-  useFocusEffect(
-    React.useCallback(() => {
-      setIsPlaying(true);
-      return () => {
-        setIsPlaying(false);
-      };
-    }, [])
-  );
+  useEffect(() => {
+    fetchVideos();
+  }, []);
 
-  const onViewableItemsChanged = ({ viewableItems }: { viewableItems: any[] }) => {
-    if (viewableItems.length > 0) {
-      const newIndex = viewableItems[0].index;
-      setCurrentVideoIndex(newIndex);
-      // Tự động play video mới và pause video cũ
-      setIsPlaying(true);
+  const fetchVideos = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        "https://videosocialnetworksystem.onrender.com/api/videos"
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // API trả về mảng video trực tiếp, không phải object với property videos
+      if (Array.isArray(data) && data.length > 0) {
+        setVideos(data);
+      } else {
+        setError("No videos available");
+      }
+    } catch (error) {
+      console.error("Fetch videos error:", error);
+      setError("Failed to load videos. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const renderVideoItem = ({ item, index }: { item: any; index: number }) => {
-    const isCurrentVideo = index === currentVideoIndex;
-    
-    const handleVideoPress = async () => {
-      if (isCurrentVideo) {
-        const videoRef = videoRefs.current[index];
-        if (videoRef) {
-          if (isPlaying) {
-            await videoRef.pauseAsync();
-          } else {
-            await videoRef.playAsync();
-          }
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      const visibleIndex = viewableItems[0].index;
+      setCurrentIndex(visibleIndex);
+    }
+  }).current;
+
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 50,
+  };
+
+  const handleLike = async (videoId: string) => {
+    // Optimistic UI update
+    setVideos((prev) =>
+      prev.map((video) => {
+        if (video._id === videoId) {
+          const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+          const currentLikes = video.likes || video.likesCount || 0;
+          
+          return {
+            ...video,
+            likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+            likesCount: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+            likedBy: isCurrentlyLiked
+              ? video.likedBy.filter((id) => id !== "currentUserId")
+              : [...video.likedBy, "currentUserId"],
+          };
         }
-        setIsPlaying(!isPlaying);
-      }
-    };
-    
+        return video;
+      })
+    );
+
+    try {
+      // TODO: Call API to like/unlike
+      // const response = await fetch(`API_URL/videos/${videoId}/like`, {
+      //   method: 'POST',
+      //   headers: { 'Authorization': 'Bearer TOKEN' }
+      // });
+    } catch (error) {
+      console.error("Like error:", error);
+      // Revert on error
+      setVideos((prev) =>
+        prev.map((video) => {
+          if (video._id === videoId) {
+            const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+            const currentLikes = video.likes || video.likesCount || 0;
+            
+            return {
+              ...video,
+              likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+              likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+              likedBy: isCurrentlyLiked
+                ? [...video.likedBy, "currentUserId"]
+                : video.likedBy.filter((id) => id !== "currentUserId"),
+            };
+          }
+          return video;
+        })
+      );
+    }
+  };
+
+  const renderVideoItem = ({
+    item,
+    index,
+  }: {
+    item: VideoPost;
+    index: number;
+  }) => {
     return (
-      <View style={styles.videoContainer}>
-        {/* Background Video */}
-        <Video
-          ref={(ref) => {
-            if (ref) {
-              videoRefs.current[index] = ref;
-            }
-          }}
-          style={styles.backgroundVideo}
-          source={{ uri: item.videoUrl }}
-          useNativeControls={false}
-          resizeMode={ResizeMode.COVER}
-          isLooping
-          shouldPlay={isCurrentVideo && isPlaying}
-        />
-        
-        {/* Overlay để nhấn play/pause */}
-        <TouchableOpacity 
-          style={styles.videoOverlay} 
-          onPress={handleVideoPress}
-          activeOpacity={1}
-        />
-        
-        {/* Play/Pause indicator - chỉ hiển thị khi video hiện tại bị pause */}
-        {isCurrentVideo && !isPlaying && (
-          <View style={styles.playPauseIndicator}>
-            <Ionicons name="play" size={60} color="rgba(255,255,255,0.8)" />
-          </View>
-        )}
-        
-        {/* Right Side Actions */}
-        <View style={styles.rightActions}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Image 
-              source={{ uri: item.avatar }}
-              style={styles.avatar}
-            />
-            <View style={styles.followButton}>
-              <Text style={styles.plusIcon}>+</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="heart" size={32} color={isLike ? "red" : "#fff"} onPress={() => setIsLike(!isLike)}/>
-            <Text style={styles.actionText}>{item.likes}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="chatbubble" size={28} color="#fff" />
-            <Text style={styles.actionText}>{item.comments}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="arrow-redo" size={28} color="#fff" />
-            <Text style={styles.actionText}>{item.shares}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="bookmark" size={28} color={isSave ? "yellow" : "#fff"} onPress={() => setIsSave(!isSave)}/>
-            <Text style={styles.actionText}>{item.saves}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bottom Content */}
-        <View style={styles.bottomSection}>
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)']}
-            style={styles.bottomGradient}
-          >
-            <View style={styles.bottomContent}>
-              <View style={styles.userInfo}>
-                <Text style={styles.username}>{item.username}</Text>
-                <Text style={styles.description}>{item.description}</Text>
-                <Text style={styles.soundInfo}>{item.soundInfo}</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
-      </View>
+      <VideoItem
+        item={item}
+        index={index}
+        isCurrent={index === currentIndex}
+        onLike={handleLike}
+      />
     );
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading videos...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.errorContainer} edges={["top"]}>
+        <StatusBar barStyle="light-content" />
+        <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchVideos}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar barStyle="light-content" />
       <FlatList
-        data={videoData}
+        ref={flatListRef}
+        data={videos}
         renderItem={renderVideoItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         pagingEnabled
         showsVerticalScrollIndicator={false}
-        snapToInterval={height}
+        snapToInterval={SCREEN_HEIGHT}
         snapToAlignment="start"
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{
-          itemVisiblePercentThreshold: 50,
-        }}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(data, index) => ({
+          length: SCREEN_HEIGHT,
+          offset: SCREEN_HEIGHT * index,
+          index,
+        })}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
+  loadingText: {
+    color: "#FFF",
+    fontSize: 16,
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    color: "#FFF",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   videoContainer: {
-    width: width,
-    height: height,
-    position: 'relative',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    position: "relative",
+    backgroundColor: "#000",
   },
-  backgroundVideo: {
-    position: 'absolute',
-    width: width,
-    height: height,
-    top: 0,
-    left: 0,
+  video: {
+    width: "100%",
+    height: "100%",
   },
-  videoOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 1,
-  },
-  rightActions: {
-    position: 'absolute',
-    right: 15,
-    top: height * 0.3,
-    alignItems: 'center',
-    zIndex: 2, 
-  },
-  actionButton: {
-    alignItems: 'center',
-    marginVertical: 15,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  followButton: {
-    backgroundColor: '#ff4444',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -12,
-  },
-  plusIcon: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 5,
-    fontWeight: '600',
-  },
-  bottomSection: {
-    position: 'absolute',
+  gradientOverlay: {
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    zIndex: 2, // Đảm bảo nó ở trên overlay
-  },
-  bottomGradient: {
-    flex: 1,
-    padding: 10,
-  },
-  bottomContent: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    marginBottom: 80,
+    height: 300,
+    backgroundColor: "transparent",
+    backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
   },
   userInfo: {
-    maxWidth: width * 0.7,
+    position: "absolute",
+    bottom: 120,
+    left: 0,
+    right: 80,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  userInfoLeft: {
+    flexDirection: "row",
+    flex: 1,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#FFF",
+    marginRight: 12,
+    backgroundColor: "#333",
+  },
+  userText: {
+    flex: 1,
   },
   username: {
-    color: '#fff',
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: "700",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  title: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   description: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 5,
-  },
-  soundInfo: {
-    color: '#fff',
+    color: "#FFF",
     fontSize: 13,
-    opacity: 0.8,
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  playButton: {
-    padding: 10,
+  hashtags: {
+    color: "#00D4FF",
+    fontSize: 13,
+    fontWeight: "500",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  volumeButton: {
-    padding: 10,
+  videoStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
-  playPauseIndicator: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -30 }, { translateY: -30 }],
-    zIndex: 3,
+  statsText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "500",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  followButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  followButtonText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  actionButtons: {
+    position: "absolute",
+    right: 12,
+    bottom: 120,
+    gap: 24,
+  },
+  actionButton: {
+    alignItems: "center",
+    gap: 4,
+  },
+  actionText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "600",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });
