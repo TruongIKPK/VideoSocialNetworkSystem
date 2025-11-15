@@ -20,6 +20,8 @@ import likeRoutes from "./routes/likeRoutes.js";
 import followRoutes from "./routes/followRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
+import videoViewRoutes from "./routes/videoViewRoutes.js";
+
 
 const app = express();
 const server = http.createServer(app);
@@ -61,6 +63,7 @@ app.use("/api/likes", likeRoutes);
 app.use("/api/follows", followRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/video-views", videoViewRoutes);
 
 // Health check endpoint for quick testing
 app.get("/api/health", (req, res) => {
