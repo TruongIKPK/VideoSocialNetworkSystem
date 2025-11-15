@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const validationErrors = validateLoginForm(email, password);
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      setErrors({ email: validationErrors.email || "", password: validationErrors.password || "" });
       return;
     }
 
@@ -37,7 +37,7 @@ export default function LoginScreen() {
 
       if (response.success) {
         Alert.alert("Thành công", response.message, [
-          { text: "OK", onPress: () => router.push("/(tabs)") },
+          { text: "OK", onPress: () => router.push("/(tabs)/home") },
         ]);
       } else {
         Alert.alert("Lỗi", response.message);
