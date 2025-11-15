@@ -14,8 +14,10 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
 interface User {
   _id: string;
