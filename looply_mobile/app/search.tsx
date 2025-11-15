@@ -37,23 +37,23 @@ export default function SearchScreen() {
   const [users, setUsers] = useState<UserSearchResult[]>([]);
   const [hashtags, setHashtags] = useState<HashtagSearchResult[]>([]);
 
-  // Debounce search query
+  // Giảm tần suất gọi tìm kiếm (debounce) truy vấn tìm kiếm
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  // Load trending hashtags on mount
+  // Tải hashtag thịnh hành khi màn hình được mount
   useEffect(() => {
     loadTrendingHashtags();
   }, []);
 
-  // Search when debounced query or tab changes
+  // Tìm kiếm khi truy vấn đã được debounce hoặc khi thay đổi tab
   useEffect(() => {
     if (debouncedSearchQuery.trim().length > 0) {
       handleSearch(debouncedSearchQuery);
     } else {
-      // Clear results when search is empty
+      // Xóa kết quả khi ô tìm kiếm trống
       setVideos([]);
       setUsers([]);
-      // Reload trending hashtags when search is empty and on hashtag tab
+      // Tải lại hashtag thịnh hành khi ô tìm kiếm trống và đang ở tab hashtag
       if (activeTab === "hashtag") {
         loadTrendingHashtags();
       } else {
@@ -115,7 +115,7 @@ export default function SearchScreen() {
       }
     } catch (error) {
       console.error("Search error:", error);
-      // Clear current tab data on error
+      // Xóa kết quả khi có lỗi
       if (activeTab === "video") setVideos([]);
       if (activeTab === "user") setUsers([]);
       if (activeTab === "hashtag") setHashtags([]);

@@ -46,7 +46,13 @@ export default function RegisterScreen() {
     );
 
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      setErrors({
+        fullName: validationErrors.fullName || "",
+        email: validationErrors.email || "",
+        password: validationErrors.password || "",
+        confirmPassword: validationErrors.confirmPassword || "",
+        terms: validationErrors.terms || "",
+      });
       return;
     }
 
@@ -57,6 +63,8 @@ export default function RegisterScreen() {
         email,
         password,
       });
+
+      // Sửa lỗi: Hiển thị đầy đủ lỗi xác thực cho từng trường; điều hướng về trang đăng nhập sau khi đăng ký thành công
 
       if (response.success) {
         Alert.alert("Thành công", response.message, [
