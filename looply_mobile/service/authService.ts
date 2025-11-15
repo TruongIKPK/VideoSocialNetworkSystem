@@ -1,3 +1,5 @@
+import { saveToken, getToken, removeToken } from "@/utils/tokenStorage";
+
 // Validators
 export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,10 +142,22 @@ export const authService = {
       const data = await response.json();
 
       if (response.status === 200) {
+        // Extract token từ API response (có thể từ data.token hoặc data là token string)
+        const token = data.token || (typeof data === "string" ? data : null);
+        
+        // Extract user data (có thể từ data.user hoặc data chính là user object)
+        const userData = data.user || (typeof data === "object" && !data.token ? data : null);
+        
+        // Lưu token vào secure store nếu có
+        if (token) {
+          await saveToken(token);
+        }
+
         return {
           success: true,
           message: "Đăng nhập thành công",
-          user: data,
+          token: token || undefined,
+          user: userData || undefined,
         };
       } else {
         return {
@@ -181,10 +195,22 @@ export const authService = {
       const data = await response.json();
 
       if (response.status === 201) {
+        // Extract token từ API response nếu có (có thể từ data.token hoặc data là token string)
+        const token = data.token || (typeof data === "string" ? data : null);
+        
+        // Extract user data (có thể từ data.user hoặc data chính là user object)
+        const userData = data.user || (typeof data === "object" && !data.token ? data : null);
+        
+        // Lưu token vào secure store nếu có
+        if (token) {
+          await saveToken(token);
+        }
+
         return {
           success: true,
           message: "Đăng kí tài khoản thành công! Vui lòng đăng nhập.",
-          user: data,
+          token: token || undefined,
+          user: userData || undefined,
         };
       } else if (response.status === 400) {
         return {
@@ -211,11 +237,45 @@ export const authService = {
    */
   async logout(): Promise<void> {
     try {
-      // TODO: Clear token từ storage khi có
+      // Xóa token khỏi storage
+      await removeToken();
       console.log("Logged out");
     } catch (error) {
       console.error("Logout error:", error);
     }
+  },
+
+  /**
+   * Lấy token đã lưu từ storage
+   */
+  async getStoredToken(): Promise<string | null> {
+    try {
+      return await getToken();
+    } catch (error) {
+      console.error("Error getting stored token:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Lấy headers với Authorization Bearer token để dùng trong các API calls
+   * @returns Promise với headers object chứa Authorization Bearer token nếu có
+   */
+  async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const token = await getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Error getting token for headers:", error);
+    }
+
+    return headers;
   },
 };
 

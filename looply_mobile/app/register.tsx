@@ -46,7 +46,13 @@ export default function RegisterScreen() {
     );
 
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      setErrors({
+        fullName: validationErrors.fullName || "",
+        email: validationErrors.email || "",
+        password: validationErrors.password || "",
+        confirmPassword: validationErrors.confirmPassword || "",
+        terms: validationErrors.terms || "",
+      });
       return;
     }
 
@@ -57,7 +63,7 @@ export default function RegisterScreen() {
         email,
         password,
       });
-
+      
       if (response.success) {
         Alert.alert("Thành công", response.message, [
           {
