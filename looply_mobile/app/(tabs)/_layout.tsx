@@ -1,12 +1,12 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { CustomHeader } from "../_layout"; // Import CustomHeader từ ngoài
+import { CustomHeader } from "../_layout";
 
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#fff",
         tabBarInactiveTintColor: "#666",
@@ -18,15 +18,10 @@ export default function TabLayout() {
           paddingBottom: 25,
           paddingTop: 15,
           height: 80,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 10,
-          zIndex: 10,
           borderTopLeftRadius: 10,
           borderTopRightRadius: 10,
         },
-      })}
+      }}
     >
       <Tabs.Screen
         name="home/index"
@@ -69,7 +64,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="inbox/[id]"
+        name="profile"
         options={{
           href: null, 
         }}

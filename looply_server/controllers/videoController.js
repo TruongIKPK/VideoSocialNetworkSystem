@@ -84,6 +84,19 @@ export const searchVideos = async (req, res) => {
   }
 };
 
+export const getRandomVideos = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 3;
+    
+    // Lấy video ngẫu nhiên
+    const videos = await Video.aggregate([
+      { $sample: { size: limit } }
+    ]);
+  }catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getLatestVideos = async (req, res) => {
   try {
     const videos = await Video.find()
