@@ -161,13 +161,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export const unstable_settings = {
-  initialRouteName: "index",
-  // Ẩn khỏi tab bar
-  tabBarVisible: false,
-};
-
-// Cấu hình để ẩn khỏi tab bar
-export const options = {
-  href: null,
-};
+// File này là màn hình con của inbox, không phải tab riêng
+// Đã được cấu hình trong _layout.tsx với href: null

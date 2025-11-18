@@ -7,15 +7,21 @@ import {
   Dimensions,
   Image,
   TouchableOpacity,
-  ActivityIndicator,
   StatusBar,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Button } from "@/components/ui/Button";
+import { Loading } from "@/components/ui/Loading";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
 interface User {
   _id: string;
@@ -52,17 +58,24 @@ const VideoItem = ({
   index,
   isCurrent,
   onLike,
+  onVideoProgress,
+  currentUserId,
 }: {
   item: VideoPost;
   index: number;
   isCurrent: boolean;
   onLike: (videoId: string) => void;
+  onVideoProgress: (videoId: string, duration: number) => void;
+  currentUserId: string | null;
 }) => {
-  const isLiked = item.likedBy && item.likedBy.includes("currentUserId");
+  const isLiked = currentUserId && item.likedBy && item.likedBy.includes(currentUserId);
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
   const viewsCount = item.views || 0;
+
+  const watchTimeRef = useRef(0);
+  const intervalRef = useRef<number | null>(null);
 
   const player = useVideoPlayer(item.url, (player) => {
     player.loop = true;
@@ -76,9 +89,33 @@ const VideoItem = ({
   useEffect(() => {
     if (isCurrent) {
       player.play();
+      // Bắt đầu đếm thời gian xem
+      watchTimeRef.current = 0;
+      intervalRef.current = setInterval(() => {
+        watchTimeRef.current += 1;
+
+        // Gửi thông tin sau mỗi 5 giây
+        if (watchTimeRef.current % 5 === 0) {
+          onVideoProgress(item._id, watchTimeRef.current);
+        }
+      }, 1000);
     } else {
       player.pause();
+
+      // Dừng đếm và gửi thông tin cuối cùng
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        if (watchTimeRef.current > 0) {
+          onVideoProgress(item._id, watchTimeRef.current);
+        }
+      }
     }
+
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [isCurrent, player]);
 
   return (
@@ -92,7 +129,11 @@ const VideoItem = ({
       />
 
       {/* Gradient Overlay */}
-      <View style={styles.gradientOverlay} />
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.8)"]}
+        style={styles.gradientOverlay}
+        locations={[0, 1]}
+      />
 
       {/* User Info */}
       <View style={styles.userInfo}>
@@ -166,33 +207,42 @@ const VideoItem = ({
 };
 
 export default function HomeScreen() {
+  const { userId } = useCurrentUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     fetchVideos();
   }, []);
 
-  const fetchVideos = async () => {
+  // Theo dõi khi xem đến video thứ 2 để load thêm
+  useEffect(() => {
+      if (currentIndex === 1 && videos.length === 3) {
+        // Đã xem đến video thứ 2, load thêm 3 video
+        fetchMoreVideos();
+      }
+    }, [currentIndex]);
+
+    const fetchVideos = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        "https://videosocialnetworksystem.onrender.com/api/videos"
-      );
+      const url = `${API_BASE_URL}/videos/latest`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      const videoList = data.videos || data;
 
-      // API trả về mảng video trực tiếp, không phải object với property videos
-      if (Array.isArray(data) && data.length > 0) {
-        setVideos(data);
+      if (Array.isArray(videoList) && videoList.length > 0) {
+        setVideos(videoList);
       } else {
         setError("No videos available");
       }
@@ -202,6 +252,69 @@ export default function HomeScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchMoreVideos = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/videos/random?limit=3`
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const videoList = data.videos || data;
+
+      if (Array.isArray(videoList) && videoList.length > 0) {
+        // Thêm video mới vào danh sách
+        setVideos((prev) => [...prev, ...videoList]);
+      }
+    } catch (error) {
+      console.error("Fetch more videos error:", error);
+    }
+  };
+
+  const recordVideoView = async (videoId: string, watchDuration: number) => {
+    try {
+      // Lấy token nếu user đã đăng nhập
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        // Nếu chưa đăng nhập, chỉ lưu local
+        return;
+      }
+
+      // Kiểm tra đã gửi chưa để tránh spam
+      if (viewedVideos.has(videoId)) {
+        return;
+      }
+
+      const completed = watchDuration > 10; // Coi như xem hết nếu xem > 10s
+
+      const response = await fetch(`${API_BASE_URL}/video-views/record`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          videoId,
+          watchDuration,
+          completed,
+        }),
+      });
+
+      if (response.ok) {
+        setViewedVideos((prev) => new Set(prev).add(videoId));
+      }
+    } catch (error) {
+      console.error("Record video view error:", error);
+    }
+  };
+
+  const handleVideoProgress = (videoId: string, duration: number) => {
+    // Gửi thông tin xem video về server
+    recordVideoView(videoId, duration);
   };
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -216,20 +329,24 @@ export default function HomeScreen() {
   };
 
   const handleLike = async (videoId: string) => {
+    if (!userId) {
+      return;
+    }
+
     // Optimistic UI update
     setVideos((prev) =>
       prev.map((video) => {
         if (video._id === videoId) {
-          const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+          const isCurrentlyLiked = video.likedBy.includes(userId);
           const currentLikes = video.likes || video.likesCount || 0;
-          
+
           return {
             ...video,
             likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
             likesCount: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
             likedBy: isCurrentlyLiked
-              ? video.likedBy.filter((id) => id !== "currentUserId")
-              : [...video.likedBy, "currentUserId"],
+              ? video.likedBy.filter((id) => id !== userId)
+              : [...video.likedBy, userId],
           };
         }
         return video;
@@ -237,32 +354,47 @@ export default function HomeScreen() {
     );
 
     try {
-      // TODO: Call API to like/unlike
-      // const response = await fetch(`API_URL/videos/${videoId}/like`, {
-      //   method: 'POST',
-      //   headers: { 'Authorization': 'Bearer TOKEN' }
-      // });
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/likes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to like video");
+      }
     } catch (error) {
       console.error("Like error:", error);
       // Revert on error
-      setVideos((prev) =>
-        prev.map((video) => {
-          if (video._id === videoId) {
-            const isCurrentlyLiked = video.likedBy.includes("currentUserId");
-            const currentLikes = video.likes || video.likesCount || 0;
-            
-            return {
-              ...video,
-              likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-              likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-              likedBy: isCurrentlyLiked
-                ? [...video.likedBy, "currentUserId"]
-                : video.likedBy.filter((id) => id !== "currentUserId"),
-            };
-          }
-          return video;
-        })
-      );
+      if (userId) {
+        setVideos((prev) =>
+          prev.map((video) => {
+            if (video._id === videoId) {
+              const isCurrentlyLiked = video.likedBy.includes(userId);
+              const currentLikes = video.likes || video.likesCount || 0;
+
+              return {
+                ...video,
+                likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+                likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+                likedBy: isCurrentlyLiked
+                  ? [...video.likedBy, userId]
+                  : video.likedBy.filter((id) => id !== userId),
+              };
+            }
+            return video;
+          })
+        );
+      }
     }
   };
 
@@ -279,6 +411,8 @@ export default function HomeScreen() {
         index={index}
         isCurrent={index === currentIndex}
         onLike={handleLike}
+        onVideoProgress={handleVideoProgress}
+        currentUserId={userId}
       />
     );
   };
@@ -287,8 +421,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
         <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading videos...</Text>
+        <Loading message="Loading videos..." color={Colors.primary} fullScreen />
       </SafeAreaView>
     );
   }
@@ -297,11 +430,14 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.errorContainer} edges={["top"]}>
         <StatusBar barStyle="light-content" />
-        <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchVideos}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
+        <Button
+          title="Retry"
+          onPress={fetchVideos}
+          variant="primary"
+          style={{ marginTop: Spacing.lg }}
+        />
       </SafeAreaView>
     );
   }
@@ -334,49 +470,33 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: Colors.black,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
-  },
-  loadingText: {
-    color: "#FFF",
-    fontSize: 16,
-    marginTop: 12,
+    backgroundColor: Colors.black,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
-    paddingHorizontal: 40,
+    backgroundColor: Colors.black,
+    paddingHorizontal: Spacing.xl,
   },
   errorText: {
-    color: "#FFF",
-    fontSize: 16,
+    color: Colors.white,
+    fontSize: Typography.fontSize.lg,
     textAlign: "center",
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
+    marginTop: Spacing.md,
+    fontFamily: Typography.fontFamily.regular,
   },
   videoContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: "relative",
-    backgroundColor: "#000",
+    backgroundColor: Colors.black,
   },
   video: {
     width: "100%",
@@ -388,15 +508,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: "transparent",
-    backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
   },
   userInfo: {
     position: "absolute",
     bottom: 120,
     left: 0,
     right: 80,
-    padding: 16,
+    padding: Spacing.md,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
@@ -408,46 +526,50 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BorderRadius.avatar,
     borderWidth: 2,
-    borderColor: "#FFF",
-    marginRight: 12,
-    backgroundColor: "#333",
+    borderColor: Colors.white,
+    marginRight: Spacing.md,
+    backgroundColor: Colors.gray[700],
   },
   userText: {
     flex: 1,
   },
   username: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.bold,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   title: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   description: {
-    color: "#FFF",
-    fontSize: 13,
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.regular,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   hashtags: {
-    color: "#00D4FF",
-    fontSize: 13,
-    fontWeight: "500",
-    marginBottom: 4,
+    color: Colors.accent,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -458,39 +580,42 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statsText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "500",
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   followButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    marginLeft: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    marginLeft: Spacing.md,
   },
   followButtonText: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "600",
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
   },
   actionButtons: {
     position: "absolute",
-    right: 12,
+    right: Spacing.md,
     bottom: 120,
-    gap: 24,
+    gap: Spacing.lg,
   },
   actionButton: {
     alignItems: "center",
     gap: 4,
   },
   actionText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "600",
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
