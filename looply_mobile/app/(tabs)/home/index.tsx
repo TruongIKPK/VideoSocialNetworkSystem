@@ -8,14 +8,15 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
@@ -208,41 +209,85 @@ const VideoItem = ({
 
 export default function HomeScreen() {
   const { userId } = useCurrentUser();
+  const { isAuthenticated, token } = useUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
+  const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
+  const BATCH_SIZE = 3;
 
   useEffect(() => {
     fetchVideos();
-  }, []);
+  }, [isAuthenticated]);
 
-  // Theo dõi khi xem đến video thứ 2 để load thêm
+  // Theo dõi khi xem đến video thứ 2 trong batch để load thêm
   useEffect(() => {
-      if (currentIndex === 1 && videos.length === 3) {
-        // Đã xem đến video thứ 2, load thêm 3 video
+    if (isLoading || isLoadingMore) return;
+    
+    // Tính toán batch hiện tại
+    const currentBatch = Math.floor(currentIndex / BATCH_SIZE);
+    const positionInBatch = currentIndex % BATCH_SIZE;
+    
+    // Khi đang xem video thứ 2 trong batch (index 1 trong batch)
+    if (positionInBatch === 1) {
+      // Kiểm tra xem đã load batch tiếp theo chưa
+      const nextBatchStart = (currentBatch + 1) * BATCH_SIZE;
+      if (videos.length <= nextBatchStart) {
         fetchMoreVideos();
       }
-    }, [currentIndex]);
+    }
+  }, [currentIndex, videos.length, isLoading, isLoadingMore]);
 
-    const fetchVideos = async () => {
+  const fetchVideos = async () => {
     setIsLoading(true);
     setError(null);
+    // Reset loaded video IDs khi fetch lại từ đầu
+    setLoadedVideoIds(new Set());
     try {
-      const url = `${API_BASE_URL}/videos/latest`;
-      const response = await fetch(url);
+      let url: string;
+      let headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      if (isAuthenticated && token) {
+        // Nếu đã đăng nhập: dùng recommended API
+        url = `${API_BASE_URL}/video-views/recommended?limit=${BATCH_SIZE}`;
+        headers.Authorization = `Bearer ${token}`;
+      } else {
+        // Nếu chưa đăng nhập: dùng latest API
+        url = `${API_BASE_URL}/videos/latest`;
+      }
+
+      const response = await fetch(url, { headers });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      const videoList = data.videos || data;
+      // Recommended API trả về array trực tiếp, latest trả về {videos: [...]}
+      const videoList = Array.isArray(data) ? data : (data.videos || data);
 
       if (Array.isArray(videoList) && videoList.length > 0) {
-        setVideos(videoList);
+        // Deduplicate videos
+        const uniqueVideos = videoList.filter(
+          (video) => !loadedVideoIds.has(video._id)
+        );
+
+        if (uniqueVideos.length > 0) {
+          // Update loaded video IDs
+          const newVideoIds = new Set(loadedVideoIds);
+          uniqueVideos.forEach((video) => newVideoIds.add(video._id));
+          setLoadedVideoIds(newVideoIds);
+
+          setVideos(uniqueVideos);
+        } else {
+          setError("No new videos available");
+        }
       } else {
         setError("No videos available");
       }
@@ -255,31 +300,61 @@ export default function HomeScreen() {
   };
 
   const fetchMoreVideos = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/videos/random?limit=3`
-      );
+    if (isLoadingMore) return; // Tránh load nhiều lần
 
-      if (!response.ok) return;
+    setIsLoadingMore(true);
+    try {
+      let url: string;
+      let headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      if (isAuthenticated && token) {
+        // Nếu đã đăng nhập: tiếp tục dùng recommended API
+        url = `${API_BASE_URL}/video-views/recommended?limit=${BATCH_SIZE}`;
+        headers.Authorization = `Bearer ${token}`;
+      } else {
+        // Nếu chưa đăng nhập: dùng random API
+        url = `${API_BASE_URL}/videos/random?limit=${BATCH_SIZE}`;
+      }
+
+      const response = await fetch(url, { headers });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
-      const videoList = data.videos || data;
+      // Recommended API trả về array trực tiếp, random trả về {videos: [...]}
+      const videoList = Array.isArray(data) ? data : (data.videos || data);
 
       if (Array.isArray(videoList) && videoList.length > 0) {
-        // Thêm video mới vào danh sách
-        setVideos((prev) => [...prev, ...videoList]);
+        // Deduplicate trước khi thêm vào list
+        const newVideos = videoList.filter(
+          (video) => !loadedVideoIds.has(video._id)
+        );
+
+        if (newVideos.length > 0) {
+          // Update loaded video IDs
+          const newVideoIds = new Set(loadedVideoIds);
+          newVideos.forEach((video) => newVideoIds.add(video._id));
+          setLoadedVideoIds(newVideoIds);
+
+          // Append vào danh sách hiện tại (không replace)
+          setVideos((prev) => [...prev, ...newVideos]);
+        }
       }
     } catch (error) {
       console.error("Fetch more videos error:", error);
+      // Không hiển thị error cho user, chỉ log
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
   const recordVideoView = async (videoId: string, watchDuration: number) => {
     try {
-      // Lấy token nếu user đã đăng nhập
-      const token = await AsyncStorage.getItem("userToken");
-
-      if (!token) {
+      if (!isAuthenticated || !token) {
         // Nếu chưa đăng nhập, chỉ lưu local
         return;
       }
@@ -295,7 +370,7 @@ export default function HomeScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           videoId,
@@ -329,7 +404,7 @@ export default function HomeScreen() {
   };
 
   const handleLike = async (videoId: string) => {
-    if (!userId) {
+    if (!userId || !isAuthenticated || !token) {
       return;
     }
 
@@ -354,17 +429,11 @@ export default function HomeScreen() {
     );
 
     try {
-      const token = await AsyncStorage.getItem("userToken");
-
-      if (!token) {
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/likes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ videoId }),
       });
@@ -442,6 +511,16 @@ export default function HomeScreen() {
     );
   }
 
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.loadingMoreContainer}>
+        <ActivityIndicator size="small" color={Colors.primary} />
+        <Text style={styles.loadingMoreText}>Loading more videos...</Text>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
@@ -462,6 +541,7 @@ export default function HomeScreen() {
           offset: SCREEN_HEIGHT * index,
           index,
         })}
+        ListFooterComponent={renderFooter}
       />
     </SafeAreaView>
   );
@@ -619,5 +699,18 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  loadingMoreContainer: {
+    height: SCREEN_HEIGHT,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    backgroundColor: Colors.black,
+  },
+  loadingMoreText: {
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
+    marginTop: Spacing.sm,
+    fontFamily: Typography.fontFamily.regular,
   },
 });
