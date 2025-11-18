@@ -7,14 +7,18 @@ import {
   Dimensions,
   Image,
   TouchableOpacity,
-  ActivityIndicator,
   StatusBar,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Button } from "@/components/ui/Button";
+import { Loading } from "@/components/ui/Loading";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -55,14 +59,16 @@ const VideoItem = ({
   isCurrent,
   onLike,
   onVideoProgress,
+  currentUserId,
 }: {
   item: VideoPost;
   index: number;
   isCurrent: boolean;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  currentUserId: string | null;
 }) => {
-  const isLiked = item.likedBy && item.likedBy.includes("currentUserId");
+  const isLiked = currentUserId && item.likedBy && item.likedBy.includes(currentUserId);
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
@@ -123,7 +129,11 @@ const VideoItem = ({
       />
 
       {/* Gradient Overlay */}
-      <View style={styles.gradientOverlay} />
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.8)"]}
+        style={styles.gradientOverlay}
+        locations={[0, 1]}
+      />
 
       {/* User Info */}
       <View style={styles.userInfo}>
@@ -197,6 +207,7 @@ const VideoItem = ({
 };
 
 export default function HomeScreen() {
+  const { userId } = useCurrentUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -217,46 +228,28 @@ export default function HomeScreen() {
     }, [currentIndex]);
 
     const fetchVideos = async () => {
-    console.log("🔄 Starting fetchVideos...");
     setIsLoading(true);
     setError(null);
     try {
       const url = `${API_BASE_URL}/videos/latest`;
-      console.log("📡 Fetching from URL:", url);
-      
       const response = await fetch(url);
-      console.log("📥 Response status:", response.status);
-      console.log("📥 Response ok:", response.ok);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("📦 Raw data received:", data);
-      console.log("📦 Data type:", typeof data);
-      console.log("📦 Is array:", Array.isArray(data));
-
-      // API có thể trả về { total, videos } hoặc trực tiếp array
       const videoList = data.videos || data;
-      console.log("🎬 Video list:", videoList);
-      console.log("🎬 Video list length:", videoList?.length);
-      console.log("🎬 Is videoList array:", Array.isArray(videoList));
 
       if (Array.isArray(videoList) && videoList.length > 0) {
-        console.log("✅ Setting videos:", videoList.length, "videos");
         setVideos(videoList);
       } else {
-        console.log("❌ No videos available");
-        console.log("❌ videoList:", videoList);
         setError("No videos available");
       }
     } catch (error) {
-      console.error("❌ Fetch videos error:", error);
-      console.error("❌ Error details:", JSON.stringify(error, null, 2));
+      console.error("Fetch videos error:", error);
       setError("Failed to load videos. Please try again.");
     } finally {
-      console.log("🏁 Setting isLoading to false");
       setIsLoading(false);
     }
   };
@@ -288,7 +281,6 @@ export default function HomeScreen() {
 
       if (!token) {
         // Nếu chưa đăng nhập, chỉ lưu local
-        console.log(`Video ${videoId} watched for ${watchDuration}s (not logged in)`);
         return;
       }
 
@@ -314,7 +306,6 @@ export default function HomeScreen() {
 
       if (response.ok) {
         setViewedVideos((prev) => new Set(prev).add(videoId));
-        console.log(`✅ Recorded view for video ${videoId}: ${watchDuration}s`);
       }
     } catch (error) {
       console.error("Record video view error:", error);
@@ -338,11 +329,15 @@ export default function HomeScreen() {
   };
 
   const handleLike = async (videoId: string) => {
+    if (!userId) {
+      return;
+    }
+
     // Optimistic UI update
     setVideos((prev) =>
       prev.map((video) => {
         if (video._id === videoId) {
-          const isCurrentlyLiked = video.likedBy.includes("currentUserId");
+          const isCurrentlyLiked = video.likedBy.includes(userId);
           const currentLikes = video.likes || video.likesCount || 0;
 
           return {
@@ -350,8 +345,8 @@ export default function HomeScreen() {
             likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
             likesCount: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
             likedBy: isCurrentlyLiked
-              ? video.likedBy.filter((id) => id !== "currentUserId")
-              : [...video.likedBy, "currentUserId"],
+              ? video.likedBy.filter((id) => id !== userId)
+              : [...video.likedBy, userId],
           };
         }
         return video;
@@ -362,7 +357,6 @@ export default function HomeScreen() {
       const token = await AsyncStorage.getItem("userToken");
 
       if (!token) {
-        console.log("User not logged in");
         return;
       }
 
@@ -381,24 +375,26 @@ export default function HomeScreen() {
     } catch (error) {
       console.error("Like error:", error);
       // Revert on error
-      setVideos((prev) =>
-        prev.map((video) => {
-          if (video._id === videoId) {
-            const isCurrentlyLiked = video.likedBy.includes("currentUserId");
-            const currentLikes = video.likes || video.likesCount || 0;
+      if (userId) {
+        setVideos((prev) =>
+          prev.map((video) => {
+            if (video._id === videoId) {
+              const isCurrentlyLiked = video.likedBy.includes(userId);
+              const currentLikes = video.likes || video.likesCount || 0;
 
-            return {
-              ...video,
-              likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-              likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-              likedBy: isCurrentlyLiked
-                ? [...video.likedBy, "currentUserId"]
-                : video.likedBy.filter((id) => id !== "currentUserId"),
-            };
-          }
-          return video;
-        })
-      );
+              return {
+                ...video,
+                likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+                likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
+                likedBy: isCurrentlyLiked
+                  ? [...video.likedBy, userId]
+                  : video.likedBy.filter((id) => id !== userId),
+              };
+            }
+            return video;
+          })
+        );
+      }
     }
   };
 
@@ -416,6 +412,7 @@ export default function HomeScreen() {
         isCurrent={index === currentIndex}
         onLike={handleLike}
         onVideoProgress={handleVideoProgress}
+        currentUserId={userId}
       />
     );
   };
@@ -424,8 +421,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
         <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading videos...</Text>
+        <Loading message="Loading videos..." color={Colors.primary} fullScreen />
       </SafeAreaView>
     );
   }
@@ -434,11 +430,14 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.errorContainer} edges={["top"]}>
         <StatusBar barStyle="light-content" />
-        <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchVideos}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
+        <Button
+          title="Retry"
+          onPress={fetchVideos}
+          variant="primary"
+          style={{ marginTop: Spacing.lg }}
+        />
       </SafeAreaView>
     );
   }
@@ -471,49 +470,33 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: Colors.black,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
-  },
-  loadingText: {
-    color: "#FFF",
-    fontSize: 16,
-    marginTop: 12,
+    backgroundColor: Colors.black,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
-    paddingHorizontal: 40,
+    backgroundColor: Colors.black,
+    paddingHorizontal: Spacing.xl,
   },
   errorText: {
-    color: "#FFF",
-    fontSize: 16,
+    color: Colors.white,
+    fontSize: Typography.fontSize.lg,
     textAlign: "center",
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
+    marginTop: Spacing.md,
+    fontFamily: Typography.fontFamily.regular,
   },
   videoContainer: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     position: "relative",
-    backgroundColor: "#000",
+    backgroundColor: Colors.black,
   },
   video: {
     width: "100%",
@@ -525,15 +508,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: "transparent",
-    backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
   },
   userInfo: {
     position: "absolute",
     bottom: 120,
     left: 0,
     right: 80,
-    padding: 16,
+    padding: Spacing.md,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
@@ -545,46 +526,50 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BorderRadius.avatar,
     borderWidth: 2,
-    borderColor: "#FFF",
-    marginRight: 12,
-    backgroundColor: "#333",
+    borderColor: Colors.white,
+    marginRight: Spacing.md,
+    backgroundColor: Colors.gray[700],
   },
   userText: {
     flex: 1,
   },
   username: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.bold,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   title: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   description: {
-    color: "#FFF",
-    fontSize: 13,
-    marginBottom: 4,
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.regular,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   hashtags: {
-    color: "#00D4FF",
-    fontSize: 13,
-    fontWeight: "500",
-    marginBottom: 4,
+    color: Colors.accent,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -595,39 +580,42 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statsText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "500",
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   followButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-    marginLeft: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    marginLeft: Spacing.md,
   },
   followButtonText: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "600",
+    color: Colors.white,
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
   },
   actionButtons: {
     position: "absolute",
-    right: 12,
+    right: Spacing.md,
     bottom: 120,
-    gap: 24,
+    gap: Spacing.lg,
   },
   actionButton: {
     alignItems: "center",
     gap: 4,
   },
   actionText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "600",
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,

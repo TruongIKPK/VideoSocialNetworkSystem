@@ -11,6 +11,7 @@ import * as NavigationBar from "expo-navigation-bar";
 import { useEffect } from "react";
 import { AppState, View, TextInput, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { UserProvider } from "@/contexts/UserContext";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -90,23 +91,25 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {/* Ẩn header ở các màn hình ngoài */}
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
+    <UserProvider>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack>
+          {/* Ẩn header ở các màn hình ngoài */}
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
 
-        {/* Tabs có header riêng */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Tabs có header riêng */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
-        />
-      </Stack>
+          <Stack.Screen
+            name="modal"
+            options={{ presentation: "modal", title: "Modal" }}
+          />
+        </Stack>
 
-      {/* Ẩn luôn thanh trạng thái trên cùng */}
-      <StatusBar hidden />
-    </ThemeProvider>
+        {/* Ẩn luôn thanh trạng thái trên cùng */}
+        <StatusBar hidden />
+      </ThemeProvider>
+    </UserProvider>
   );
 }

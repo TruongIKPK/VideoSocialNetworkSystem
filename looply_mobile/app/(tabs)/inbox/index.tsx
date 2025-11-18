@@ -70,7 +70,7 @@ export default function InboxList() {
           return (
             <TouchableOpacity
               style={styles.row}
-              onPress={() => router.push(`/inbox/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/inbox/${item.id}`)}
             >
               <Image source={item.avatar} style={styles.avatar} />
               <View style={{ flex: 1 }}>

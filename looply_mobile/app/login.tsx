@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
@@ -10,11 +9,14 @@ import {
   Platform,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import authService, { validateLoginForm } from "@/service/authService";
+import { useUser } from "@/contexts/UserContext";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -23,6 +25,7 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { login } = useUser();
 
   const handleLogin = async () => {
     const validationErrors = validateLoginForm(email, password);
@@ -35,7 +38,9 @@ export default function LoginScreen() {
     try {
       const response = await authService.login({ email, password });
 
-      if (response.success) {
+      if (response.success && response.token && response.user) {
+        // Update user context
+        await login(response.user, response.token);
         Alert.alert("Thành công", response.message, [
           { text: "OK", onPress: () => router.push("/(tabs)/home") },
         ]);
@@ -74,81 +79,48 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Chào mừng bạn quay trở lại Looply</Text>
 
           {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={errors.email ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Địa chỉ thư điện tử"
-              placeholderTextColor="#999"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errors.email) setErrors({ ...errors, email: "" });
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!isLoading}
-            />
-          </View>
-          {errors.email ? (
-            <Text style={styles.errorText}>{errors.email}</Text>
-          ) : null}
+          <Input
+            placeholder="Địa chỉ thư điện tử"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errors.email) setErrors({ ...errors, email: "" });
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+            icon="mail-outline"
+            error={errors.email}
+            iconPosition="left"
+          />
 
           {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={errors.password ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Mật khẩu"
-              placeholderTextColor="#999"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) setErrors({ ...errors, password: "" });
-              }}
-              secureTextEntry={!showPassword}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={isLoading}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#999"
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.password ? (
-            <Text style={styles.errorText}>{errors.password}</Text>
-          ) : null}
+          <Input
+            placeholder="Mật khẩu"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors({ ...errors, password: "" });
+            }}
+            secureTextEntry={!showPassword}
+            editable={!isLoading}
+            icon={showPassword ? "eye-off" : "eye"}
+            error={errors.password}
+            iconPosition="right"
+            onIconPress={() => setShowPassword(!showPassword)}
+          />
 
           {/* Login Button */}
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              isLoading && styles.loginButtonDisabled,
-            ]}
+          <Button
+            title="ĐĂNG NHẬP"
             onPress={handleLogin}
+            variant="primary"
+            size="lg"
             disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.loginButtonText}>ĐĂNG NHẬP</Text>
-            )}
-          </TouchableOpacity>
+            loading={isLoading}
+            fullWidth
+            style={styles.loginButton}
+          />
 
           {/* Register Link */}
           <TouchableOpacity
@@ -190,123 +162,86 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: Colors.background.gray,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xxxl,
+    paddingBottom: Spacing.xl,
   },
   content: {
     flex: 1,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: Spacing.lg,
   },
   logo: {
     width: 80,
     height: 80,
-    marginBottom: 10,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000",
+    marginBottom: Spacing.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: Typography.fontSize.display,
+    fontWeight: Typography.fontWeight.bold,
     textAlign: "center",
-    marginBottom: 8,
-    color: "#000",
+    marginBottom: Spacing.sm,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: Typography.fontSize.md,
     textAlign: "center",
-    color: "#666",
-    marginBottom: 30,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8F8F8",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    marginBottom: 15,
-    height: 50,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: "#000",
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 12,
-    marginBottom: 10,
-    marginLeft: 20,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.xl,
+    fontFamily: Typography.fontFamily.regular,
   },
   loginButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  loginButtonDisabled: {
-    backgroundColor: "#0051CC",
-    opacity: 0.7,
-  },
-  loginButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
   },
   forgotPassword: {
     textAlign: "center",
-    color: "#666",
-    fontSize: 14,
-    marginBottom: 30,
+    color: Colors.text.secondary,
+    fontSize: Typography.fontSize.md,
+    marginBottom: Spacing.xl,
+    fontFamily: Typography.fontFamily.regular,
   },
   registerLink: {
     textAlign: "center",
-    color: "#007AFF",
-    fontSize: 15,
-    marginBottom: 32,
-    fontWeight: "500",
+    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    marginBottom: Spacing.xl,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
   },
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 25,
+    marginBottom: Spacing.lg,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: Colors.border.light,
   },
   dividerText: {
-    marginHorizontal: 15,
-    fontSize: 12,
-    color: "#999",
+    marginHorizontal: Spacing.md,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.tertiary,
+    fontFamily: Typography.fontFamily.regular,
   },
   socialContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 20,
+    gap: Spacing.lg,
   },
   socialButton: {
     width: 50,
     height: 50,
-    borderRadius: 25,
-    backgroundColor: "#F8F8F8",
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.gray[50],
     justifyContent: "center",
     alignItems: "center",
   },
