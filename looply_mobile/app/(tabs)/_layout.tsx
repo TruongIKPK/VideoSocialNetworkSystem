@@ -64,6 +64,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="inbox/[id]"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           href: null, 

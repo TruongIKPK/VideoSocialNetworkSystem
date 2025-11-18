@@ -92,7 +92,12 @@ export const getRandomVideos = async (req, res) => {
     const videos = await Video.aggregate([
       { $sample: { size: limit } }
     ]);
-  }catch (error) {
+    
+    res.json({
+      total: videos.length,
+      videos: videos
+    });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };

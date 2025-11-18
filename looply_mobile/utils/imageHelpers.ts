@@ -1,5 +1,5 @@
 /**
- * Helper functions để xử lý image URIs
+ * Hàm trợ giúp để xử lý URI ảnh
  */
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com";
@@ -9,7 +9,7 @@ const PLACEHOLDER_VIDEO =
   "https://via.placeholder.com/400x600/000000/FFFFFF?text=Video";
 
 /**
- * Get avatar URI from string
+ * Lấy URI avatar từ string
  */
 export const getAvatarUri = (avatar: string | null | undefined) => {
   if (!avatar || avatar === "/no_avatar.png" || avatar === "no_avatar.png") {
@@ -24,7 +24,7 @@ export const getAvatarUri = (avatar: string | null | undefined) => {
 };
 
 /**
- * Get video thumbnail URI
+ * Lấy URI thumbnail của video
  */
 export const getThumbnailUri = (thumbnail: string | null | undefined) => {
   if (!thumbnail) {

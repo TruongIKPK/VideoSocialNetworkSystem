@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
@@ -10,12 +9,14 @@ import {
   Platform,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import authService, { validateRegisterForm } from "@/service/authService";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
@@ -46,7 +47,13 @@ export default function RegisterScreen() {
     );
 
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      setErrors({
+        fullName: validationErrors.fullName || "",
+        email: validationErrors.email || "",
+        password: validationErrors.password || "",
+        confirmPassword: validationErrors.confirmPassword || "",
+        terms: validationErrors.terms || "",
+      });
       return;
     }
 
@@ -57,7 +64,7 @@ export default function RegisterScreen() {
         email,
         password,
       });
-
+      
       if (response.success) {
         Alert.alert("Thành công", response.message, [
           {
@@ -105,124 +112,66 @@ export default function RegisterScreen() {
           </Text>
 
           {/* Full Name Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color={errors.fullName ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Họ và tên"
-              placeholderTextColor="#999"
-              value={fullName}
-              onChangeText={(text) => {
-                setFullName(text);
-                if (errors.fullName) clearFieldError("fullName");
-              }}
-              editable={!isLoading}
-            />
-          </View>
-          {errors.fullName ? (
-            <Text style={styles.errorText}>{errors.fullName}</Text>
-          ) : null}
+          <Input
+            placeholder="Họ và tên"
+            value={fullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              if (errors.fullName) clearFieldError("fullName");
+            }}
+            editable={!isLoading}
+            icon="person-outline"
+            error={errors.fullName}
+            iconPosition="left"
+          />
 
           {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={errors.email ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Địa chỉ thư điện tử"
-              placeholderTextColor="#999"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (errors.email) clearFieldError("email");
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!isLoading}
-            />
-          </View>
-          {errors.email ? (
-            <Text style={styles.errorText}>{errors.email}</Text>
-          ) : null}
+          <Input
+            placeholder="Địa chỉ thư điện tử"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errors.email) clearFieldError("email");
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!isLoading}
+            icon="mail-outline"
+            error={errors.email}
+            iconPosition="left"
+          />
 
           {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={errors.password ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Mật khẩu"
-              placeholderTextColor="#999"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) clearFieldError("password");
-              }}
-              secureTextEntry={!showPassword}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={isLoading}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#999"
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.password ? (
-            <Text style={styles.errorText}>{errors.password}</Text>
-          ) : null}
+          <Input
+            placeholder="Mật khẩu"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) clearFieldError("password");
+            }}
+            secureTextEntry={!showPassword}
+            editable={!isLoading}
+            icon={showPassword ? "eye-off" : "eye"}
+            error={errors.password}
+            iconPosition="right"
+            onIconPress={() => setShowPassword(!showPassword)}
+          />
 
           {/* Confirm Password Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={errors.confirmPassword ? "#FF3B30" : "#999"}
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Xác nhận mật khẩu"
-              placeholderTextColor="#999"
-              value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                if (errors.confirmPassword) clearFieldError("confirmPassword");
-              }}
-              secureTextEntry={!showConfirmPassword}
-              editable={!isLoading}
-            />
-            <TouchableOpacity
-              onPress={() => setShowConfirmPassword((prev) => !prev)}
-              disabled={isLoading}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-off" : "eye"}
-                size={20}
-                color="#999"
-              />
-            </TouchableOpacity>
-          </View>
-          {errors.confirmPassword ? (
-            <Text style={styles.errorText}>{errors.confirmPassword}</Text>
-          ) : null}
+          <Input
+            placeholder="Xác nhận mật khẩu"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              if (errors.confirmPassword) clearFieldError("confirmPassword");
+            }}
+            secureTextEntry={!showConfirmPassword}
+            editable={!isLoading}
+            icon={showConfirmPassword ? "eye-off" : "eye"}
+            error={errors.confirmPassword}
+            iconPosition="right"
+            onIconPress={() => setShowConfirmPassword((prev) => !prev)}
+          />
 
           {/* Terms Agreement */}
           <View style={styles.termsContainer}>
@@ -242,25 +191,21 @@ export default function RegisterScreen() {
               <Text style={styles.termsLink}>Chính sách bảo mật</Text>
             </Text>
           </View>
-          {errors.terms ? (
+          {errors.terms && (
             <Text style={styles.errorText}>{errors.terms}</Text>
-          ) : null}
+          )}
 
           {/* Register Button */}
-          <TouchableOpacity
-            style={[
-              styles.registerButton,
-              isLoading && styles.registerButtonDisabled,
-            ]}
+          <Button
+            title="ĐĂNG KÍ"
             onPress={handleRegister}
+            variant="primary"
+            size="lg"
             disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.registerButtonText}>ĐĂNG KÍ</Text>
-            )}
-          </TouchableOpacity>
+            loading={isLoading}
+            fullWidth
+            style={styles.registerButton}
+          />
 
           {/* Login Link */}
           <View style={styles.loginLinkContainer}>
@@ -301,13 +246,13 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: Colors.background.gray,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xxxl,
+    paddingBottom: Spacing.xl,
   },
   backButton: {
     padding: 4,
@@ -322,141 +267,120 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: Spacing.lg,
   },
   logo: {
     width: 80,
     height: 80,
-    marginBottom: 10,
+    marginBottom: Spacing.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: Typography.fontSize.display,
+    fontWeight: Typography.fontWeight.bold,
     textAlign: "center",
-    marginBottom: 8,
-    color: "#000",
+    marginBottom: Spacing.sm,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: Typography.fontSize.md,
     textAlign: "center",
-    color: "#666",
-    marginBottom: 30,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.xl,
+    fontFamily: Typography.fontFamily.regular,
   },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8F8F8",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    height: 50,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: "#000",
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 12,
-    marginBottom: 12,
-    marginLeft: 20,
+  registerButton: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
   },
   termsContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 5,
-    paddingHorizontal: 10,
+    marginBottom: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
   },
   checkbox: {
-    marginRight: 12,
+    marginRight: Spacing.md,
     marginTop: 2,
   },
   termsText: {
     flex: 1,
-    fontSize: 13,
-    color: "#666",
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
     lineHeight: 20,
+    fontFamily: Typography.fontFamily.regular,
   },
   termsLink: {
-    color: "#007AFF",
-    fontWeight: "600",
-  },
-  registerButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  registerButtonDisabled: {
-    backgroundColor: "#0051CC",
-    opacity: 0.7,
-  },
-  registerButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
+    color: Colors.primary,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
   },
   loginLinkContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 30,
+    marginBottom: Spacing.xl,
   },
   loginLinkText: {
-    color: "#666",
-    fontSize: 14,
+    color: Colors.text.secondary,
+    fontSize: Typography.fontSize.md,
+    fontFamily: Typography.fontFamily.regular,
   },
   loginLink: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
+    color: Colors.primary,
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
   },
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 25,
+    marginBottom: Spacing.lg,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: Colors.border.light,
   },
   dividerText: {
-    marginHorizontal: 15,
-    fontSize: 12,
-    color: "#999",
+    marginHorizontal: Spacing.md,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.tertiary,
+    fontFamily: Typography.fontFamily.regular,
   },
   socialContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 20,
-    marginBottom: 20,
+    gap: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   socialButton: {
     width: 50,
     height: 50,
-    borderRadius: 25,
-    backgroundColor: "#F8F8F8",
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.gray[50],
     justifyContent: "center",
     alignItems: "center",
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: Typography.fontSize.sm,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.md,
+    fontFamily: Typography.fontFamily.regular,
   },
   chatButton: {
     alignSelf: "center",
   },
   chatButtonText: {
-    color: "#999",
-    fontSize: 14,
+    color: Colors.text.tertiary,
+    fontSize: Typography.fontSize.md,
+    fontFamily: Typography.fontFamily.regular,
   },
   forgotPassword: {
-    marginTop: 10,
-    color: "#007AFF",
-    fontSize: 14,
+    marginTop: Spacing.sm,
+    color: Colors.primary,
+    fontSize: Typography.fontSize.md,
     textAlign: "center",
+    fontFamily: Typography.fontFamily.regular,
   },
 });
