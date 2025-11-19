@@ -22,7 +22,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -360,6 +360,7 @@ const VideoItem = ({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -375,10 +376,53 @@ export default function HomeScreen() {
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout để debounce scroll
   const lastSnappedIndexRef = useRef<number>(-1); // Track index đã snap để tránh snap lặp lại
   const BATCH_SIZE = 3;
+  const hasScrolledToVideoRef = useRef(false); // Flag để tránh scroll nhiều lần
 
   useEffect(() => {
     fetchVideos();
   }, [isAuthenticated]);
+
+  // Xử lý scroll đến video khi có videoId từ params
+  useEffect(() => {
+    const videoId = params.videoId as string | undefined;
+    const shouldScroll = params.scrollToVideo === "true";
+    
+    if (videoId && shouldScroll && videos.length > 0 && !hasScrolledToVideoRef.current) {
+      const videoIndex = videos.findIndex(v => v._id === videoId);
+      
+      if (videoIndex !== -1 && flatListRef.current) {
+        console.log(`[Home] 🎬 Scrolling to video: ${videoId} at index: ${videoIndex}`);
+        hasScrolledToVideoRef.current = true;
+        
+        // Delay một chút để đảm bảo FlatList đã render xong
+        setTimeout(() => {
+          if (flatListRef.current) {
+            try {
+              flatListRef.current.scrollToIndex({
+                index: videoIndex,
+                animated: true,
+                viewPosition: 0, // Scroll đến đầu video
+              });
+              setCurrentIndex(videoIndex);
+            } catch (error) {
+              console.log(`[Home] ⚠️ Error scrolling to index:`, error);
+              // Fallback: scroll to offset
+              const offset = videoIndex * SCREEN_HEIGHT;
+              flatListRef.current.scrollToOffset({
+                offset,
+                animated: true,
+              });
+              setCurrentIndex(videoIndex);
+            }
+          }
+        }, 500); // Tăng delay để đảm bảo videos đã render
+      } else if (videoIndex === -1) {
+        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
+        // Nếu video không có trong danh sách, có thể cần fetch video đó
+        // Hoặc đợi videos được load thêm
+      }
+    }
+  }, [params.videoId, params.scrollToVideo, videos]);
 
   // Theo dõi khi xem đến video thứ 2 trong batch để load thêm
   useEffect(() => {
