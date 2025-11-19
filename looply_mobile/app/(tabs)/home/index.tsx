@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Pressable,
+  Animated,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,6 +26,14 @@ import { useRouter } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+
+// Responsive values
+const AVATAR_SIZE = Math.min(52, SCREEN_WIDTH * 0.13);
+const AVATAR_RADIUS = AVATAR_SIZE / 2;
+const USER_INFO_BOTTOM = Math.max(100, SCREEN_HEIGHT * 0.12);
+const USER_INFO_RIGHT = Math.max(90, SCREEN_WIDTH * 0.22);
+const USER_INFO_MAX_WIDTH = SCREEN_WIDTH * 0.78;
+const FOLLOW_BUTTON_MIN_WIDTH = Math.max(70, SCREEN_WIDTH * 0.18);
 
 interface User {
   _id: string;
@@ -79,11 +89,19 @@ const VideoItem = ({
   const viewsCount = item.views || 0;
 
   const watchTimeRef = useRef(0);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastTapRef = useRef<number>(0);
+  const doubleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const heartScale = useRef(new Animated.Value(0)).current;
+  
+  // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
+  const isDescriptionLong = item.description && item.description.length > 100;
 
   const player = useVideoPlayer(item.url, (player) => {
     player.loop = true;
-    if (isCurrent) {
+    if (isCurrent && !isPaused) {
       player.play();
     } else {
       player.pause();
@@ -91,7 +109,7 @@ const VideoItem = ({
   });
 
   useEffect(() => {
-    if (isCurrent) {
+    if (isCurrent && !isPaused) {
       player.play();
       // Bắt đầu đếm thời gian xem
       watchTimeRef.current = 0;
@@ -120,17 +138,120 @@ const VideoItem = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isCurrent, player]);
+  }, [isCurrent, player, isPaused]);
+
+  // Reset pause state khi video không còn current
+  useEffect(() => {
+    if (!isCurrent) {
+      setIsPaused(false);
+      setIsDescriptionExpanded(false); // Reset expanded state khi chuyển video
+    }
+  }, [isCurrent]);
+
+  // Cleanup timeout khi unmount
+  useEffect(() => {
+    return () => {
+      if (doubleTapTimeoutRef.current) {
+        clearTimeout(doubleTapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Xử lý tap để pause/play
+  const handleTap = () => {
+    if (!isCurrent) return;
+
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // 300ms để phát hiện double tap
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Double tap - Like video
+      if (doubleTapTimeoutRef.current) {
+        clearTimeout(doubleTapTimeoutRef.current);
+      }
+      handleDoubleTap();
+      lastTapRef.current = 0; // Reset để tránh trigger lại
+    } else {
+      // Single tap - Pause/Play
+      lastTapRef.current = now;
+      doubleTapTimeoutRef.current = setTimeout(() => {
+        handleSingleTap();
+        lastTapRef.current = 0;
+      }, DOUBLE_TAP_DELAY);
+    }
+  };
+
+  const handleSingleTap = () => {
+    if (!isCurrent) return;
+    setIsPaused((prev) => !prev);
+  };
+
+  const handleDoubleTap = () => {
+    if (!isCurrent) return;
+    // Trigger like
+    onLike(item._id);
+    
+    // Animation heart
+    heartScale.setValue(0);
+    Animated.sequence([
+      Animated.spring(heartScale, {
+        toValue: 1.2,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+      Animated.spring(heartScale, {
+        toValue: 0,
+        friction: 3,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   return (
     <View style={styles.videoContainer}>
-      {/* Video Player */}
-      <VideoView
-        player={player}
-        style={styles.video}
-        contentFit="cover"
-        allowsPictureInPicture={false}
-      />
+      {/* Video Player với Pressable để xử lý tap */}
+      <Pressable 
+        style={styles.videoPressable}
+        onPress={handleTap}
+        android_ripple={null}
+      >
+        <VideoView
+          player={player}
+          style={styles.video}
+          contentFit="cover"
+          allowsPictureInPicture={false}
+          nativeControls={false} // Tắt controls mặc định
+        />
+        
+        {/* Pause indicator */}
+        {isPaused && isCurrent && (
+          <View style={styles.pauseOverlay}>
+            <Ionicons name="pause" size={64} color="#FFF" />
+          </View>
+        )}
+
+        {/* Double tap heart animation */}
+        <Animated.View
+          style={[
+            styles.heartAnimation,
+            {
+              transform: [{ scale: heartScale }],
+              opacity: heartScale.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name="heart"
+            size={80}
+            color="#FF3B30"
+            style={styles.heartIcon}
+          />
+        </Animated.View>
+      </Pressable>
 
       {/* Gradient Overlay */}
       <LinearGradient
@@ -147,29 +268,53 @@ const VideoItem = ({
             style={styles.avatar}
           />
           <View style={styles.userText}>
-            <Text style={styles.username}>{item.user.name}</Text>
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            {item.description ? (
-              <Text style={styles.description} numberOfLines={2}>
-                {item.description}
+            <View style={styles.userHeader}>
+              <Text style={styles.username} numberOfLines={1}>
+                {item.user.name}
               </Text>
+              {viewsCount > 0 && (
+                <View style={styles.videoStats}>
+                  <Ionicons name="eye-outline" size={12} color="#FFF" />
+                  <Text style={styles.statsText}>{formatNumber(viewsCount)}</Text>
+                </View>
+              )}
+            </View>
+            {item.title ? (
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+            ) : null}
+            {item.description ? (
+              <View style={styles.descriptionContainer}>
+                <Text 
+                  style={styles.description} 
+                  numberOfLines={isDescriptionExpanded ? undefined : 2}
+                >
+                  {item.description}
+                </Text>
+                {isDescriptionLong && (
+                  <TouchableOpacity
+                    onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.expandButton}>
+                      {isDescriptionExpanded ? "Thu gọn" : "Xem thêm"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : null}
             {item.hashtags && item.hashtags.length > 0 ? (
               <Text style={styles.hashtags} numberOfLines={1}>
                 {item.hashtags.map((tag) => `#${tag}`).join(" ")}
               </Text>
             ) : null}
-            {viewsCount > 0 ? (
-              <View style={styles.videoStats}>
-                <Ionicons name="eye-outline" size={14} color="#FFF" />
-                <Text style={styles.statsText}>{formatNumber(viewsCount)}</Text>
-              </View>
-            ) : null}
           </View>
         </View>
-        <TouchableOpacity style={styles.followButton}>
+        <TouchableOpacity 
+          style={styles.followButton}
+          activeOpacity={0.7}
+        >
           <Text style={styles.followButtonText}>Follow</Text>
         </TouchableOpacity>
       </View>
@@ -726,77 +871,124 @@ const styles = StyleSheet.create({
     position: "relative",
     backgroundColor: Colors.black,
   },
+  videoPressable: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
   video: {
     width: "100%",
     height: "100%",
+  },
+  pauseOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  heartAnimation: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -40,
+    marginLeft: -40,
+    zIndex: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heartIcon: {
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   gradientOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: 300,
+    height: Math.max(350, SCREEN_HEIGHT * 0.4), // Tăng chiều cao để text rõ hơn
   },
   userInfo: {
     position: "absolute",
-    bottom: 120,
-    left: 0,
-    right: 80,
-    padding: Spacing.md,
+    bottom: USER_INFO_BOTTOM,
+    left: Spacing.md,
+    right: USER_INFO_RIGHT,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    maxWidth: USER_INFO_MAX_WIDTH,
   },
   userInfoLeft: {
     flexDirection: "row",
     flex: 1,
+    marginRight: Spacing.sm,
+    minWidth: 0, // Cho phép shrink
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.avatar,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_RADIUS,
     borderWidth: 2,
     borderColor: Colors.white,
-    marginRight: Spacing.md,
+    marginRight: Spacing.sm,
     backgroundColor: Colors.gray[700],
   },
   userText: {
     flex: 1,
+    minWidth: 0, // Cho phép text shrink
+  },
+  userHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs / 2,
+    gap: Spacing.xs,
+    flexWrap: "wrap",
   },
   username: {
     color: Colors.white,
-    fontSize: Typography.fontSize.lg,
+    fontSize: SCREEN_WIDTH < 375 ? Typography.fontSize.sm : Typography.fontSize.md,
     fontWeight: Typography.fontWeight.bold,
-    marginBottom: Spacing.xs,
     fontFamily: Typography.fontFamily.bold,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+    flexShrink: 1,
   },
   title: {
     color: Colors.white,
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.medium,
-    marginBottom: Spacing.xs,
-    fontFamily: Typography.fontFamily.medium,
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontSize: SCREEN_WIDTH < 375 ? Typography.fontSize.sm : Typography.fontSize.md,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  descriptionContainer: {
+    marginBottom: Spacing.xs / 2,
   },
   description: {
     color: Colors.white,
-    fontSize: Typography.fontSize.sm,
-    marginBottom: Spacing.xs,
+    fontSize: SCREEN_WIDTH < 375 ? Typography.fontSize.xs : Typography.fontSize.sm,
     fontFamily: Typography.fontFamily.regular,
+  },
+  expandButton: {
+    color: Colors.accent,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
+    marginTop: Spacing.xs / 2,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   hashtags: {
     color: Colors.accent,
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     fontWeight: Typography.fontWeight.medium,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.xs / 2,
     fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
@@ -805,29 +997,41 @@ const styles = StyleSheet.create({
   videoStats: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
   },
   statsText: {
     color: Colors.white,
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.medium,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 2,
   },
   followButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: SCREEN_WIDTH < 375 ? Spacing.sm : Spacing.md,
+    paddingVertical: Spacing.xs,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    marginLeft: Spacing.md,
+    borderRadius: BorderRadius.round,
+    alignSelf: "flex-start",
+    minWidth: FOLLOW_BUTTON_MIN_WIDTH,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   followButtonText: {
     color: Colors.white,
-    fontSize: Typography.fontSize.md,
+    fontSize: SCREEN_WIDTH < 375 ? Typography.fontSize.xs : Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.medium,
+    fontFamily: Typography.fontFamily.bold,
   },
   actionButtons: {
     position: "absolute",
