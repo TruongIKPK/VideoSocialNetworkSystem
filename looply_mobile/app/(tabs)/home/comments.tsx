@@ -133,9 +133,9 @@ export default function CommentsModal() {
     const comment = comments.find((c) => c._id === commentId);
     if (!comment) return;
 
-    const userId = typeof user._id === "string" ? user._id : user._id.toString();
+    const userId = typeof user._id === "string" ? user._id : String(user._id);
     const isLiked = comment.likedUsers?.some(
-      (id) => (typeof id === "string" ? id : id.toString()) === userId
+      (id) => (typeof id === "string" ? id : String(id)) === userId
     );
     const endpoint = isLiked ? "unlike" : "like";
 
@@ -150,7 +150,7 @@ export default function CommentsModal() {
             likesCount: isLiked ? currentLikes - 1 : currentLikes + 1,
             likedUsers: isLiked
               ? currentLikedUsers.filter(
-                  (id) => (typeof id === "string" ? id : id.toString()) !== userId
+                  (id) => (typeof id === "string" ? id : String(id)) !== userId
                 )
               : [...currentLikedUsers, userId],
           };
@@ -176,12 +176,12 @@ export default function CommentsModal() {
               const currentLikedUsers = c.likedUsers || [];
               return {
                 ...c,
-                likesCount: isLiked ? currentLikes + 1 : currentLikes - 1,
-                likedUsers: isLiked
-                  ? [...currentLikedUsers, userId]
-                  : currentLikedUsers.filter(
-                      (id) => (typeof id === "string" ? id : id.toString()) !== userId
-                    ),
+            likesCount: isLiked ? currentLikes + 1 : currentLikes - 1,
+            likedUsers: isLiked
+              ? [...currentLikedUsers, userId]
+              : currentLikedUsers.filter(
+                  (id) => (typeof id === "string" ? id : String(id)) !== userId
+                ),
               };
             }
             return c;
@@ -198,9 +198,9 @@ export default function CommentsModal() {
       typeof item.userId === "object" && item.userId
         ? item.userId
         : { _id: "", name: "User", avatar: "" };
-    const userId = user?._id ? (typeof user._id === "string" ? user._id : user._id.toString()) : "";
+    const userId = user?._id ? (typeof user._id === "string" ? user._id : String(user._id)) : "";
     const isLiked = userId && item.likedUsers?.some(
-      (id) => (typeof id === "string" ? id : id.toString()) === userId
+      (id) => (typeof id === "string" ? id : String(id)) === userId
     );
     const likesCount = item.likesCount || 0;
 
@@ -286,7 +286,7 @@ export default function CommentsModal() {
             data={comments}
             keyExtractor={(item) => item._id}
             renderItem={renderComment}
-            contentContainerStyle={styles.commentsList}
+            contentContainerStyle={[styles.commentsList, { paddingBottom: 120 }]}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -472,6 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    paddingBottom: 120, // Thêm padding bottom để tránh bị tab bar che
   },
   replyingIndicator: {
     flexDirection: "row",
