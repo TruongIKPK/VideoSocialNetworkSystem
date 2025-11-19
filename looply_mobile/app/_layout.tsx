@@ -30,9 +30,9 @@ export function CustomHeader() {
         justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 20,
-        paddingTop: 50, // chừa khoảng cho status bar
+        paddingTop: 50, 
         paddingBottom: 10,
-        backgroundColor: "rgba(0,0,0,0)", // hoàn toàn trong suốt
+        backgroundColor: "rgba(0,0,0,0)", 
       }}
     >
       {/* Ô tìm kiếm cũng làm trong suốt hơn */}
@@ -71,24 +71,24 @@ export function CustomHeader() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  useEffect(() => {
-    const hideNavBar = async () => {
-      try {
-        await NavigationBar.setVisibilityAsync("hidden");
-      } catch (error) {
-        console.warn("Failed to hide nav bar:", error);
-      }
-    };
+  // useEffect(() => {
+  //   const hideNavBar = async () => {
+  //     try {
+  //       await NavigationBar.setVisibilityAsync("hidden");
+  //     } catch (error) {
+  //       console.warn("Failed to hide nav bar:", error);
+  //     }
+  //   };
 
-    hideNavBar(); // chạy khi mở app lần đầu
+  //   hideNavBar(); // chạy khi mở app lần đầu
 
-    // chạy lại khi người dùng quay lại app (sau khi thoát)
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") hideNavBar();
-    });
+  //   // chạy lại khi người dùng quay lại app (sau khi thoát)
+  //   const subscription = AppState.addEventListener("change", (state) => {
+  //     if (state === "active") hideNavBar();
+  //   });
 
-    return () => subscription.remove();
-  }, []);
+  //   return () => subscription.remove();
+  // }, []);
 
   return (
     <UserProvider>

@@ -39,3 +39,23 @@ export const unlike = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Kiểm tra xem user đã like nội dung chưa
+export const checkLike = async (req, res) => {
+  try {
+    const { userId, targetType, targetId } = req.query;
+
+    if (!userId || !targetType || !targetId) {
+      return res.status(400).json({ message: "Thiếu thông tin cần thiết" });
+    }
+
+    const like = await Like.findOne({ user: userId, targetType, targetId });
+
+    res.json({
+      isLiked: !!like,
+      liked: !!like,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

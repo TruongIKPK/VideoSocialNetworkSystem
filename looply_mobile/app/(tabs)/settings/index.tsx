@@ -195,7 +195,11 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Cài đặt</Text>
