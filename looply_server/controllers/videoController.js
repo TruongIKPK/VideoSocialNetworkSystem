@@ -1,5 +1,7 @@
 import Video from "../models/Video.js";
 import User from "../models/User.js";
+import VideoView from "../models/VideoView.js";
+import Like from "../models/Like.js";
 import cloudinary from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
@@ -71,15 +73,43 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
+    // Tìm kiếm trong cả title và description
     const videos = await Video.find({
-      title: { $regex: q, $options: 'i' }
+      $or: [
+        { title: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } }
+      ]
     }).sort({ createdAt: -1 });
 
+    // Lấy thông tin views và likes cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+
+        return {
+          _id: video._id,
+          title: video.title,
+          description: video.description || "",
+          url: video.url,
+          thumbnail: video.thumbnail || video.url,
+          author: video.user, // Map user to author for frontend
+          createdAt: video.createdAt,
+          views: views,
+          likes: likes
+        };
+      })
+    );
+
     res.json({
-      total: videos.length,
-      videos: videos
+      total: videosWithStats.length,
+      videos: videosWithStats
     });
   } catch (error) {
+    console.error("Search videos error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -113,6 +143,58 @@ export const getLatestVideos = async (req, res) => {
       videos: videos
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const searchVideosByHashtags = async (req, res) => {
+  try {
+    const { hashtags } = req.query;
+    
+    if (!hashtags) {
+      return res.status(400).json({ message: "Thiếu hashtag" });
+    }
+
+    // Tìm kiếm video có chứa hashtag trong description
+    // Hashtag có thể ở dạng: #hashtag hoặc hashtag
+    const hashtagPattern = hashtags.startsWith('#') ? hashtags : `#${hashtags}`;
+    
+    const videos = await Video.find({
+      $or: [
+        { description: { $regex: hashtagPattern, $options: 'i' } },
+        { title: { $regex: hashtagPattern, $options: 'i' } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    // Lấy thông tin views và likes cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+
+        return {
+          _id: video._id,
+          title: video.title,
+          description: video.description || "",
+          url: video.url,
+          thumbnail: video.thumbnail || video.url,
+          author: video.user, // Map user to author for frontend
+          createdAt: video.createdAt,
+          views: views,
+          likes: likes
+        };
+      })
+    );
+
+    res.json({
+      total: videosWithStats.length,
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Search videos by hashtags error:", error);
     res.status(500).json({ message: error.message });
   }
 };

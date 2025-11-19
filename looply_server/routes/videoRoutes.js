@@ -7,7 +7,8 @@ import {
   deleteVideo,
   searchVideos,
   getRandomVideos,
-  getLatestVideos
+  getLatestVideos,
+  searchVideosByHashtags
 } from "../controllers/videoController.js";
 import { authenticateToken, checkOwnership } from "../middleware/auth.js";
 
@@ -20,6 +21,7 @@ router.delete("/:id", authenticateToken, deleteVideo);
 
 // Public routes
 router.get("/search", searchVideos);
+router.get("/search/hashtags", searchVideosByHashtags);
 router.get("/random", getRandomVideos); 
 router.get("/latest", getLatestVideos);
 router.get("/", getAllVideos);                              

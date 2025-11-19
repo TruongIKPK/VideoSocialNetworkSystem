@@ -741,6 +741,15 @@ export default function HomeScreen() {
     });
   };
 
+  const handleSearchIconPress = () => {
+    console.log(`[Home] 🔍 Search icon pressed, navigating to search screen`);
+    // Navigate thẳng tới search screen
+    router.push({
+      pathname: "/search",
+      params: {}
+    } as any);
+  };
+
   const renderVideoItem = ({
     item,
     index,
@@ -799,6 +808,16 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
+      
+      {/* Search Button */}
+      <TouchableOpacity 
+        style={styles.searchButton}
+        onPress={handleSearchIconPress}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search" size={24} color="#FFF" />
+      </TouchableOpacity>
+
       <FlatList
         ref={flatListRef}
         data={videos}
@@ -1064,5 +1083,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.md,
     marginTop: Spacing.sm,
     fontFamily: Typography.fontFamily.regular,
+  },
+  searchButton: {
+    position: "absolute",
+    top: 50,
+    right: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
