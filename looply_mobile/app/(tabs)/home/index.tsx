@@ -225,6 +225,10 @@ export default function HomeScreen() {
   const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
   const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
+  const scrollStartIndexRef = useRef<number>(0); // Lưu index khi bắt đầu scroll
+  const isScrollingRef = useRef<boolean>(false); // Theo dõi trạng thái scroll
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout để debounce scroll
+  const lastSnappedIndexRef = useRef<number>(-1); // Track index đã snap để tránh snap lặp lại
   const BATCH_SIZE = 3;
 
   useEffect(() => {
@@ -402,12 +406,123 @@ export default function HomeScreen() {
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
       const visibleIndex = viewableItems[0].index;
-      setCurrentIndex(visibleIndex);
+      if (visibleIndex !== null && visibleIndex !== undefined) {
+        setCurrentIndex(visibleIndex);
+      }
     }
   }).current;
 
   const viewabilityConfig = {
     itemVisiblePercentThreshold: 50,
+  };
+
+  // Tính toán snap offsets cho từng video - đảm bảo snap chính xác đến từng video
+  const snapToOffsets = videos.map((_, index) => index * SCREEN_HEIGHT);
+
+  // Xử lý khi bắt đầu scroll - lưu index hiện tại
+  const handleScrollBeginDrag = () => {
+    scrollStartIndexRef.current = currentIndex;
+    isScrollingRef.current = true;
+    lastSnappedIndexRef.current = -1; // Reset snap tracking
+    // Clear timeout nếu có
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  };
+
+  // Xử lý scroll - chỉ theo dõi, không snap trong quá trình scroll để tránh lag
+  const handleScroll = (event: any) => {
+    if (!isScrollingRef.current) return;
+    
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const startIndex = scrollStartIndexRef.current;
+    const startOffset = startIndex * SCREEN_HEIGHT;
+    const maxOffset = (startIndex + 1) * SCREEN_HEIGHT; // Chỉ cho phép xuống 1 video
+    const minOffset = Math.max(0, (startIndex - 1) * SCREEN_HEIGHT); // Chỉ cho phép lên 1 video
+    
+    // Nếu scroll quá giới hạn, ngay lập tức snap về video đúng
+    if (offsetY > maxOffset) {
+      // Scroll quá xuống - snap về video bên dưới
+      const targetIndex = Math.min(startIndex + 1, videos.length - 1);
+      if (targetIndex !== currentIndex) {
+        setCurrentIndex(targetIndex);
+        flatListRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: false, // Không animate để tránh hiệu ứng "cuộn xuống rồi quay lại"
+        });
+      }
+    } else if (offsetY < minOffset) {
+      // Scroll quá lên - snap về video bên trên
+      const targetIndex = Math.max(0, startIndex - 1);
+      if (targetIndex !== currentIndex) {
+        setCurrentIndex(targetIndex);
+        flatListRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: false, // Không animate để tránh hiệu ứng "cuộn xuống rồi quay lại"
+        });
+      }
+    }
+  };
+
+  // Xử lý khi scroll kết thúc - đảm bảo chỉ di chuyển 1 video
+  const handleScrollEndDrag = (event: any) => {
+    isScrollingRef.current = false;
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const startIndex = scrollStartIndexRef.current;
+    const startOffset = startIndex * SCREEN_HEIGHT;
+    
+    // Xác định hướng scroll và video đích (threshold 15% để nhạy hơn)
+    let targetIndex = startIndex;
+    if (offsetY > startOffset + SCREEN_HEIGHT * 0.10) {
+      // Lướt xuống đủ xa - chuyển sang video bên dưới
+      targetIndex = Math.min(startIndex + 1, videos.length - 1);
+    } else if (offsetY < startOffset - SCREEN_HEIGHT * 0.10) {
+      // Lướt lên đủ xa - chuyển sang video bên trên
+      targetIndex = Math.max(0, startIndex - 1);
+    } else {
+      // Lướt chưa đủ xa - quay về video hiện tại
+      targetIndex = startIndex;
+    }
+    
+    // Scroll đến video đúng
+    if (targetIndex !== currentIndex) {
+      setCurrentIndex(targetIndex);
+    }
+    flatListRef.current?.scrollToIndex({
+      index: targetIndex,
+      animated: true,
+    });
+  };
+
+  // Xử lý khi momentum scroll kết thúc - đảm bảo chỉ di chuyển 1 video
+  const handleMomentumScrollEnd = (event: any) => {
+    isScrollingRef.current = false;
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const startIndex = scrollStartIndexRef.current;
+    const startOffset = startIndex * SCREEN_HEIGHT;
+    
+    // Xác định hướng scroll và video đích (threshold 15% để nhạy hơn)
+    let targetIndex = startIndex;
+    if (offsetY > startOffset + SCREEN_HEIGHT * 0.15) {
+      // Lướt xuống đủ xa - chuyển sang video bên dưới
+      targetIndex = Math.min(startIndex + 1, videos.length - 1);
+    } else if (offsetY < startOffset - SCREEN_HEIGHT * 0.15) {
+      // Lướt lên đủ xa - chuyển sang video bên trên
+      targetIndex = Math.max(0, startIndex - 1);
+    } else {
+      // Lướt chưa đủ xa - quay về video hiện tại
+      targetIndex = startIndex;
+    }
+    
+    // Scroll đến video đúng
+    if (targetIndex !== currentIndex) {
+      setCurrentIndex(targetIndex);
+    }
+    flatListRef.current?.scrollToIndex({
+      index: targetIndex,
+      animated: true,
+    });
   };
 
   const handleLike = async (videoId: string) => {
@@ -544,19 +659,37 @@ export default function HomeScreen() {
         data={videos}
         renderItem={renderVideoItem}
         keyExtractor={(item) => item._id}
-        pagingEnabled
+        pagingEnabled={false}
         showsVerticalScrollIndicator={false}
-        snapToInterval={SCREEN_HEIGHT}
+        snapToOffsets={snapToOffsets}
         snapToAlignment="start"
-        decelerationRate="fast"
+        decelerationRate="fast" // Dùng fast để snap nhanh hơn
+        removeClippedSubviews={true} // Tối ưu performance
+        maxToRenderPerBatch={3} // Giới hạn số item render mỗi batch
+        windowSize={5} // Giới hạn window size để tối ưu
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        onScroll={handleScroll}
+        scrollEventThrottle={100} // Tăng lên 100ms để giảm tải xử lý
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
         getItemLayout={(data, index) => ({
           length: SCREEN_HEIGHT,
           offset: SCREEN_HEIGHT * index,
           index,
         })}
         ListFooterComponent={renderFooter}
+        onScrollToIndexFailed={(info) => {
+          // Xử lý khi scroll đến index thất bại (ví dụ: index chưa render)
+          const wait = new Promise((resolve) => setTimeout(resolve, 500));
+          wait.then(() => {
+            flatListRef.current?.scrollToIndex({
+              index: info.index,
+              animated: true,
+            });
+          });
+        }}
       />
     </SafeAreaView>
   );
