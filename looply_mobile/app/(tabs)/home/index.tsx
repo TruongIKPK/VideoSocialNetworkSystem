@@ -22,7 +22,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -73,6 +73,7 @@ const VideoItem = ({
   onVideoProgress,
   onComment,
   currentUserId,
+  isScreenFocused,
 }: {
   item: VideoPost;
   index: number;
@@ -81,6 +82,7 @@ const VideoItem = ({
   onVideoProgress: (videoId: string, duration: number) => void;
   onComment: (videoId: string) => void;
   currentUserId: string | null;
+  isScreenFocused: boolean;
 }) => {
   // Kiểm tra xem video đã được like chưa
   // Đảm bảo likedBy là array và có currentUserId
@@ -115,7 +117,8 @@ const VideoItem = ({
   });
 
   useEffect(() => {
-    if (isCurrent && !isPaused) {
+    // Chỉ phát video nếu: là video hiện tại, không bị pause bởi user, và screen đang được focus
+    if (isCurrent && !isPaused && isScreenFocused) {
       player.play();
       // Bắt đầu đếm thời gian xem
       watchTimeRef.current = 0;
@@ -144,7 +147,7 @@ const VideoItem = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isCurrent, player, isPaused]);
+  }, [isCurrent, player, isPaused, isScreenFocused]);
 
   // Reset pause state khi video không còn current
   useEffect(() => {
@@ -375,12 +378,26 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
   const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
+  const [isScreenFocused, setIsScreenFocused] = useState(true); // Track khi tab được focus
   const flatListRef = useRef<FlatList>(null);
   const scrollStartIndexRef = useRef<number>(0); // Lưu index khi bắt đầu scroll
   const isScrollingRef = useRef<boolean>(false); // Theo dõi trạng thái scroll
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout để debounce scroll
   const lastSnappedIndexRef = useRef<number>(-1); // Track index đã snap để tránh snap lặp lại
   const BATCH_SIZE = 3;
+
+  // Xử lý khi tab được focus/unfocus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Tab được focus - phát video hiện tại
+      setIsScreenFocused(true);
+      
+      return () => {
+        // Tab mất focus - tạm dừng tất cả videos
+        setIsScreenFocused(false);
+      };
+    }, [])
+  );
 
   useEffect(() => {
     fetchVideos();
@@ -887,6 +904,7 @@ export default function HomeScreen() {
         onVideoProgress={handleVideoProgress}
         onComment={handleComment}
         currentUserId={userId}
+        isScreenFocused={isScreenFocused}
       />
     );
   };
