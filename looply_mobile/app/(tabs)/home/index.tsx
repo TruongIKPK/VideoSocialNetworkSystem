@@ -82,7 +82,13 @@ const VideoItem = ({
   onComment: (videoId: string) => void;
   currentUserId: string | null;
 }) => {
-  const isLiked = currentUserId && item.likedBy && item.likedBy.includes(currentUserId);
+  // Kiểm tra xem video đã được like chưa
+  // Đảm bảo likedBy là array và có currentUserId
+  const isLiked = 
+    currentUserId && 
+    item.likedBy && 
+    Array.isArray(item.likedBy) && 
+    item.likedBy.includes(currentUserId);
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
@@ -440,7 +446,67 @@ export default function HomeScreen() {
           uniqueVideos.forEach((video) => newVideoIds.add(video._id));
           setLoadedVideoIds(newVideoIds);
 
-          setVideos(uniqueVideos);
+          // Nếu đã đăng nhập, check like status cho từng video bằng cách gọi API
+          let processedVideos = uniqueVideos;
+          if (isAuthenticated && token && userId) {
+            // Gọi API check like cho tất cả videos cùng lúc (parallel)
+            processedVideos = await Promise.all(
+              uniqueVideos.map(async (video) => {
+                // Đảm bảo likedBy là array
+                let likedBy = video.likedBy || [];
+                if (!Array.isArray(likedBy)) {
+                  likedBy = [];
+                }
+
+                // Gọi API để check xem video đã được like chưa
+                try {
+                  const checkResponse = await fetch(
+                    `${API_BASE_URL}/likes/check?userId=${encodeURIComponent(userId)}&targetType=video&targetId=${encodeURIComponent(video._id)}`,
+                    {
+                      method: "GET",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (checkResponse.ok) {
+                    const checkData = await checkResponse.json();
+                    // Nếu API trả về isLiked hoặc liked: true
+                    if (checkData.isLiked || checkData.liked) {
+                      // Thêm userId vào likedBy nếu chưa có
+                      if (!likedBy.includes(userId)) {
+                        likedBy = [...likedBy, userId];
+                      }
+                    } else {
+                      // Xóa userId khỏi likedBy nếu có
+                      likedBy = likedBy.filter((id: string) => id !== userId);
+                    }
+                  } else if (checkResponse.status === 404) {
+                    // Endpoint không tồn tại, giữ nguyên likedBy từ API
+                    console.warn(`Like check endpoint not found for video ${video._id}`);
+                  }
+                } catch (error) {
+                  console.error(`Error checking like status for video ${video._id}:`, error);
+                  // Nếu không check được, giữ nguyên likedBy từ API
+                }
+
+                return {
+                  ...video,
+                  likedBy: likedBy,
+                };
+              })
+            );
+          } else {
+            // Nếu chưa đăng nhập, đảm bảo likedBy là array rỗng
+            processedVideos = uniqueVideos.map((video) => ({
+              ...video,
+              likedBy: [],
+            }));
+          }
+
+          setVideos(processedVideos);
         } else {
           setError("No new videos available");
         }
@@ -496,8 +562,67 @@ export default function HomeScreen() {
           newVideos.forEach((video) => newVideoIds.add(video._id));
           setLoadedVideoIds(newVideoIds);
 
+          // Nếu đã đăng nhập, check like status cho từng video bằng cách gọi API
+          let processedVideos = newVideos;
+          if (isAuthenticated && token && userId) {
+            processedVideos = await Promise.all(
+              newVideos.map(async (video) => {
+                // Đảm bảo likedBy là array
+                let likedBy = video.likedBy || [];
+                if (!Array.isArray(likedBy)) {
+                  likedBy = [];
+                }
+
+                // Gọi API để check xem video đã được like chưa
+                try {
+                  const checkResponse = await fetch(
+                    `${API_BASE_URL}/likes/check?userId=${encodeURIComponent(userId)}&targetType=video&targetId=${encodeURIComponent(video._id)}`,
+                    {
+                      method: "GET",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (checkResponse.ok) {
+                    const checkData = await checkResponse.json();
+                    // Nếu API trả về isLiked hoặc liked: true
+                    if (checkData.isLiked || checkData.liked) {
+                      // Thêm userId vào likedBy nếu chưa có
+                      if (!likedBy.includes(userId)) {
+                        likedBy = [...likedBy, userId];
+                      }
+                    } else {
+                      // Xóa userId khỏi likedBy nếu có
+                      likedBy = likedBy.filter((id: string) => id !== userId);
+                    }
+                  } else if (checkResponse.status === 404) {
+                    // Endpoint không tồn tại, giữ nguyên likedBy từ API
+                    console.warn(`Like check endpoint not found for video ${video._id}`);
+                  }
+                } catch (error) {
+                  console.error(`Error checking like status for video ${video._id}:`, error);
+                  // Nếu không check được, giữ nguyên likedBy từ API
+                }
+
+                return {
+                  ...video,
+                  likedBy: likedBy,
+                };
+              })
+            );
+          } else {
+            // Nếu chưa đăng nhập, đảm bảo likedBy là array rỗng
+            processedVideos = newVideos.map((video) => ({
+              ...video,
+              likedBy: [],
+            }));
+          }
+
           // Append vào danh sách hiện tại (không replace)
-          setVideos((prev) => [...prev, ...newVideos]);
+          setVideos((prev) => [...prev, ...processedVideos]);
         }
       }
     } catch (error) {
@@ -675,13 +800,17 @@ export default function HomeScreen() {
       return;
     }
 
+    // Tìm video hiện tại để kiểm tra trạng thái like
+    const currentVideo = videos.find((v) => v._id === videoId);
+    if (!currentVideo) return;
+
+    const isCurrentlyLiked = currentVideo.likedBy.includes(userId);
+    const currentLikes = currentVideo.likes || currentVideo.likesCount || 0;
+
     // Optimistic UI update
     setVideos((prev) =>
       prev.map((video) => {
         if (video._id === videoId) {
-          const isCurrentlyLiked = video.likedBy.includes(userId);
-          const currentLikes = video.likes || video.likesCount || 0;
-
           return {
             ...video,
             likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
@@ -696,41 +825,42 @@ export default function HomeScreen() {
     );
 
     try {
-      const response = await fetch(`${API_BASE_URL}/likes`, {
-        method: "POST",
+      // Xác định endpoint và method dựa trên trạng thái like hiện tại
+      const endpoint = isCurrentlyLiked ? "unlike" : "like";
+      const method = "POST";
+
+      const response = await fetch(`${API_BASE_URL}/likes/${endpoint}`, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ videoId }),
+        body: JSON.stringify({
+          userId: userId,
+          targetType: "video",
+          targetId: videoId,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to like video");
+        throw new Error(`Failed to ${endpoint} video`);
       }
     } catch (error) {
       console.error("Like error:", error);
       // Revert on error
-      if (userId) {
-        setVideos((prev) =>
-          prev.map((video) => {
-            if (video._id === videoId) {
-              const isCurrentlyLiked = video.likedBy.includes(userId);
-              const currentLikes = video.likes || video.likesCount || 0;
-
-              return {
-                ...video,
-                likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-                likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-                likedBy: isCurrentlyLiked
-                  ? [...video.likedBy, userId]
-                  : video.likedBy.filter((id) => id !== userId),
-              };
-            }
-            return video;
-          })
-        );
-      }
+      setVideos((prev) =>
+        prev.map((video) => {
+          if (video._id === videoId) {
+            return {
+              ...video,
+              likes: currentLikes,
+              likesCount: currentLikes,
+              likedBy: currentVideo.likedBy,
+            };
+          }
+          return video;
+        })
+      );
     }
   };
 
@@ -911,7 +1041,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: Math.max(350, SCREEN_HEIGHT * 0.4), // Tăng chiều cao để text rõ hơn
+    height: Math.max(350, SCREEN_HEIGHT * 0.4), 
   },
   userInfo: {
     position: "absolute",
