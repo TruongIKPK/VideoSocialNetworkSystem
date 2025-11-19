@@ -63,6 +63,7 @@ export default function InboxList() {
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 100 }}
         renderItem={({ item }) => {
           // Chuyển new Date(item.time) nếu item.time là chuỗi string từ API
           const formattedTime = formatChatTime(item.time);

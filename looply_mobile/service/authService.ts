@@ -139,7 +139,49 @@ export const authService = {
         }),
       });
 
-      const data = await response.json();
+      // Kiểm tra Content-Type và parse JSON an toàn
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      
+      // Clone response để có thể đọc nhiều lần nếu cần
+      const responseClone = response.clone();
+      
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("JSON parse error:", parseError);
+          // Nếu không parse được JSON, lấy text response từ clone
+          try {
+            const textResponse = await responseClone.text();
+            console.error("Response text:", textResponse);
+            return {
+              success: false,
+              message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+            };
+          } catch (textError) {
+            return {
+              success: false,
+              message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+            };
+          }
+        }
+      } else {
+        // Nếu không phải JSON, lấy text response
+        try {
+          const textResponse = await response.text();
+          console.error("Non-JSON response:", textResponse);
+          return {
+            success: false,
+            message: textResponse || "Đăng nhập thất bại. Vui lòng thử lại!",
+          };
+        } catch (textError) {
+          return {
+            success: false,
+            message: "Đăng nhập thất bại. Vui lòng thử lại!",
+          };
+        }
+      }
 
       if (response.status === 200) {
         // Extract token từ API response (có thể từ data.token hoặc data là token string)
@@ -192,7 +234,32 @@ export const authService = {
         }),
       });
 
-      const data = await response.json();
+      // Kiểm tra Content-Type và parse JSON an toàn
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("JSON parse error:", parseError);
+          // Nếu không parse được JSON, lấy text response
+          const textResponse = await response.text();
+          console.error("Response text:", textResponse);
+          return {
+            success: false,
+            message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+          };
+        }
+      } else {
+        // Nếu không phải JSON, lấy text response
+        const textResponse = await response.text();
+        console.error("Non-JSON response:", textResponse);
+        return {
+          success: false,
+          message: textResponse || "Đăng kí thất bại. Vui lòng thử lại!",
+        };
+      }
 
       if (response.status === 201) {
         // Extract token từ API response nếu có (có thể từ data.token hoặc data là token string)
