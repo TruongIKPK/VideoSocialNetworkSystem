@@ -178,7 +178,7 @@ export default function ExploreScreen() {
         numColumns={2}
         keyExtractor={(item) => item._id}
         renderItem={renderVideoItem}
-        contentContainerStyle={styles.videoGrid}
+        contentContainerStyle={[styles.videoGrid, { paddingBottom: 100 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

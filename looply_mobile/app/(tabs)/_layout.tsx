@@ -12,14 +12,11 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#666",
         tabBarShowLabel: true,
         tabBarStyle: {
-          position: "absolute",
-          backgroundColor: "rgba(0,0,0,0.4)",
+          backgroundColor: "#000",
           borderTopWidth: 0,
-          paddingBottom: 25,
-          paddingTop: 15,
-          height: 80,
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
+          paddingBottom: 30,
+          paddingTop: 10,
+          height: 100,
         },
       }}
     >
@@ -32,6 +29,12 @@ export default function TabLayout() {
           ),
           headerShown: true,
           header: () => <CustomHeader />,
+        }}
+      />
+      <Tabs.Screen
+        name="home/comments"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

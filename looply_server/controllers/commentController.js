@@ -15,11 +15,20 @@ export const addComment = async (req, res) => {
 
     await Video.findByIdAndUpdate(videoId, { $inc: { commentsCount: 1 } });
 
+    // Populate user info
+    await comment.populate("userId", "name username avatar");
+    
     res.status(201).json({
       _id: comment._id,
       text: comment.text,
       videoId: comment.videoId,
-      userId: comment.userId,
+      userId: comment.userId ? {
+        _id: comment.userId._id,
+        name: comment.userId.name || comment.userId.username || "User",
+        avatar: comment.userId.avatar || ""
+      } : null,
+      likesCount: comment.likesCount || 0,
+      likedUsers: comment.likedUsers || [],
       createdAt: comment.createdAt,
       parentId: comment.parentId
     });
@@ -30,13 +39,21 @@ export const addComment = async (req, res) => {
 
 export const getCommentsByVideo = async (req, res) => {
   try {
-    const comments = await Comment.find({ videoId: req.params.videoId }).sort({ createdAt: -1 });
+    const comments = await Comment.find({ videoId: req.params.videoId })
+      .populate("userId", "name username avatar")
+      .sort({ createdAt: -1 });
 
     const result = comments.map(c => ({
       _id: c._id,
       text: c.text,
       videoId: c.videoId,
-      userId: c.userId,
+      userId: c.userId ? {
+        _id: c.userId._id,
+        name: c.userId.name || c.userId.username || "User",
+        avatar: c.userId.avatar || ""
+      } : null,
+      likesCount: c.likesCount || 0,
+      likedUsers: c.likedUsers || [],
       createdAt: c.createdAt,
       parentId: c.parentId
     }));

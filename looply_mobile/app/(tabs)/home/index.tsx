@@ -20,6 +20,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
+import { useRouter } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -60,6 +61,7 @@ const VideoItem = ({
   isCurrent,
   onLike,
   onVideoProgress,
+  onComment,
   currentUserId,
 }: {
   item: VideoPost;
@@ -67,6 +69,7 @@ const VideoItem = ({
   isCurrent: boolean;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  onComment: (videoId: string) => void;
   currentUserId: string | null;
 }) => {
   const isLiked = currentUserId && item.likedBy && item.likedBy.includes(currentUserId);
@@ -187,7 +190,10 @@ const VideoItem = ({
         </TouchableOpacity>
 
         {/* Comment */}
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onComment(item._id)}
+        >
           <Ionicons name="chatbubble-outline" size={30} color="#FFF" />
           <Text style={styles.actionText}>{formatNumber(commentsCount)}</Text>
         </TouchableOpacity>
@@ -208,6 +214,7 @@ const VideoItem = ({
 };
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -467,6 +474,13 @@ export default function HomeScreen() {
     }
   };
 
+  const handleComment = (videoId: string) => {
+    router.push({
+      pathname: "/(tabs)/home/comments",
+      params: { videoId },
+    });
+  };
+
   const renderVideoItem = ({
     item,
     index,
@@ -481,6 +495,7 @@ export default function HomeScreen() {
         isCurrent={index === currentIndex}
         onLike={handleLike}
         onVideoProgress={handleVideoProgress}
+        onComment={handleComment}
         currentUserId={userId}
       />
     );
