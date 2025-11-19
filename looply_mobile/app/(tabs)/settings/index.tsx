@@ -60,7 +60,7 @@ export default function SettingsScreen() {
       subtitle: "Cập nhật thông tin cá nhân",
       icon: "person-outline",
       type: "navigation",
-      onPress: () => router.push("/(tabs)/profile"),
+      onPress: () => router.push("/(tabs)/settings/edit-profile"),
     },
     {
       id: "privacy",
