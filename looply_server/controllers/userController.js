@@ -314,3 +314,34 @@ export const updateUserStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Kiểm tra xem user hiện tại đã follow user khác chưa
+export const checkFollow = async (req, res) => {
+  try {
+    const { userId } = req.query; // ID của user được check follow
+    const currentUserId = req.user._id.toString();
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId cần kiểm tra" });
+    }
+
+    // Lấy thông tin user hiện tại với followingList
+    const currentUser = await User.findById(currentUserId).select("followingList");
+    
+    if (!currentUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng hiện tại" });
+    }
+
+    // Kiểm tra xem userId có trong followingList không
+    const isFollowing = currentUser.followingList.some(
+      (id) => id.toString() === userId
+    );
+
+    res.json({
+      isFollowing: isFollowing,
+      followed: isFollowing,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
