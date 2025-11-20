@@ -1040,6 +1040,64 @@ export default function HomeScreen() {
     } as any);
   };
 
+  const handleFollow = async (targetUserId: string) => {
+    if (!userId || !isAuthenticated || !token || userId === targetUserId) {
+      return;
+    }
+
+    // Tìm video của user này để kiểm tra trạng thái follow
+    const video = videos.find((v) => v.user._id === targetUserId);
+    if (!video) return;
+
+    const isCurrentlyFollowing = video.isFollowing || false;
+
+    // Optimistic UI update
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.user._id === targetUserId) {
+          return {
+            ...v,
+            isFollowing: !isCurrentlyFollowing,
+          };
+        }
+        return v;
+      })
+    );
+
+    try {
+      const method = isCurrentlyFollowing ? "DELETE" : "POST";
+      const response = await fetch(
+        `${API_BASE_URL}/users/${targetUserId}/follow`,
+        {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isCurrentlyFollowing ? "unfollow" : "follow"} user`);
+      }
+    } catch (error) {
+      console.error("Follow error:", error);
+      // Revert on error
+      setVideos((prev) =>
+        prev.map((v) => {
+          if (v.user._id === targetUserId) {
+            return {
+              ...v,
+              isFollowing: isCurrentlyFollowing,
+            };
+          }
+          return v;
+        })
+      );
+    }
+  };
+
+
   const renderVideoItem = ({
     item,
     index,
