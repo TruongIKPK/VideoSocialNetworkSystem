@@ -18,6 +18,7 @@ import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
+import { logger } from "@/utils/logger";
 
 const { width } = Dimensions.get("window");
 const itemWidth = (width - 60) / 3;
@@ -54,12 +55,6 @@ export default function UserProfile() {
     following: parseInt(Array.isArray(params.userFollowing) ? params.userFollowing[0] : params.userFollowing || '0'),
   } : null;
   
-  console.log(`[UserProfile] 📥 Received params:`, params);
-  console.log(`[UserProfile] 📥 Parsed userId:`, targetUserId);
-  console.log(`[UserProfile] 📥 userId type:`, typeof targetUserId);
-  console.log(`[UserProfile] 📥 userId length:`, targetUserId?.length);
-  console.log(`[UserProfile] 📦 Fallback user data:`, fallbackUserData);
-  
   const [profileUser, setProfileUser] = useState<any>(fallbackUserData);
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -70,10 +65,9 @@ export default function UserProfile() {
 
   useEffect(() => {
     if (targetUserId) {
-      console.log(`[UserProfile] 🔄 Fetching profile for userId:`, targetUserId);
       fetchOtherUserProfile(targetUserId);
     } else {
-      console.warn(`[UserProfile] ⚠️ No userId provided`);
+      logger.warn(`[UserProfile] No userId provided`);
       setIsLoading(false);
     }
   }, [targetUserId]);
@@ -82,46 +76,25 @@ export default function UserProfile() {
     try {
       setIsLoading(true);
       const url = `${API_BASE_URL}/users/${userId}`;
-      console.log(`[UserProfile] 🔍 Fetching user profile for ID:`, userId);
-      console.log(`[UserProfile] 📍 API URL:`, url);
-      console.log(`[UserProfile] 🔍 userId details:`, {
-        value: userId,
-        type: typeof userId,
-        length: userId.length,
-        trimmed: userId.trim(),
-        isValid: userId && userId.trim() !== '' && userId !== 'undefined' && userId !== 'null'
-      });
+      logger.debug(`[UserProfile] Fetching user profile:`, userId);
       
       const response = await fetch(url);
-      console.log(`[UserProfile] 📡 User API response status:`, response.status, response.statusText);
-      console.log(`[UserProfile] 📡 Response headers:`, {
-        contentType: response.headers.get('content-type'),
-        status: response.status
-      });
       
       if (response.ok) {
         const userData = await response.json();
-        console.log(`[UserProfile] ✅ User data received:`, {
-          id: userData._id,
-          name: userData.name,
-          username: userData.username
-        });
         setProfileUser(userData);
         
         // Fetch videos của user đó
-        console.log(`[UserProfile] 🔍 Fetching videos for user:`, userId);
         const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
-        console.log(`[UserProfile] 📡 Videos API response status:`, videosResponse.status);
         
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
           const videosArray = Array.isArray(videosData.videos || videosData) 
             ? (videosData.videos || videosData) 
             : [];
-          console.log(`[UserProfile] ✅ Videos received:`, videosArray.length);
           setVideos(videosArray);
         } else {
-          console.warn(`[UserProfile] ⚠️ Failed to fetch videos:`, videosResponse.status);
+          logger.warn(`[UserProfile] Failed to fetch videos:`, videosResponse.status);
           setVideos([]);
         }
       } else {
@@ -130,27 +103,22 @@ export default function UserProfile() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-          console.error(`[UserProfile] ❌ Error response:`, errorData);
         } catch (parseError) {
-          console.error(`[UserProfile] ❌ Failed to parse error response:`, parseError);
+          logger.error(`[UserProfile] Failed to parse error response:`, parseError);
         }
         
-        console.error(`[UserProfile] ❌ Failed to fetch user profile:`, {
+        logger.error(`[UserProfile] Failed to fetch user profile:`, {
           status: response.status,
-          statusText: response.statusText,
           userId: userId,
-          url: url,
           message: errorMessage
         });
         
         // Nếu là 404, có thể do backend chưa có route này
         if (response.status === 404) {
-          console.warn(`[UserProfile] ⚠️ 404 - Route /users/:id might not be deployed on backend yet`);
-          console.warn(`[UserProfile] 🔄 Using fallback user data from search results if available`);
+          logger.warn(`[UserProfile] 404 - Using fallback user data if available`);
           
           // Sử dụng fallback data từ search results nếu có
           if (fallbackUserData) {
-            console.log(`[UserProfile] ✅ Using fallback user data:`, fallbackUserData);
             setProfileUser(fallbackUserData);
             // Vẫn fetch videos nếu có thể
             try {
@@ -163,7 +131,7 @@ export default function UserProfile() {
                 setVideos(videosArray);
               }
             } catch (videoError) {
-              console.warn(`[UserProfile] ⚠️ Could not fetch videos:`, videoError);
+              logger.warn(`[UserProfile] Could not fetch videos:`, videoError);
             }
             setIsLoading(false);
             return; // Không set profileUser = null, giữ fallback data
@@ -176,14 +144,7 @@ export default function UserProfile() {
         }
       }
     } catch (error) {
-      console.error("[UserProfile] ❌ Error fetching user profile:", error);
-      if (error instanceof Error) {
-        console.error("[UserProfile] Error details:", {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      }
+      logger.error("[UserProfile] Error fetching user profile:", error);
       setProfileUser(null);
     } finally {
       setIsLoading(false);
@@ -278,7 +239,7 @@ export default function UserProfile() {
               title="Follow"
               onPress={() => {
                 // TODO: Implement follow functionality
-                console.log("Follow user:", targetUserId);
+                // TODO: Implement follow logic
               }}
               variant="primary"
               size="sm"

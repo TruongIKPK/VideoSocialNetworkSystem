@@ -1,3 +1,5 @@
+import { logger } from "@/utils/logger";
+
 export interface VideoSearchResult {
   _id: string;
   thumbnail: string;
@@ -71,7 +73,7 @@ export const searchService = {
   ): Promise<SearchResponse<VideoSearchResult>> {
     try {
       const url = `${this.API_BASE_URL}/videos/search?q=${encodeURIComponent(query)}`;
-      console.log(`[searchService] Calling: ${url}`);
+      logger.debug(`[searchService] Searching videos:`, query);
       
       const response = await fetch(url, {
         method: "GET",
@@ -80,16 +82,12 @@ export const searchService = {
         },
       });
 
-      console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data: VideoSearchAPIResponse = await response.json();
-        console.log(`[searchService] ✅ Video search success: ${data.videos?.length || 0} videos found`);
-        console.log(`[searchService] Raw API response:`, JSON.stringify(data, null, 2));
         
         // Normalize video data: handle both old format (user) and new format (author)
-        const normalizedVideos = (data.videos || []).map((video: any, index: number) => {
-          const normalized = {
+        const normalizedVideos = (data.videos || []).map((video: any) => {
+          return {
             _id: video._id,
             title: video.title || "",
             description: video.description || "",
@@ -100,20 +98,7 @@ export const searchService = {
             views: video.views || 0,
             likes: video.likes || video.likesCount || 0,
           };
-          
-          console.log(`[searchService] Video ${index + 1}:`, {
-            title: normalized.title,
-            hasAuthor: !!normalized.author,
-            authorName: normalized.author?.name,
-            views: normalized.views,
-            likes: normalized.likes,
-            hasThumbnail: !!normalized.thumbnail
-          });
-          
-          return normalized;
         });
-        
-        console.log(`[searchService] Normalized ${normalizedVideos.length} videos`);
         
         return {
           success: true,
@@ -122,7 +107,7 @@ export const searchService = {
         };
       } else {
         const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-        console.error(`[searchService] Video search failed:`, errorData);
+        logger.error(`[searchService] Video search failed:`, errorData);
         return {
           success: false,
           data: [],
@@ -130,7 +115,7 @@ export const searchService = {
         };
       }
     } catch (error) {
-      console.error("[searchService] Search videos error:", error);
+      logger.error("[searchService] Search videos error:", error);
       return {
         success: false,
         data: [],
@@ -149,7 +134,7 @@ export const searchService = {
       // Remove # if present
       const cleanHashtag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
       const url = `${this.API_BASE_URL}/videos/search/hashtags?hashtags=${encodeURIComponent(cleanHashtag)}`;
-      console.log(`[searchService] Calling: ${url}`);
+      logger.debug(`[searchService] Searching videos by hashtag:`, cleanHashtag);
 
       const response = await fetch(url, {
         method: "GET",
@@ -158,16 +143,12 @@ export const searchService = {
         },
       });
 
-      console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data: VideoSearchAPIResponse = await response.json();
-        console.log(`[searchService] ✅ Video search by hashtag success: ${data.videos?.length || 0} videos found`);
-        console.log(`[searchService] Raw API response:`, JSON.stringify(data, null, 2));
 
         // Normalize video data
-        const normalizedVideos = (data.videos || []).map((video: any, index: number) => {
-          const normalized = {
+        const normalizedVideos = (data.videos || []).map((video: any) => {
+          return {
             _id: video._id,
             title: video.title || "",
             description: video.description || "",
@@ -178,20 +159,7 @@ export const searchService = {
             views: video.views || 0,
             likes: video.likes || video.likesCount || 0,
           };
-
-          console.log(`[searchService] Video ${index + 1}:`, {
-            title: normalized.title,
-            hasAuthor: !!normalized.author,
-            authorName: normalized.author?.name,
-            views: normalized.views,
-            likes: normalized.likes,
-            hasThumbnail: !!normalized.thumbnail
-          });
-
-          return normalized;
         });
-
-        console.log(`[searchService] Normalized ${normalizedVideos.length} videos`);
 
         return {
           success: true,
@@ -200,7 +168,7 @@ export const searchService = {
         };
       } else {
         const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-        console.error(`[searchService] Video search by hashtag failed:`, errorData);
+        logger.error(`[searchService] Video search by hashtag failed:`, errorData);
         return {
           success: false,
           data: [],
@@ -208,7 +176,7 @@ export const searchService = {
         };
       }
     } catch (error) {
-      console.error("[searchService] Search videos by hashtag error:", error);
+      logger.error("[searchService] Search videos by hashtag error:", error);
       return {
         success: false,
         data: [],
@@ -223,7 +191,7 @@ export const searchService = {
   async searchUsers(query: string): Promise<SearchResponse<UserSearchResult>> {
     try {
       const url = `${this.API_BASE_URL}/users/search?q=${encodeURIComponent(query)}`;
-      console.log(`[searchService] 🔍 Calling user search API: ${url}`);
+      logger.debug(`[searchService] Searching users:`, query);
       
       // Thêm timeout cho fetch
       const controller = new AbortController();
@@ -239,22 +207,8 @@ export const searchService = {
       
       clearTimeout(timeoutId);
 
-      console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data: UserSearchAPIResponse = await response.json();
-        console.log(`[searchService] ✅ User search success: ${data.users?.length || 0} users found`);
-        console.log(`[searchService] Raw API response:`, JSON.stringify(data, null, 2));
-        
-        data.users?.forEach((user, index) => {
-          console.log(`[searchService] User ${index + 1}:`, {
-            name: user.name,
-            username: user.username,
-            hasAvatar: !!user.avatar,
-            followers: user.followers,
-            following: user.following
-          });
-        });
         
         return {
           success: true,
@@ -271,21 +225,15 @@ export const searchService = {
             errorData = await response.json();
           } else {
             const text = await response.text();
-            console.error(`[searchService] Non-JSON error response:`, text);
+            logger.error(`[searchService] Non-JSON error response:`, text);
             errorData = { message: text || `HTTP ${response.status}: ${response.statusText}` };
           }
         } catch (parseError) {
-          console.error(`[searchService] Failed to parse error response:`, parseError);
+          logger.error(`[searchService] Failed to parse error response:`, parseError);
           errorData = { 
             message: `HTTP ${response.status}: ${response.statusText || "Unknown error"}` 
           };
         }
-        
-        console.error(`[searchService] ❌ User search failed:`, {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
         
         // Xử lý các loại lỗi khác nhau - xử lý cả error.message và message
         let errorMessage = errorData.message || errorData.error?.message || `Tìm kiếm người dùng thất bại (${response.status})`;
@@ -294,7 +242,7 @@ export const searchService = {
           // Lấy message từ error object nếu có
           const rateLimitMessage = errorData.error?.message || errorData.message;
           errorMessage = rateLimitMessage || "Quá nhiều yêu cầu. Vui lòng đợi một chút rồi thử lại.";
-          console.warn(`[searchService] ⚠️ Rate limit reached: ${errorMessage}`);
+          logger.warn(`[searchService] Rate limit reached: ${errorMessage}`);
         } else if (response.status === 500) {
           errorMessage = "Lỗi server. Vui lòng thử lại sau.";
         } else if (response.status === 404) {
@@ -308,7 +256,7 @@ export const searchService = {
         };
       }
     } catch (error) {
-      console.error("[searchService] ❌ Search users error:", error);
+      logger.error("[searchService] Search users error:", error);
       
       let errorMessage = "Không thể kết nối đến máy chủ";
       if (error instanceof Error) {
@@ -337,7 +285,7 @@ export const searchService = {
   ): Promise<SearchResponse<HashtagSearchResult>> {
     try {
       const url = `${this.API_BASE_URL}/hashtags/search?q=${encodeURIComponent(query)}`;
-      console.log(`[searchService] Calling: ${url}`);
+      logger.debug(`[searchService] Searching hashtags:`, query);
       
       const response = await fetch(url, {
         method: "GET",
@@ -346,20 +294,8 @@ export const searchService = {
         },
       });
 
-      console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data: HashtagSearchAPIResponse = await response.json();
-        console.log(`[searchService] ✅ Hashtag search success: ${data.hashtags?.length || 0} hashtags found`);
-        console.log(`[searchService] Raw API response:`, JSON.stringify(data, null, 2));
-        
-        data.hashtags?.forEach((hashtag, index) => {
-          console.log(`[searchService] Hashtag ${index + 1}:`, {
-            name: hashtag.name,
-            count: hashtag.count,
-            trending: hashtag.trending
-          });
-        });
         
         return {
           success: true,
@@ -368,7 +304,7 @@ export const searchService = {
         };
       } else {
         // Hashtag endpoint có thể chưa có, trả về empty array thay vì error
-        console.warn(`[searchService] Hashtag search endpoint not available (${response.status})`);
+        logger.warn(`[searchService] Hashtag search endpoint not available (${response.status})`);
         return {
           success: true,
           data: [],
@@ -376,7 +312,7 @@ export const searchService = {
         };
       }
     } catch (error) {
-      console.error("[searchService] Search hashtags error:", error);
+      logger.error("[searchService] Search hashtags error:", error);
       // Trả về success với empty array để không break UI
       return {
         success: true,
@@ -392,7 +328,7 @@ export const searchService = {
   async getTrendingHashtags(): Promise<SearchResponse<HashtagSearchResult>> {
     try {
       const url = `${this.API_BASE_URL}/hashtags/trending`;
-      console.log(`[searchService] Calling: ${url}`);
+      logger.debug(`[searchService] Fetching trending hashtags`);
       
       const response = await fetch(url, {
         method: "GET",
@@ -401,20 +337,8 @@ export const searchService = {
         },
       });
 
-      console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
-
       if (response.ok) {
         const data = await response.json();
-        console.log(`[searchService] ✅ Trending hashtags success: ${data.hashtags?.length || 0} hashtags found`);
-        console.log(`[searchService] Raw API response:`, JSON.stringify(data, null, 2));
-        
-        data.hashtags?.forEach((hashtag: HashtagSearchResult, index: number) => {
-          console.log(`[searchService] Trending hashtag ${index + 1}:`, {
-            name: hashtag.name,
-            count: hashtag.count,
-            trending: hashtag.trending
-          });
-        });
         
         return {
           success: true,
@@ -422,14 +346,14 @@ export const searchService = {
           total: data.total || 0,
         };
       } else {
-        console.warn(`[searchService] Trending hashtags endpoint not available (${response.status})`);
+        logger.warn(`[searchService] Trending hashtags endpoint not available (${response.status})`);
         return {
           success: true,
           data: [],
         };
       }
     } catch (error) {
-      console.error("[searchService] Get trending hashtags error:", error);
+      logger.error("[searchService] Get trending hashtags error:", error);
       return {
         success: true,
         data: [],
