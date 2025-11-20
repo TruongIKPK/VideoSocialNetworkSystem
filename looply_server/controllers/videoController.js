@@ -1,5 +1,7 @@
 import Video from "../models/Video.js";
 import User from "../models/User.js";
+import VideoView from "../models/VideoView.js";
+import Like from "../models/Like.js";
 import cloudinary from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
@@ -71,15 +73,43 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
+    // Tìm kiếm trong cả title và description
     const videos = await Video.find({
-      title: { $regex: q, $options: 'i' }
+      $or: [
+        { title: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } }
+      ]
     }).sort({ createdAt: -1 });
 
+    // Lấy thông tin views và likes cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+
+        return {
+          _id: video._id,
+          title: video.title,
+          description: video.description || "",
+          url: video.url,
+          thumbnail: video.thumbnail || video.url,
+          author: video.user, // Map user to author for frontend
+          createdAt: video.createdAt,
+          views: views,
+          likes: likes
+        };
+      })
+    );
+
     res.json({
-      total: videos.length,
-      videos: videos
+      total: videosWithStats.length,
+      videos: videosWithStats
     });
   } catch (error) {
+    console.error("Search videos error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -110,6 +140,67 @@ export const getLatestVideos = async (req, res) => {
     
     res.json({
       total: videos.length,
+      videos: videos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Tìm kiếm video theo hashtags trong description
+export const searchVideosByHashtags = async (req, res) => {
+  try {
+    const { hashtag, hashtags } = req.query;
+    
+    // Hỗ trợ cả hashtag (đơn) và hashtags (nhiều, phân cách bằng dấu phẩy)
+    let searchTags = [];
+    
+    if (hashtags) {
+      // Nếu có nhiều hashtags, tách bằng dấu phẩy
+      searchTags = hashtags.split(',').map(tag => tag.trim().replace(/^#/, ''));
+    } else if (hashtag) {
+      // Nếu chỉ có một hashtag
+      searchTags = [hashtag.trim().replace(/^#/, '')];
+    } else {
+      return res.status(400).json({ message: "Thiếu hashtag hoặc hashtags" });
+    }
+
+    // Loại bỏ các tag rỗng
+    searchTags = searchTags.filter(tag => tag.length > 0);
+
+    if (searchTags.length === 0) {
+      return res.status(400).json({ message: "Hashtag không hợp lệ" });
+    }
+
+    // Tìm kiếm video có description chứa các hashtags
+    // Sử dụng regex để tìm các hashtag trong description
+    let videos = [];
+    
+    if (searchTags.length === 1) {
+      // Nếu chỉ có một hashtag, dùng regex đơn giản
+      const tag = searchTags[0];
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regexPattern = new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i');
+      
+      videos = await Video.find({
+        description: { $regex: regexPattern }
+      }).sort({ createdAt: -1 });
+    } else {
+      // Nếu có nhiều hashtags, tìm video chứa TẤT CẢ các hashtags
+      // Tạo regex pattern cho mỗi hashtag và dùng $and
+      const regexConditions = searchTags.map(tag => {
+        const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return { description: { $regex: new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i') } };
+      });
+      
+      videos = await Video.find({
+        $and: regexConditions
+      }).sort({ createdAt: -1 });
+    }
+
+    res.json({
+      total: videos.length,
+      hashtags: searchTags,
       videos: videos
     });
   } catch (error) {

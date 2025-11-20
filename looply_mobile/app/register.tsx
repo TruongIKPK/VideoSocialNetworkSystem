@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,6 +33,7 @@ export default function RegisterScreen() {
     confirmPassword: "",
     terms: "",
   });
+  const [generalError, setGeneralError] = useState("");
   const router = useRouter();
 
   const handleRegister = async () => {
@@ -54,10 +54,12 @@ export default function RegisterScreen() {
         confirmPassword: validationErrors.confirmPassword || "",
         terms: validationErrors.terms || "",
       });
+      setGeneralError("");
       return;
     }
 
     setIsLoading(true);
+    setGeneralError("");
     try {
       const response = await authService.register({
         fullName,
@@ -66,17 +68,13 @@ export default function RegisterScreen() {
       });
       
       if (response.success) {
-        Alert.alert("Thành công", response.message, [
-          {
-            text: "OK",
-            onPress: () => router.push("/login"),
-          },
-        ]);
+        // Tự động navigate, không cần thông báo
+        router.replace("/login");
       } else {
-        Alert.alert("Lỗi", response.message);
+        setGeneralError(response.message || "Đăng kí thất bại");
       }
     } catch (error) {
-      Alert.alert("Lỗi", "Đăng kí thất bại. Vui lòng thử lại!");
+      setGeneralError("Đăng kí thất bại. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);
     }
@@ -118,6 +116,7 @@ export default function RegisterScreen() {
             onChangeText={(text) => {
               setFullName(text);
               if (errors.fullName) clearFieldError("fullName");
+              if (generalError) setGeneralError("");
             }}
             editable={!isLoading}
             icon="person-outline"
@@ -132,6 +131,7 @@ export default function RegisterScreen() {
             onChangeText={(text) => {
               setEmail(text);
               if (errors.email) clearFieldError("email");
+              if (generalError) setGeneralError("");
             }}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -194,6 +194,11 @@ export default function RegisterScreen() {
           {errors.terms && (
             <Text style={styles.errorText}>{errors.terms}</Text>
           )}
+
+          {/* General Error Message */}
+          {generalError ? (
+            <Text style={styles.errorText}>{generalError}</Text>
+          ) : null}
 
           {/* Register Button */}
           <Button

@@ -22,7 +22,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -62,6 +62,7 @@ interface VideoPost {
   createdAt: string;
   updatedAt?: string;
   __v?: number;
+  isFollowing?: boolean; // Track follow status
 }
 
 // Component riêng cho mỗi video item
@@ -72,7 +73,9 @@ const VideoItem = ({
   onLike,
   onVideoProgress,
   onComment,
+  onFollow,
   currentUserId,
+  isScreenFocused,
 }: {
   item: VideoPost;
   index: number;
@@ -80,9 +83,17 @@ const VideoItem = ({
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
   onComment: (videoId: string) => void;
+  onFollow: (userId: string) => void;
   currentUserId: string | null;
+  isScreenFocused: boolean;
 }) => {
-  const isLiked = currentUserId && item.likedBy && item.likedBy.includes(currentUserId);
+  // Kiểm tra xem video đã được like chưa
+  // Đảm bảo likedBy là array và có currentUserId
+  const isLiked = 
+    currentUserId && 
+    item.likedBy && 
+    Array.isArray(item.likedBy) && 
+    item.likedBy.includes(currentUserId);
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
@@ -109,7 +120,8 @@ const VideoItem = ({
   });
 
   useEffect(() => {
-    if (isCurrent && !isPaused) {
+    // Chỉ phát video nếu: là video hiện tại, không bị pause bởi user, và screen đang được focus
+    if (isCurrent && !isPaused && isScreenFocused) {
       player.play();
       // Bắt đầu đếm thời gian xem
       watchTimeRef.current = 0;
@@ -138,7 +150,7 @@ const VideoItem = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isCurrent, player, isPaused]);
+  }, [isCurrent, player, isPaused, isScreenFocused]);
 
   // Reset pause state khi video không còn current
   useEffect(() => {
@@ -311,12 +323,23 @@ const VideoItem = ({
             ) : null}
           </View>
         </View>
-        <TouchableOpacity 
-          style={styles.followButton}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.followButtonText}>Follow</Text>
-        </TouchableOpacity>
+        {currentUserId && item.user._id !== currentUserId && (
+          <TouchableOpacity 
+            style={[
+              styles.followButton,
+              item.isFollowing && styles.followButtonFollowing
+            ]}
+            activeOpacity={0.7}
+            onPress={() => onFollow(item.user._id)}
+          >
+            <Text style={[
+              styles.followButtonText,
+              item.isFollowing && styles.followButtonTextFollowing
+            ]}>
+              {item.isFollowing ? "Đang follow" : "Follow"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Action Buttons */}
@@ -360,6 +383,7 @@ const VideoItem = ({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -369,16 +393,96 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
   const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
+  const [isScreenFocused, setIsScreenFocused] = useState(true); // Track khi tab được focus
   const flatListRef = useRef<FlatList>(null);
   const scrollStartIndexRef = useRef<number>(0); // Lưu index khi bắt đầu scroll
   const isScrollingRef = useRef<boolean>(false); // Theo dõi trạng thái scroll
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout để debounce scroll
   const lastSnappedIndexRef = useRef<number>(-1); // Track index đã snap để tránh snap lặp lại
+  const loadingIconScale = useRef(new Animated.Value(1)).current;
   const BATCH_SIZE = 3;
+  const hasScrolledToVideoRef = useRef(false); // Flag để tránh scroll nhiều lần
+
+  // Xử lý khi tab được focus/unfocus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Tab được focus - phát video hiện tại
+      setIsScreenFocused(true);
+      
+      return () => {
+        // Tab mất focus - tạm dừng tất cả videos
+        setIsScreenFocused(false);
+      };
+    }, [])
+  );
+
+  // Animation cho loading icon
+  useEffect(() => {
+    if (isLoading) {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(loadingIconScale, {
+            toValue: 1.2,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(loadingIconScale, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animation.start();
+      return () => animation.stop();
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     fetchVideos();
   }, [isAuthenticated]);
+
+  // Xử lý scroll đến video khi có videoId từ params
+  useEffect(() => {
+    const videoId = params.videoId as string | undefined;
+    const shouldScroll = params.scrollToVideo === "true";
+    
+    if (videoId && shouldScroll && videos.length > 0 && !hasScrolledToVideoRef.current) {
+      const videoIndex = videos.findIndex(v => v._id === videoId);
+      
+      if (videoIndex !== -1 && flatListRef.current) {
+        console.log(`[Home] 🎬 Scrolling to video: ${videoId} at index: ${videoIndex}`);
+        hasScrolledToVideoRef.current = true;
+        
+        // Delay một chút để đảm bảo FlatList đã render xong
+        setTimeout(() => {
+          if (flatListRef.current) {
+            try {
+              flatListRef.current.scrollToIndex({
+                index: videoIndex,
+                animated: true,
+                viewPosition: 0, // Scroll đến đầu video
+              });
+              setCurrentIndex(videoIndex);
+            } catch (error) {
+              console.log(`[Home] ⚠️ Error scrolling to index:`, error);
+              // Fallback: scroll to offset
+              const offset = videoIndex * SCREEN_HEIGHT;
+              flatListRef.current.scrollToOffset({
+                offset,
+                animated: true,
+              });
+              setCurrentIndex(videoIndex);
+            }
+          }
+        }, 500); // Tăng delay để đảm bảo videos đã render
+      } else if (videoIndex === -1) {
+        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
+        // Nếu video không có trong danh sách, có thể cần fetch video đó
+        // Hoặc đợi videos được load thêm
+      }
+    }
+  }, [params.videoId, params.scrollToVideo, videos]);
 
   // Theo dõi khi xem đến video thứ 2 trong batch để load thêm
   useEffect(() => {
@@ -440,7 +544,98 @@ export default function HomeScreen() {
           uniqueVideos.forEach((video) => newVideoIds.add(video._id));
           setLoadedVideoIds(newVideoIds);
 
-          setVideos(uniqueVideos);
+          // Nếu đã đăng nhập, check like status cho từng video bằng cách gọi API
+          let processedVideos = uniqueVideos;
+          if (isAuthenticated && token && userId) {
+            // Gọi API check like cho tất cả videos cùng lúc (parallel)
+            processedVideos = await Promise.all(
+              uniqueVideos.map(async (video) => {
+                // Đảm bảo likedBy là array
+                let likedBy = video.likedBy || [];
+                if (!Array.isArray(likedBy)) {
+                  likedBy = [];
+                }
+
+                // Gọi API để check xem video đã được like chưa
+                try {
+                  const checkResponse = await fetch(
+                    `${API_BASE_URL}/likes/check?userId=${encodeURIComponent(userId)}&targetType=video&targetId=${encodeURIComponent(video._id)}`,
+                    {
+                      method: "GET",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (checkResponse.ok) {
+                    const checkData = await checkResponse.json();
+                    // Nếu API trả về isLiked hoặc liked: true
+                    if (checkData.isLiked || checkData.liked) {
+                      // Thêm userId vào likedBy nếu chưa có
+                      if (!likedBy.includes(userId)) {
+                        likedBy = [...likedBy, userId];
+                      }
+                    } else {
+                      // Xóa userId khỏi likedBy nếu có
+                      likedBy = likedBy.filter((id: string) => id !== userId);
+                    }
+                  } else if (checkResponse.status === 404) {
+                    // Endpoint không tồn tại, giữ nguyên likedBy từ API
+                    console.warn(`Like check endpoint not found for video ${video._id}`);
+                  }
+                } catch (error) {
+                  console.error(`Error checking like status for video ${video._id}:`, error);
+                  // Nếu không check được, giữ nguyên likedBy từ API
+                }
+
+                // Check follow status - kiểm tra xem đã follow user này chưa
+                let isFollowing = false;
+                if (video.user && video.user._id && video.user._id !== userId) {
+                  try {
+                    // Gọi API để lấy thông tin user hiện tại và check followingList
+                    const userResponse = await fetch(
+                      `${API_BASE_URL}/users/${userId}`,
+                      {
+                        method: "GET",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+
+                    if (userResponse.ok) {
+                      const userData = await userResponse.json();
+                      if (userData.followingList && Array.isArray(userData.followingList)) {
+                        isFollowing = userData.followingList.some(
+                          (id: string) => String(id) === String(video.user._id)
+                        );
+                      }
+                    }
+                  } catch (error) {
+                    console.error(`Error checking follow status for user ${video.user._id}:`, error);
+                  }
+                }
+
+                return {
+                  ...video,
+                  likedBy: likedBy,
+                  isFollowing: isFollowing,
+                };
+              })
+            );
+          } else {
+            // Nếu chưa đăng nhập, đảm bảo likedBy là array rỗng và isFollowing = false
+            processedVideos = uniqueVideos.map((video) => ({
+              ...video,
+              likedBy: [],
+              isFollowing: false,
+            }));
+          }
+
+          setVideos(processedVideos);
         } else {
           setError("No new videos available");
         }
@@ -496,8 +691,98 @@ export default function HomeScreen() {
           newVideos.forEach((video) => newVideoIds.add(video._id));
           setLoadedVideoIds(newVideoIds);
 
+          // Nếu đã đăng nhập, check like status cho từng video bằng cách gọi API
+          let processedVideos = newVideos;
+          if (isAuthenticated && token && userId) {
+            processedVideos = await Promise.all(
+              newVideos.map(async (video) => {
+                // Đảm bảo likedBy là array
+                let likedBy = video.likedBy || [];
+                if (!Array.isArray(likedBy)) {
+                  likedBy = [];
+                }
+
+                // Gọi API để check xem video đã được like chưa
+                try {
+                  const checkResponse = await fetch(
+                    `${API_BASE_URL}/likes/check?userId=${encodeURIComponent(userId)}&targetType=video&targetId=${encodeURIComponent(video._id)}`,
+                    {
+                      method: "GET",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (checkResponse.ok) {
+                    const checkData = await checkResponse.json();
+                    // Nếu API trả về isLiked hoặc liked: true
+                    if (checkData.isLiked || checkData.liked) {
+                      // Thêm userId vào likedBy nếu chưa có
+                      if (!likedBy.includes(userId)) {
+                        likedBy = [...likedBy, userId];
+                      }
+                    } else {
+                      // Xóa userId khỏi likedBy nếu có
+                      likedBy = likedBy.filter((id: string) => id !== userId);
+                    }
+                  } else if (checkResponse.status === 404) {
+                    // Endpoint không tồn tại, giữ nguyên likedBy từ API
+                    console.warn(`Like check endpoint not found for video ${video._id}`);
+                  }
+                } catch (error) {
+                  console.error(`Error checking like status for video ${video._id}:`, error);
+                  // Nếu không check được, giữ nguyên likedBy từ API
+                }
+
+                // Check follow status - kiểm tra xem đã follow user này chưa
+                let isFollowing = false;
+                if (video.user && video.user._id && video.user._id !== userId) {
+                  try {
+                    // Gọi API để lấy thông tin user hiện tại và check followingList
+                    const userResponse = await fetch(
+                      `${API_BASE_URL}/users/${userId}`,
+                      {
+                        method: "GET",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+
+                    if (userResponse.ok) {
+                      const userData = await userResponse.json();
+                      if (userData.followingList && Array.isArray(userData.followingList)) {
+                        isFollowing = userData.followingList.some(
+                          (id: string) => String(id) === String(video.user._id)
+                        );
+                      }
+                    }
+                  } catch (error) {
+                    console.error(`Error checking follow status for user ${video.user._id}:`, error);
+                  }
+                }
+
+                return {
+                  ...video,
+                  likedBy: likedBy,
+                  isFollowing: isFollowing,
+                };
+              })
+            );
+          } else {
+            // Nếu chưa đăng nhập, đảm bảo likedBy là array rỗng và isFollowing = false
+            processedVideos = newVideos.map((video) => ({
+              ...video,
+              likedBy: [],
+              isFollowing: false,
+            }));
+          }
+
           // Append vào danh sách hiện tại (không replace)
-          setVideos((prev) => [...prev, ...newVideos]);
+          setVideos((prev) => [...prev, ...processedVideos]);
         }
       }
     } catch (error) {
@@ -675,13 +960,17 @@ export default function HomeScreen() {
       return;
     }
 
+    // Tìm video hiện tại để kiểm tra trạng thái like
+    const currentVideo = videos.find((v) => v._id === videoId);
+    if (!currentVideo) return;
+
+    const isCurrentlyLiked = currentVideo.likedBy.includes(userId);
+    const currentLikes = currentVideo.likes || currentVideo.likesCount || 0;
+
     // Optimistic UI update
     setVideos((prev) =>
       prev.map((video) => {
         if (video._id === videoId) {
-          const isCurrentlyLiked = video.likedBy.includes(userId);
-          const currentLikes = video.likes || video.likesCount || 0;
-
           return {
             ...video,
             likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
@@ -696,41 +985,42 @@ export default function HomeScreen() {
     );
 
     try {
-      const response = await fetch(`${API_BASE_URL}/likes`, {
-        method: "POST",
+      // Xác định endpoint và method dựa trên trạng thái like hiện tại
+      const endpoint = isCurrentlyLiked ? "unlike" : "like";
+      const method = "POST";
+
+      const response = await fetch(`${API_BASE_URL}/likes/${endpoint}`, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ videoId }),
+        body: JSON.stringify({
+          userId: userId,
+          targetType: "video",
+          targetId: videoId,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to like video");
+        throw new Error(`Failed to ${endpoint} video`);
       }
     } catch (error) {
       console.error("Like error:", error);
       // Revert on error
-      if (userId) {
-        setVideos((prev) =>
-          prev.map((video) => {
-            if (video._id === videoId) {
-              const isCurrentlyLiked = video.likedBy.includes(userId);
-              const currentLikes = video.likes || video.likesCount || 0;
-
-              return {
-                ...video,
-                likes: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-                likesCount: isCurrentlyLiked ? currentLikes + 1 : currentLikes - 1,
-                likedBy: isCurrentlyLiked
-                  ? [...video.likedBy, userId]
-                  : video.likedBy.filter((id) => id !== userId),
-              };
-            }
-            return video;
-          })
-        );
-      }
+      setVideos((prev) =>
+        prev.map((video) => {
+          if (video._id === videoId) {
+            return {
+              ...video,
+              likes: currentLikes,
+              likesCount: currentLikes,
+              likedBy: currentVideo.likedBy,
+            };
+          }
+          return video;
+        })
+      );
     }
   };
 
@@ -740,6 +1030,73 @@ export default function HomeScreen() {
       params: { videoId },
     });
   };
+
+  const handleSearchIconPress = () => {
+    console.log(`[Home] 🔍 Search icon pressed, navigating to search screen`);
+    // Navigate thẳng tới search screen
+    router.push({
+      pathname: "/search",
+      params: {}
+    } as any);
+  };
+
+  const handleFollow = async (targetUserId: string) => {
+    if (!userId || !isAuthenticated || !token || userId === targetUserId) {
+      return;
+    }
+
+    // Tìm video của user này để kiểm tra trạng thái follow
+    const video = videos.find((v) => v.user._id === targetUserId);
+    if (!video) return;
+
+    const isCurrentlyFollowing = video.isFollowing || false;
+
+    // Optimistic UI update
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.user._id === targetUserId) {
+          return {
+            ...v,
+            isFollowing: !isCurrentlyFollowing,
+          };
+        }
+        return v;
+      })
+    );
+
+    try {
+      const method = isCurrentlyFollowing ? "DELETE" : "POST";
+      const response = await fetch(
+        `${API_BASE_URL}/users/${targetUserId}/follow`,
+        {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isCurrentlyFollowing ? "unfollow" : "follow"} user`);
+      }
+    } catch (error) {
+      console.error("Follow error:", error);
+      // Revert on error
+      setVideos((prev) =>
+        prev.map((v) => {
+          if (v.user._id === targetUserId) {
+            return {
+              ...v,
+              isFollowing: isCurrentlyFollowing,
+            };
+          }
+          return v;
+        })
+      );
+    }
+  };
+
 
   const renderVideoItem = ({
     item,
@@ -756,7 +1113,9 @@ export default function HomeScreen() {
         onLike={handleLike}
         onVideoProgress={handleVideoProgress}
         onComment={handleComment}
+        onFollow={handleFollow}
         currentUserId={userId}
+        isScreenFocused={isScreenFocused}
       />
     );
   };
@@ -765,7 +1124,28 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={["top"]}>
         <StatusBar barStyle="light-content" />
-        <Loading message="Loading videos..." color={Colors.primary} fullScreen />
+        <LinearGradient
+          colors={["#000", "#1a1a1a"]}
+          style={styles.loadingGradient}
+        >
+          <View style={styles.loadingContent}>
+            <Animated.View 
+              style={[
+                styles.loadingIconContainer,
+                { transform: [{ scale: loadingIconScale }] }
+              ]}
+            >
+              <Ionicons name="videocam" size={64} color={Colors.white} />
+            </Animated.View>
+            <Text style={styles.loadingTitle}>Đang tải video</Text>
+            <Text style={styles.loadingSubtitle}>Vui lòng đợi trong giây lát...</Text>
+            <ActivityIndicator 
+              size="large" 
+              color={Colors.primary} 
+              style={{ marginTop: Spacing.xl }}
+            />
+          </View>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
@@ -790,8 +1170,10 @@ export default function HomeScreen() {
     if (!isLoadingMore) return null;
     return (
       <View style={styles.loadingMoreContainer}>
-        <ActivityIndicator size="small" color={Colors.primary} />
-        <Text style={styles.loadingMoreText}>Loading more videos...</Text>
+        <View style={styles.loadingMoreContent}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.loadingMoreText}>Đang tải thêm video...</Text>
+        </View>
       </View>
     );
   };
@@ -799,6 +1181,16 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
+      
+      {/* Search Button */}
+      <TouchableOpacity 
+        style={styles.searchButton}
+        onPress={handleSearchIconPress}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search" size={24} color="#FFF" />
+      </TouchableOpacity>
+
       <FlatList
         ref={flatListRef}
         data={videos}
@@ -847,9 +1239,36 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
+    backgroundColor: "#000",
+  },
+  loadingGradient: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.black,
+  },
+  loadingContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  loadingIconContainer: {
+    marginBottom: Spacing.xl,
+    opacity: 0.9,
+  },
+  loadingTitle: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  loadingSubtitle: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.gray[400],
+    fontFamily: Typography.fontFamily.regular,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
   },
   errorContainer: {
     flex: 1,
@@ -911,7 +1330,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: Math.max(350, SCREEN_HEIGHT * 0.4), // Tăng chiều cao để text rõ hơn
+    height: Math.max(350, SCREEN_HEIGHT * 0.4), 
   },
   userInfo: {
     position: "absolute",
@@ -1023,15 +1442,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  followButtonFollowing: {
+    backgroundColor: Colors.gray[200],
   },
   followButtonText: {
     color: Colors.white,
-    fontSize: SCREEN_WIDTH < 375 ? Typography.fontSize.xs : Typography.fontSize.sm,
+    fontSize: Math.max(12, SCREEN_WIDTH * 0.03),
     fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.bold,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  followButtonTextFollowing: {
+    color: Colors.text.secondary,
   },
   actionButtons: {
     position: "absolute",
@@ -1053,6 +1478,22 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   loadingMoreContainer: {
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  loadingMoreContainerOld: {
     height: SCREEN_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
@@ -1060,9 +1501,32 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   loadingMoreText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.gray[300],
+    fontFamily: Typography.fontFamily.medium,
+    marginLeft: Spacing.sm,
+  },
+  loadingMoreTextOld: {
     color: Colors.white,
     fontSize: Typography.fontSize.md,
     marginTop: Spacing.sm,
     fontFamily: Typography.fontFamily.regular,
+  },
+  searchButton: {
+    position: "absolute",
+    top: 50,
+    right: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
