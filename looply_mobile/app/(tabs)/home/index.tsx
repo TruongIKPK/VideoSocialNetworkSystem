@@ -22,7 +22,7 @@ import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -383,6 +383,7 @@ const VideoItem = ({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
   const [videos, setVideos] = useState<VideoPost[]>([]);
@@ -400,6 +401,7 @@ export default function HomeScreen() {
   const lastSnappedIndexRef = useRef<number>(-1); // Track index đã snap để tránh snap lặp lại
   const loadingIconScale = useRef(new Animated.Value(1)).current;
   const BATCH_SIZE = 3;
+  const hasScrolledToVideoRef = useRef(false); // Flag để tránh scroll nhiều lần
 
   // Xử lý khi tab được focus/unfocus
   useFocusEffect(
@@ -439,6 +441,48 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchVideos();
   }, [isAuthenticated]);
+
+  // Xử lý scroll đến video khi có videoId từ params
+  useEffect(() => {
+    const videoId = params.videoId as string | undefined;
+    const shouldScroll = params.scrollToVideo === "true";
+    
+    if (videoId && shouldScroll && videos.length > 0 && !hasScrolledToVideoRef.current) {
+      const videoIndex = videos.findIndex(v => v._id === videoId);
+      
+      if (videoIndex !== -1 && flatListRef.current) {
+        console.log(`[Home] 🎬 Scrolling to video: ${videoId} at index: ${videoIndex}`);
+        hasScrolledToVideoRef.current = true;
+        
+        // Delay một chút để đảm bảo FlatList đã render xong
+        setTimeout(() => {
+          if (flatListRef.current) {
+            try {
+              flatListRef.current.scrollToIndex({
+                index: videoIndex,
+                animated: true,
+                viewPosition: 0, // Scroll đến đầu video
+              });
+              setCurrentIndex(videoIndex);
+            } catch (error) {
+              console.log(`[Home] ⚠️ Error scrolling to index:`, error);
+              // Fallback: scroll to offset
+              const offset = videoIndex * SCREEN_HEIGHT;
+              flatListRef.current.scrollToOffset({
+                offset,
+                animated: true,
+              });
+              setCurrentIndex(videoIndex);
+            }
+          }
+        }, 500); // Tăng delay để đảm bảo videos đã render
+      } else if (videoIndex === -1) {
+        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
+        // Nếu video không có trong danh sách, có thể cần fetch video đó
+        // Hoặc đợi videos được load thêm
+      }
+    }
+  }, [params.videoId, params.scrollToVideo, videos]);
 
   // Theo dõi khi xem đến video thứ 2 trong batch để load thêm
   useEffect(() => {
@@ -987,6 +1031,15 @@ export default function HomeScreen() {
     });
   };
 
+  const handleSearchIconPress = () => {
+    console.log(`[Home] 🔍 Search icon pressed, navigating to search screen`);
+    // Navigate thẳng tới search screen
+    router.push({
+      pathname: "/search",
+      params: {}
+    } as any);
+  };
+
   const handleFollow = async (targetUserId: string) => {
     if (!userId || !isAuthenticated || !token || userId === targetUserId) {
       return;
@@ -1043,6 +1096,7 @@ export default function HomeScreen() {
       );
     }
   };
+
 
   const renderVideoItem = ({
     item,
@@ -1127,6 +1181,16 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
+      
+      {/* Search Button */}
+      <TouchableOpacity 
+        style={styles.searchButton}
+        onPress={handleSearchIconPress}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search" size={24} color="#FFF" />
+      </TouchableOpacity>
+
       <FlatList
         ref={flatListRef}
         data={videos}
@@ -1447,5 +1511,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.md,
     marginTop: Spacing.sm,
     fontFamily: Typography.fontFamily.regular,
+  },
+  searchButton: {
+    position: "absolute",
+    top: 50,
+    right: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });

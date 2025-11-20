@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -33,8 +33,16 @@ interface VideoPost {
 }
 
 export default function Profile() {
-  const { user, isAuthenticated } = useCurrentUser();
+  const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const targetUserId = params.userId as string | undefined;
+  const targetUsername = params.username as string | undefined;
+  
+  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
+  const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
+  const [profileUser, setProfileUser] = useState<any>(currentUser);
+  
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
@@ -43,23 +51,49 @@ export default function Profile() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isViewingOtherProfile && targetUserId) {
+      // Fetch profile của user khác
+      fetchOtherUserProfile(targetUserId);
+    } else if (isAuthenticated && currentUser) {
+      // Hiển thị profile của user hiện tại
+      setProfileUser(currentUser);
       fetchProfileData();
     } else {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user, activeTab]);
+  }, [isAuthenticated, currentUser, activeTab, targetUserId, isViewingOtherProfile]);
+
+  const fetchOtherUserProfile = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+      if (response.ok) {
+        const userData = await response.json();
+        setProfileUser(userData);
+        // Fetch videos của user đó
+        const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching other user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchProfileData = async () => {
     try {
       setIsLoading(true);
       const token = await require("@/utils/tokenStorage").getToken();
       
-      if (!token) return;
+      if (!token || !currentUser?._id) return;
 
       // Fetch user videos
       const videosResponse = await fetch(
-        `${API_BASE_URL}/videos/user/${user?._id}`,
+        `${API_BASE_URL}/videos/user/${currentUser._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -109,7 +143,7 @@ export default function Profile() {
     </TouchableOpacity>
   );
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !currentUser) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>
@@ -152,13 +186,13 @@ export default function Profile() {
         {/* Profile Info */}
         <View style={styles.profileSection}>
           <Image
-            source={getAvatarUri(user.avatar)}
+            source={getAvatarUri(profileUser?.avatar)}
             style={styles.avatar}
             contentFit="cover"
           />
 
-          <Text style={styles.username}>{user.name || user.username || "User"}</Text>
-          {user.bio && <Text style={styles.bio}>{user.bio}</Text>}
+          <Text style={styles.username}>{profileUser?.name || profileUser?.username || "User"}</Text>
+          {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
 
           <View style={styles.buttonContainer}>
             <Button
@@ -179,13 +213,13 @@ export default function Profile() {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {formatNumber(user.following || 0)}
+                {formatNumber(profileUser?.following || 0)}
               </Text>
               <Text style={styles.statLabel}>Đang follow</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {formatNumber(user.followers || 0)}
+                {formatNumber(profileUser?.followers || 0)}
               </Text>
               <Text style={styles.statLabel}>Follower</Text>
             </View>
