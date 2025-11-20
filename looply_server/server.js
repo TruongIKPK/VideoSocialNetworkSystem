@@ -11,6 +11,8 @@ import cors from "cors";
 import helmet from "helmet"; // Thêm helmet
 import rateLimit from "express-rate-limit"; 
 import connectDB from "./config/db.js";
+import User from "./models/User.js";
+import bcrypt from "bcryptjs";
 
 // Import routes
 import userRoutes from "./routes/userRoutes.js";
@@ -22,6 +24,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 
 
 const app = express();
@@ -32,6 +35,37 @@ const io = new Server(server, {
 
 // Connect to database
 connectDB();
+
+// Create default admin user if not exists
+const createDefaultAdmin = async () => {
+  try {
+    const adminExists = await User.findOne({ username: "admin" });
+    if (!adminExists) {
+      const adminEmail = process.env.ADMIN_EMAIL || "admin@looply.com";
+      const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      
+      await User.create({
+        username: "admin",
+        email: adminEmail,
+        password: hashedPassword,
+        name: "Administrator",
+        role: "admin",
+        status: "active"
+      });
+      console.log("Default admin user created successfully");
+    } else {
+      console.log("Admin user already exists");
+    }
+  } catch (error) {
+    console.error("Error creating default admin:", error);
+  }
+};
+
+// Wait for DB connection then create admin
+setTimeout(async () => {
+  await createDefaultAdmin();
+}, 2000);
 
 // Security middleware
 app.use(helmet()); // Adds various HTTP headers for security
@@ -66,6 +100,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Health check endpoint for quick testing
 app.get("/api/health", (req, res) => {

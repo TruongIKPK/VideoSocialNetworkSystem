@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   bio: { type: String, default: "" },
   avatar: { type: String, default: "/no_avatar.png" },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+  status: { type: String, enum: ["active", "locked"], default: "active" },
   followers: { type: Number, default: 0 },
   followersList: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: { type: Number, default: 0 },
