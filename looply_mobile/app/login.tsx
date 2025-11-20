@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -24,6 +23,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [generalError, setGeneralError] = useState("");
   const router = useRouter();
   const { login } = useUser();
 
@@ -31,24 +31,25 @@ export default function LoginScreen() {
     const validationErrors = validateLoginForm(email, password);
     if (Object.keys(validationErrors).length > 0) {
       setErrors({ email: validationErrors.email || "", password: validationErrors.password || "" });
+      setGeneralError("");
       return;
     }
 
     setIsLoading(true);
+    setGeneralError("");
     try {
       const response = await authService.login({ email, password });
 
       if (response.success && response.token && response.user) {
         // Update user context
         await login(response.user, response.token);
-        Alert.alert("Thành công", response.message, [
-          { text: "OK", onPress: () => router.push("/(tabs)/home") },
-        ]);
+        // Tự động navigate, không cần thông báo
+        router.replace("/(tabs)/home");
       } else {
-        Alert.alert("Lỗi", response.message);
+        setGeneralError(response.message || "Đăng nhập thất bại");
       }
     } catch (error) {
-      Alert.alert("Lỗi", "Đăng nhập thất bại. Vui lòng thử lại!");
+      setGeneralError("Đăng nhập thất bại. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +86,7 @@ export default function LoginScreen() {
             onChangeText={(text) => {
               setEmail(text);
               if (errors.email) setErrors({ ...errors, email: "" });
+              if (generalError) setGeneralError("");
             }}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -101,6 +103,7 @@ export default function LoginScreen() {
             onChangeText={(text) => {
               setPassword(text);
               if (errors.password) setErrors({ ...errors, password: "" });
+              if (generalError) setGeneralError("");
             }}
             secureTextEntry={!showPassword}
             editable={!isLoading}
@@ -109,6 +112,11 @@ export default function LoginScreen() {
             iconPosition="right"
             onIconPress={() => setShowPassword(!showPassword)}
           />
+
+          {/* General Error Message */}
+          {generalError ? (
+            <Text style={styles.errorText}>{generalError}</Text>
+          ) : null}
 
           {/* Login Button */}
           <Button
@@ -206,6 +214,14 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     fontSize: Typography.fontSize.md,
     marginBottom: Spacing.xl,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: Typography.fontSize.sm,
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
     fontFamily: Typography.fontFamily.regular,
   },
   registerLink: {
