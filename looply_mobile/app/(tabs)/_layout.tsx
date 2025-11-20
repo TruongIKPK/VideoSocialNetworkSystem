@@ -85,6 +85,13 @@ export default function TabLayout() {
           href: null, 
         }}
       />
+      <Tabs.Screen
+        name="settings/edit-profile"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+          tabBarStyle: { display: "none" }, // Ẩn tab bar khi ở màn hình này
+        }}
+      />
 
       <Tabs.Screen
         name="profile/index"
