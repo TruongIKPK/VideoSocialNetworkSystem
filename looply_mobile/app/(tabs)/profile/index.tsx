@@ -143,7 +143,7 @@ export default function Profile() {
     </TouchableOpacity>
   );
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !currentUser) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>
