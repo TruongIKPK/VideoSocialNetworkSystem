@@ -206,14 +206,15 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   loginButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   forgotPassword: {
     textAlign: "center",
     color: Colors.text.secondary,
     fontSize: Typography.fontSize.md,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
     fontFamily: Typography.fontFamily.regular,
   },
   errorText: {
@@ -228,7 +229,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: Colors.primary,
     fontSize: Typography.fontSize.lg,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.medium,
   },
