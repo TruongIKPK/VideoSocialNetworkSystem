@@ -26,6 +26,14 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
 
+    // Kiểm tra trạng thái tài khoản
+    if (user.status === "locked") {
+      return res.status(403).json({ 
+        message: "Tài khoản của bạn đã bị khóa",
+        code: "ACCOUNT_LOCKED"
+      });
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ message: "Sai mật khẩu" });
 
@@ -45,6 +53,8 @@ export const login = async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         bio: user.bio,
+        role: user.role || "user",
+        status: user.status || "active",
       },
       token,
     });
@@ -354,6 +364,79 @@ export const getFollowing = async (req, res) => {
     res.json({
       total: user.following,
       following: user.followingList
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get current user info
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update user status (admin only)
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !["active", "locked"].includes(status)) {
+      return res.status(400).json({ message: "Status phải là 'active' hoặc 'locked'" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    res.json({
+      message: "Cập nhật trạng thái thành công",
+      user
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Kiểm tra xem user hiện tại đã follow user khác chưa
+export const checkFollow = async (req, res) => {
+  try {
+    const { userId } = req.query; // ID của user được check follow
+    const currentUserId = req.user._id.toString();
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId cần kiểm tra" });
+    }
+
+    // Lấy thông tin user hiện tại với followingList
+    const currentUser = await User.findById(currentUserId).select("followingList");
+    
+    if (!currentUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng hiện tại" });
+    }
+
+    // Kiểm tra xem userId có trong followingList không
+    const isFollowing = currentUser.followingList.some(
+      (id) => id.toString() === userId
+    );
+
+    res.json({
+      isFollowing: isFollowing,
+      followed: isFollowing,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

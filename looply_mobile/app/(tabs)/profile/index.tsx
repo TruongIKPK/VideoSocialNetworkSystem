@@ -217,9 +217,13 @@ export default function Profile() {
     </TouchableOpacity>
   );
 
+<<<<<<< HEAD
   // Chỉ yêu cầu đăng nhập nếu đang xem profile của chính mình
   // Cho phép xem profile của người khác mà không cần đăng nhập
   if (!isViewingOtherProfile && (!isAuthenticated || !currentUser)) {
+=======
+  if (!isAuthenticated || !currentUser) {
+>>>>>>> d9c719dcabff1c3aff8a6e6362d744c61d443a40
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>

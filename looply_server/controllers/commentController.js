@@ -39,7 +39,10 @@ export const addComment = async (req, res) => {
 
 export const getCommentsByVideo = async (req, res) => {
   try {
-    const comments = await Comment.find({ videoId: req.params.videoId })
+    const comments = await Comment.find({ 
+      videoId: req.params.videoId,
+      status: { $ne: "violation" }
+    })
       .populate("userId", "name username avatar")
       .sort({ createdAt: -1 });
 
@@ -116,6 +119,35 @@ export const unlikeComment = async (req, res) => {
     res.json({
       message: "Đã unlike comment",
       likesCount: comment.likesCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update comment status (admin only)
+export const updateCommentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !["active", "violation"].includes(status)) {
+      return res.status(400).json({ message: "Status phải là 'active' hoặc 'violation'" });
+    }
+
+    const comment = await Comment.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!comment) {
+      return res.status(404).json({ message: "Không tìm thấy comment" });
+    }
+
+    res.json({
+      message: "Cập nhật trạng thái comment thành công",
+      comment
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

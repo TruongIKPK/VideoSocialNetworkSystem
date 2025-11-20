@@ -11,8 +11,11 @@ import {
     unfollowUser,
     getFollowers,
     getFollowing,
+    getMe,
+    updateUserStatus,
+    checkFollow,
 } from "../controllers/userController.js";
-import { authenticateToken, checkOwnership } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -30,7 +33,10 @@ router.get("/:id", getUserById); // Route dynamic đặt cuối cùng
 
 // Protected routes (cần authentication)
 router.get("/", authenticateToken, getAllUsers);
+router.get("/me", authenticateToken, getMe);
+router.get("/check-follow", authenticateToken, checkFollow); // Kiểm tra đã follow chưa
 router.put("/profile/:id", authenticateToken, checkOwnership, upload.single("avatar"), updateProfile);
+router.put("/:id/status", authenticateToken, requireAdmin, updateUserStatus);
 router.post("/:id/follow", authenticateToken, followUser);
 router.delete("/:id/follow", authenticateToken, unfollowUser);
 
