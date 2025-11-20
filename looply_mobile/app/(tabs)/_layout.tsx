@@ -78,6 +78,12 @@ export default function TabLayout() {
           href: null, 
         }}
       />
+      <Tabs.Screen
+        name="profile/[userId]"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+        }}
+      />
 
       <Tabs.Screen
         name="settings/index"

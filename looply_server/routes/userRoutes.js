@@ -5,6 +5,7 @@ import {
     login, 
     updateProfile, 
     getAllUsers,
+    getUserById,
     searchUsers,
     followUser,
     unfollowUser,
@@ -22,8 +23,10 @@ const upload = multer({ dest: "uploads/" });
 router.post("/register", register);
 router.post("/login", login);
 router.get("/search", searchUsers);
+// Routes cụ thể phải đặt trước route dynamic
 router.get("/:id/followers", getFollowers);
 router.get("/:id/following", getFollowing);
+router.get("/:id", getUserById); // Route dynamic đặt cuối cùng
 
 // Protected routes (cần authentication)
 router.get("/", authenticateToken, getAllUsers);

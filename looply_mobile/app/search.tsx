@@ -61,7 +61,11 @@ export default function SearchScreen() {
   });
 
   // Giảm tần suất gọi tìm kiếm (debounce) truy vấn tìm kiếm
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  // Tăng delay lên 1200ms để tránh rate limit
+  const debouncedSearchQuery = useDebounce(searchQuery, 1200);
+  
+  // State để track rate limit
+  const [rateLimited, setRateLimited] = useState(false);
 
   // Log khi searchQuery thay đổi
   useEffect(() => {
@@ -160,6 +164,20 @@ export default function SearchScreen() {
           } else {
             console.warn(`[Search] ❌ User search failed:`, userResponse.message);
             setUsers([]);
+            
+            // Xử lý rate limit
+            if (userResponse.message?.includes("Too many requests") || 
+                userResponse.message?.includes("Quá nhiều yêu cầu") ||
+                userResponse.message?.includes("please try again later")) {
+              setRateLimited(true);
+              console.warn(`[Search] ⚠️ Rate limit reached, disabling search temporarily`);
+              
+              // Tự động bỏ rate limit sau 15 giây
+              setTimeout(() => {
+                setRateLimited(false);
+                console.log(`[Search] ✅ Rate limit cooldown finished, search enabled again`);
+              }, 15000);
+            }
           }
           break;
         }
@@ -276,6 +294,12 @@ export default function SearchScreen() {
       console.log(`[Search] ⏭️ Skipping debounce search (initial search in progress)`);
       return;
     }
+    
+    // Kiểm tra rate limit trước khi search
+    if (rateLimited) {
+      console.log(`[Search] ⏸️ Search disabled due to rate limit, please wait...`);
+      return;
+    }
 
     if (debouncedSearchQuery.trim().length > 0) {
       console.log(`[Search] ✅ Query has content, calling handleSearch...`);
@@ -295,7 +319,7 @@ export default function SearchScreen() {
         setHashtags([]);
       }
     }
-  }, [debouncedSearchQuery, activeTab, handleSearch, loadTrendingHashtags, initialQuery]);
+  }, [debouncedSearchQuery, activeTab, handleSearch, loadTrendingHashtags, initialQuery, rateLimited]);
 
   const handleVideoPress = (video: VideoSearchResult) => {
     console.log(`[Search] 🎬 Video pressed:`, video._id);
@@ -346,12 +370,51 @@ export default function SearchScreen() {
   );
 
   const handleUserPress = (user: UserSearchResult) => {
-    console.log(`[Search] 👤 User pressed:`, user._id, user.username);
-    // Navigate đến profile của user này
-    router.push({
-      pathname: "/(tabs)/profile",
-      params: { userId: user._id, username: user.username }
+    console.log(`[Search] 👤 User pressed:`, {
+      _id: user._id,
+      _idType: typeof user._id,
+      _idString: String(user._id),
+      _idLength: String(user._id).length,
+      username: user.username,
+      name: user.name,
+      fullUserData: user
     });
+    
+    const userId = String(user._id).trim();
+    
+    // Validate userId
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === '') {
+      console.error(`[Search] ❌ Invalid userId:`, userId);
+      return;
+    }
+    
+    // Log để so sánh với backend
+    console.log(`[Search] 🚀 Navigating to profile with userId:`, userId);
+    console.log(`[Search] 📍 Navigation path: /(tabs)/profile/${userId}`);
+    console.log(`[Search] 🔍 This userId will be sent to backend: /api/users/${userId}`);
+    console.log(`[Search] 📦 User data from search:`, {
+      name: user.name,
+      username: user.username,
+      avatar: user.avatar,
+      bio: user.bio,
+      followers: user.followers,
+      following: user.following
+    });
+    
+    // Dùng dynamic route profile/[userId] và pass user data qua params để fallback
+    router.push({
+      pathname: `/(tabs)/profile/${userId}` as any,
+      params: {
+        // Pass user data để hiển thị tạm thời nếu API fail
+        userName: user.name || '',
+        userUsername: user.username || '',
+        userAvatar: user.avatar || '',
+        userBio: user.bio || '',
+        userFollowers: String(user.followers || 0),
+        userFollowing: String(user.following || 0),
+      }
+    });
+    console.log(`[Search] ✅ Navigation called with user data`);
   };
 
   const handleFollowPress = (user: UserSearchResult, e: any) => {
@@ -362,6 +425,7 @@ export default function SearchScreen() {
   };
 
   const renderUserItem = ({ item }: { item: UserSearchResult }) => {
+    console.log(`[Search] 🎨 Rendering user item:`, { id: item._id, name: item.name, username: item.username });
     const isFollowing = item.followingList && item.followingList.length > 0;
 
     return (
@@ -474,6 +538,10 @@ export default function SearchScreen() {
         break;
       case "user":
         data = users;
+        console.log(`[Search] 📊 getDataByTab - user tab:`, {
+          usersArrayLength: users.length,
+          usersState: users.map(u => ({ id: u._id, name: u.name, username: u.username }))
+        });
         break;
       case "hashtag":
         // Khi search hashtag, hiển thị cả hashtags và videos
@@ -491,6 +559,7 @@ export default function SearchScreen() {
       activeTab,
       dataLength: data.length,
       videosLength: videos.length,
+      usersLength: users.length,
       hashtagsLength: hashtags.length,
       data: data.slice(0, 3).map(item => ({
         id: item._id,
@@ -535,6 +604,19 @@ export default function SearchScreen() {
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.emptyStateTitle}>Đang tìm kiếm...</Text>
+        </View>
+      );
+    }
+    
+    // Hiển thị thông báo rate limit
+    if (rateLimited) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="time-outline" size={48} color="#FF9500" />
+          <Text style={styles.emptyStateTitle}>Quá nhiều yêu cầu</Text>
+          <Text style={styles.emptyStateSubtitle}>
+            Vui lòng đợi một chút rồi thử lại. Tìm kiếm sẽ được kích hoạt lại sau vài giây.
+          </Text>
         </View>
       );
     }
@@ -694,8 +776,8 @@ export default function SearchScreen() {
           return key;
         }}
         numColumns={(activeTab === "video" || (activeTab === "hashtag" && videos.length > 0)) ? 2 : 1}
-        key={`${activeTab}-${searchQuery}-${isLoading}`}
-        extraData={{ activeTab, searchQuery, isLoading, users: users.length, videos: videos.length, hashtags: hashtags.length }}
+        key={`${activeTab}-${searchQuery}-${isLoading}-${users.length}-${videos.length}-${hashtags.length}`}
+        extraData={{ activeTab, searchQuery, isLoading, usersCount: users.length, videosCount: videos.length, hashtagsCount: hashtags.length, users, videos, hashtags }}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={
           (activeTab === "video" || (activeTab === "hashtag" && videos.length > 0)) ? styles.columnWrapper : undefined

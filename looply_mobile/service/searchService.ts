@@ -223,14 +223,21 @@ export const searchService = {
   async searchUsers(query: string): Promise<SearchResponse<UserSearchResult>> {
     try {
       const url = `${this.API_BASE_URL}/users/search?q=${encodeURIComponent(query)}`;
-      console.log(`[searchService] Calling: ${url}`);
+      console.log(`[searchService] 🔍 Calling user search API: ${url}`);
+      
+      // Thêm timeout cho fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
       
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       console.log(`[searchService] Response status: ${response.status} ${response.statusText}`);
 
@@ -255,20 +262,69 @@ export const searchService = {
           total: data.total || 0,
         };
       } else {
-        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-        console.error(`[searchService] User search failed:`, errorData);
+        // Cải thiện error handling
+        let errorData: any = { message: "Unknown error" };
+        const contentType = response.headers.get("content-type");
+        
+        try {
+          if (contentType && contentType.includes("application/json")) {
+            errorData = await response.json();
+          } else {
+            const text = await response.text();
+            console.error(`[searchService] Non-JSON error response:`, text);
+            errorData = { message: text || `HTTP ${response.status}: ${response.statusText}` };
+          }
+        } catch (parseError) {
+          console.error(`[searchService] Failed to parse error response:`, parseError);
+          errorData = { 
+            message: `HTTP ${response.status}: ${response.statusText || "Unknown error"}` 
+          };
+        }
+        
+        console.error(`[searchService] ❌ User search failed:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        
+        // Xử lý các loại lỗi khác nhau - xử lý cả error.message và message
+        let errorMessage = errorData.message || errorData.error?.message || `Tìm kiếm người dùng thất bại (${response.status})`;
+        
+        if (response.status === 429) {
+          // Lấy message từ error object nếu có
+          const rateLimitMessage = errorData.error?.message || errorData.message;
+          errorMessage = rateLimitMessage || "Quá nhiều yêu cầu. Vui lòng đợi một chút rồi thử lại.";
+          console.warn(`[searchService] ⚠️ Rate limit reached: ${errorMessage}`);
+        } else if (response.status === 500) {
+          errorMessage = "Lỗi server. Vui lòng thử lại sau.";
+        } else if (response.status === 404) {
+          errorMessage = "Không tìm thấy kết quả.";
+        }
+        
         return {
           success: false,
           data: [],
-          message: errorData.message || "Tìm kiếm người dùng thất bại",
+          message: errorMessage,
         };
       }
     } catch (error) {
-      console.error("[searchService] Search users error:", error);
+      console.error("[searchService] ❌ Search users error:", error);
+      
+      let errorMessage = "Không thể kết nối đến máy chủ";
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          errorMessage = "Request timeout - Vui lòng thử lại";
+        } else {
+          errorMessage = `Lỗi: ${error.message}`;
+        }
+      } else {
+        errorMessage = `Lỗi không xác định: ${String(error)}`;
+      }
+      
       return {
         success: false,
         data: [],
-        message: `Không thể kết nối đến máy chủ: ${error instanceof Error ? error.message : String(error)}`,
+        message: errorMessage,
       };
     }
   },

@@ -32,46 +32,35 @@ interface VideoPost {
   views?: number;
 }
 
-export default function Profile() {
+export default function UserProfile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
   
-  // Log tất cả params để debug - params có thể là string hoặc string[]
-  useEffect(() => {
-    console.log(`[Profile] 📥 All params received:`, params);
-    console.log(`[Profile] 📥 Params type:`, {
-      userId: typeof params.userId,
-      username: typeof params.username,
-      userIdValue: params.userId,
-      usernameValue: params.username
-    });
-  }, [params]);
-  
-  // Xử lý params - expo-router có thể trả về string hoặc string[]
+  // Lấy userId từ dynamic route [userId]
+  // Trong expo-router, dynamic route params có thể là string hoặc string[]
   const targetUserId = Array.isArray(params.userId) 
     ? params.userId[0] 
     : (params.userId as string | undefined);
-  const targetUsername = Array.isArray(params.username) 
-    ? params.username[0] 
-    : (params.username as string | undefined);
   
-  // Log params đã parse để debug
-  useEffect(() => {
-    console.log(`[Profile] 📥 Parsed params:`, { 
-      userId: targetUserId, 
-      username: targetUsername,
-      currentUserId: currentUser?._id,
-      hasTargetUserId: !!targetUserId,
-      targetUserIdType: typeof targetUserId,
-      willViewOtherProfile: targetUserId && targetUserId !== currentUser?._id
-    });
-  }, [targetUserId, targetUsername, currentUser?._id]);
+  // Lấy user data từ params (fallback từ search results)
+  const fallbackUserData = params.userName ? {
+    _id: targetUserId,
+    name: Array.isArray(params.userName) ? params.userName[0] : params.userName,
+    username: Array.isArray(params.userUsername) ? params.userUsername[0] : params.userUsername,
+    avatar: Array.isArray(params.userAvatar) ? params.userAvatar[0] : params.userAvatar,
+    bio: Array.isArray(params.userBio) ? params.userBio[0] : params.userBio,
+    followers: parseInt(Array.isArray(params.userFollowers) ? params.userFollowers[0] : params.userFollowers || '0'),
+    following: parseInt(Array.isArray(params.userFollowing) ? params.userFollowing[0] : params.userFollowing || '0'),
+  } : null;
   
-  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
-  const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
-  const [profileUser, setProfileUser] = useState<any>(currentUser);
+  console.log(`[UserProfile] 📥 Received params:`, params);
+  console.log(`[UserProfile] 📥 Parsed userId:`, targetUserId);
+  console.log(`[UserProfile] 📥 userId type:`, typeof targetUserId);
+  console.log(`[UserProfile] 📥 userId length:`, targetUserId?.length);
+  console.log(`[UserProfile] 📦 Fallback user data:`, fallbackUserData);
   
+  const [profileUser, setProfileUser] = useState<any>(fallbackUserData);
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
@@ -80,44 +69,39 @@ export default function Profile() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    console.log(`[Profile] 🔄 useEffect triggered:`, {
-      targetUserId,
-      isViewingOtherProfile,
-      isAuthenticated,
-      hasCurrentUser: !!currentUser
-    });
-
-    // Reset state khi params thay đổi
-    setVideos([]);
-    setFavorites([]);
-    setLiked([]);
-
-    if (isViewingOtherProfile && targetUserId) {
-      console.log(`[Profile] 👤 Fetching other user profile:`, targetUserId);
-      // Fetch profile của user khác
+    if (targetUserId) {
+      console.log(`[UserProfile] 🔄 Fetching profile for userId:`, targetUserId);
       fetchOtherUserProfile(targetUserId);
-    } else if (isAuthenticated && currentUser) {
-      console.log(`[Profile] 👤 Showing current user profile`);
-      // Hiển thị profile của user hiện tại
-      setProfileUser(currentUser);
-      fetchProfileData();
     } else {
-      console.log(`[Profile] ⚠️ No user data available`);
+      console.warn(`[UserProfile] ⚠️ No userId provided`);
       setIsLoading(false);
     }
-  }, [isAuthenticated, currentUser?._id, activeTab, targetUserId, isViewingOtherProfile]);
+  }, [targetUserId]);
 
   const fetchOtherUserProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-      console.log(`[Profile] 🔍 Fetching user profile for ID:`, userId);
+      const url = `${API_BASE_URL}/users/${userId}`;
+      console.log(`[UserProfile] 🔍 Fetching user profile for ID:`, userId);
+      console.log(`[UserProfile] 📍 API URL:`, url);
+      console.log(`[UserProfile] 🔍 userId details:`, {
+        value: userId,
+        type: typeof userId,
+        length: userId.length,
+        trimmed: userId.trim(),
+        isValid: userId && userId.trim() !== '' && userId !== 'undefined' && userId !== 'null'
+      });
       
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-      console.log(`[Profile] 📡 User API response status:`, response.status);
+      const response = await fetch(url);
+      console.log(`[UserProfile] 📡 User API response status:`, response.status, response.statusText);
+      console.log(`[UserProfile] 📡 Response headers:`, {
+        contentType: response.headers.get('content-type'),
+        status: response.status
+      });
       
       if (response.ok) {
         const userData = await response.json();
-        console.log(`[Profile] ✅ User data received:`, {
+        console.log(`[UserProfile] ✅ User data received:`, {
           id: userData._id,
           name: userData.name,
           username: userData.username
@@ -125,75 +109,93 @@ export default function Profile() {
         setProfileUser(userData);
         
         // Fetch videos của user đó
-        console.log(`[Profile] 🔍 Fetching videos for user:`, userId);
+        console.log(`[UserProfile] 🔍 Fetching videos for user:`, userId);
         const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
-        console.log(`[Profile] 📡 Videos API response status:`, videosResponse.status);
+        console.log(`[UserProfile] 📡 Videos API response status:`, videosResponse.status);
         
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
           const videosArray = Array.isArray(videosData.videos || videosData) 
             ? (videosData.videos || videosData) 
             : [];
-          console.log(`[Profile] ✅ Videos received:`, videosArray.length);
+          console.log(`[UserProfile] ✅ Videos received:`, videosArray.length);
           setVideos(videosArray);
         } else {
-          console.warn(`[Profile] ⚠️ Failed to fetch videos:`, videosResponse.status);
+          console.warn(`[UserProfile] ⚠️ Failed to fetch videos:`, videosResponse.status);
           setVideos([]);
         }
       } else {
-        console.error(`[Profile] ❌ Failed to fetch user profile:`, response.status);
-        setProfileUser(null);
+        // Cải thiện error handling
+        let errorMessage = "Không tìm thấy người dùng";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          console.error(`[UserProfile] ❌ Error response:`, errorData);
+        } catch (parseError) {
+          console.error(`[UserProfile] ❌ Failed to parse error response:`, parseError);
+        }
+        
+        console.error(`[UserProfile] ❌ Failed to fetch user profile:`, {
+          status: response.status,
+          statusText: response.statusText,
+          userId: userId,
+          url: url,
+          message: errorMessage
+        });
+        
+        // Nếu là 404, có thể do backend chưa có route này
+        if (response.status === 404) {
+          console.warn(`[UserProfile] ⚠️ 404 - Route /users/:id might not be deployed on backend yet`);
+          console.warn(`[UserProfile] 🔄 Using fallback user data from search results if available`);
+          
+          // Sử dụng fallback data từ search results nếu có
+          if (fallbackUserData) {
+            console.log(`[UserProfile] ✅ Using fallback user data:`, fallbackUserData);
+            setProfileUser(fallbackUserData);
+            // Vẫn fetch videos nếu có thể
+            try {
+              const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+              if (videosResponse.ok) {
+                const videosData = await videosResponse.json();
+                const videosArray = Array.isArray(videosData.videos || videosData) 
+                  ? (videosData.videos || videosData) 
+                  : [];
+                setVideos(videosArray);
+              }
+            } catch (videoError) {
+              console.warn(`[UserProfile] ⚠️ Could not fetch videos:`, videoError);
+            }
+            setIsLoading(false);
+            return; // Không set profileUser = null, giữ fallback data
+          }
+        }
+        
+        // Chỉ set null nếu không có fallback data
+        if (!fallbackUserData) {
+          setProfileUser(null);
+        }
       }
     } catch (error) {
-      console.error("[Profile] ❌ Error fetching other user profile:", error);
+      console.error("[UserProfile] ❌ Error fetching user profile:", error);
+      if (error instanceof Error) {
+        console.error("[UserProfile] Error details:", {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
       setProfileUser(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchProfileData = async () => {
-    try {
-      setIsLoading(true);
-      const token = await require("@/utils/tokenStorage").getToken();
-      
-      if (!token || !currentUser?._id) return;
-
-      // Fetch user videos
-      const videosResponse = await fetch(
-        `${API_BASE_URL}/videos/user/${currentUser._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (videosResponse.ok) {
-        const videosData = await videosResponse.json();
-        setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
-      }
-
-      // For now, use empty arrays for favorites and liked
-      // These would need separate API endpoints
-      setFavorites([]);
-      setLiked([]);
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   const onRefresh = () => {
-    setRefreshing(true);
-    if (isViewingOtherProfile && targetUserId) {
+    if (targetUserId) {
+      setRefreshing(true);
       fetchOtherUserProfile(targetUserId).then(() => {
         setRefreshing(false);
       });
-    } else {
-      fetchProfileData();
     }
   };
 
@@ -217,26 +219,6 @@ export default function Profile() {
     </TouchableOpacity>
   );
 
-  // Chỉ yêu cầu đăng nhập nếu đang xem profile của chính mình
-  // Cho phép xem profile của người khác mà không cần đăng nhập
-  if (!isViewingOtherProfile && (!isAuthenticated || !currentUser)) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.notLoggedInContainer}>
-          <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
-          <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
-          <Button
-            title="Đăng nhập"
-            onPress={() => router.push("/login")}
-            variant="primary"
-            style={{ marginTop: Spacing.lg }}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Hiển thị loading khi đang fetch data
   if (isLoading && !profileUser) {
     return (
       <SafeAreaView style={styles.container}>
@@ -245,13 +227,15 @@ export default function Profile() {
     );
   }
 
-  // Hiển thị thông báo khi không tìm thấy user (khi đang xem profile người khác)
-  if (isViewingOtherProfile && !isLoading && !profileUser) {
+  if (!profileUser && !isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>
           <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
           <Text style={styles.notLoggedInText}>Không tìm thấy người dùng</Text>
+          <Text style={[styles.notLoggedInText, { fontSize: Typography.fontSize.sm, marginTop: Spacing.sm }]}>
+            Có thể người dùng này không tồn tại hoặc đã bị xóa.
+          </Text>
           <Button
             title="Quay lại"
             onPress={() => router.back()}
@@ -290,40 +274,21 @@ export default function Profile() {
           {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
 
           <View style={styles.buttonContainer}>
-            {isViewingOtherProfile ? (
-              <>
-                <Button
-                  title="Follow"
-                  onPress={() => {
-                    // TODO: Implement follow functionality
-                    console.log("Follow user:", targetUserId);
-                  }}
-                  variant="primary"
-                  size="sm"
-                />
-                <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
-                  size="sm"
-                />
-              </>
-            ) : (
-              <>
-                <Button
-                  title="Chỉnh sửa"
-                  onPress={() => router.push("/(tabs)/settings")}
-                  variant="outline"
-                  size="sm"
-                />
-                <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
-                  size="sm"
-                />
-              </>
-            )}
+            <Button
+              title="Follow"
+              onPress={() => {
+                // TODO: Implement follow functionality
+                console.log("Follow user:", targetUserId);
+              }}
+              variant="primary"
+              size="sm"
+            />
+            <Button
+              title="Chia sẻ"
+              onPress={() => {}}
+              variant="ghost"
+              size="sm"
+            />
           </View>
 
           {/* Stats */}
@@ -603,3 +568,4 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
 });
+
