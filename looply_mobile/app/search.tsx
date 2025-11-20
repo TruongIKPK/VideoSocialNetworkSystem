@@ -322,13 +322,21 @@ export default function SearchScreen() {
   }, [debouncedSearchQuery, activeTab, handleSearch, loadTrendingHashtags, initialQuery, rateLimited]);
 
   const handleVideoPress = (video: VideoSearchResult) => {
-    console.log(`[Search] 🎬 Video pressed:`, video._id);
-    // Navigate về home và có thể scroll đến video này
-    // Hoặc tạo màn hình chi tiết video
+    console.log(`[Search] 🎬 Video pressed:`, {
+      id: video._id,
+      title: video.title,
+      author: video.author?.name
+    });
+    
+    // Navigate về home và scroll đến video này
     router.push({
       pathname: "/(tabs)/home",
-      params: { videoId: video._id, scrollToVideo: "true" }
+      params: { 
+        videoId: video._id, 
+        scrollToVideo: "true"
+      }
     });
+    console.log(`[Search] ✅ Navigating to home with videoId: ${video._id}`);
   };
 
   const renderVideoItem = ({ item }: { item: VideoSearchResult }) => (
