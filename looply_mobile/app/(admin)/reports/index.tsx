@@ -92,11 +92,29 @@ export default function AdminReportsScreen() {
     return `${diffInHours} giờ trước`;
   };
 
+  const getReportedTypeText = (type: string) => {
+    switch (type) {
+      case "user":
+        return "người dùng";
+      case "video":
+        return "video";
+      case "comment":
+        return "comment";
+      default:
+        return type;
+    }
+  };
+
   const formatReportMeta = (item: Report) => {
-    const reasonPreview = item.reason.length > 30 
-      ? item.reason.substring(0, 30) + "..." 
-      : item.reason;
-    return `${item.reportedType} - ${reasonPreview} - ${formatTimeAgo(item.createdAt)}`;
+    const typeText = getReportedTypeText(item.reportedType);
+    return `${typeText} - ${item.reason} - ${formatTimeAgo(item.createdAt)}`;
+  };
+
+  const formatReportId = (id: string) => {
+    // Extract last 3 digits and format as #101, #102, etc.
+    const lastDigits = id.slice(-3);
+    const num = parseInt(lastDigits, 16) % 1000; // Convert hex to number and mod 1000
+    return `#${num.toString().padStart(3, '0')}`;
   };
 
   const handleViewReport = (reportId: string) => {
@@ -123,7 +141,7 @@ export default function AdminReportsScreen() {
         </View>
         <View style={styles.reportInfo}>
           <Text style={styles.reportId}>
-            {`Báo cáo #${item._id.slice(-6)}`}
+            {`Báo cáo ${formatReportId(item._id)}`}
           </Text>
           <Text style={styles.reportMeta}>
             {formatReportMeta(item)}
