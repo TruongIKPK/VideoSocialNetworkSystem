@@ -149,8 +149,10 @@ export default function AdminDashboardScreen() {
         console.log("Recent reports:", reportsData);
         setRecentReports(reportsData.reports || []);
       } else {
-        console.error("Failed to fetch reports:", reportsResponse.status);
+        const errorText = await reportsResponse.text();
+        console.error("Failed to fetch reports:", reportsResponse.status, errorText);
         // Keep empty array, will show "Chưa có báo cáo nào"
+        setRecentReports([]);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
