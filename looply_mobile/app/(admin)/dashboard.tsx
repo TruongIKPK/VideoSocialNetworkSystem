@@ -152,10 +152,6 @@ export default function AdminDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-        </View>
-
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
           <Image
@@ -168,170 +164,175 @@ export default function AdminDashboardScreen() {
           </View>
         </View>
 
-        {/* Quick Overview */}
-        {stats && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tổng quan nhanh</Text>
-            <Text style={styles.cardSubtitle}>Số liệu hệ thống hôm nay</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Người dùng</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.total.users)}</Text>
-                <Text style={styles.statSubtext}>+{stats.today.users} hôm nay</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Video</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.total.videos)}</Text>
-                <Text style={styles.statSubtext}>+{stats.today.videos} hôm nay</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Báo cáo</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.total.reports)}</Text>
-                <Text style={styles.statSubtext}>+{stats.today.reports} hôm nay</Text>
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Dashboard Content */}
+        <View style={styles.dashboardCard}>
+          <Text style={styles.dashboardTitle}>Dashboard</Text>
 
-        {/* Detailed Stats */}
-        {stats && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Chi tiết hệ thống</Text>
-            <View style={styles.detailedStats}>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Người dùng hoạt động</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.users.active)}</Text>
-              </View>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Người dùng bị khóa</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.users.locked)}</Text>
-              </View>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Video hoạt động</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.active)}</Text>
-              </View>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Video vi phạm</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.violation)}</Text>
-              </View>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Báo cáo chờ xử lý</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.pending)}</Text>
-              </View>
-              <View style={styles.detailedStatRow}>
-                <Text style={styles.detailedStatLabel}>Báo cáo đã xử lý</Text>
-                <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.resolved)}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Ad Management Card */}
-        <TouchableOpacity 
-          style={styles.card}
-          onPress={() => router.push("/(admin)/ads")}
-          activeOpacity={0.7}
-        >
-          <View style={styles.adCardContent}>
-            <Ionicons name="megaphone" size={24} color={Colors.primary} />
-            <View style={styles.adCardText}>
-              <Text style={styles.cardTitle}>Quản lý quảng cáo</Text>
-              <Text style={styles.cardSubtitle}>Tạo và quản lý quảng cáo</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Recent Videos */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Video gần đây</Text>
-            <TouchableOpacity onPress={() => router.push("/(admin)/videos")}>
-              <Text style={styles.viewAllLink}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
-          {recentVideos.length > 0 ? (
-            recentVideos.map((video) => (
-              <View key={video._id} style={styles.videoItem}>
-                <View style={styles.videoThumbnail}>
-                  <Ionicons name="videocam" size={24} color="#10B981" />
+            {/* Quick Overview */}
+          {stats && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tổng quan nhanh</Text>
+              <Text style={styles.sectionSubtitle}>Số liệu hệ thống hôm nay</Text>
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Người dùng</Text>
+                  <Text style={styles.statValue}>{formatNumber(stats.total.users)}</Text>
+                  <Text style={styles.statSubtext}>+{stats.today.users} hôm nay</Text>
                 </View>
-                <View style={styles.videoInfo}>
-                  <Text style={styles.videoTitle}>{video.title}</Text>
-                  <Text style={styles.videoMeta}>
-                    {video.user?.name || video.user?.username || "Unknown"} • {formatNumber(video.views || 0)} lượt xem
-                  </Text>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Video</Text>
+                  <Text style={styles.statValue}>{formatNumber(stats.total.videos)}</Text>
+                  <Text style={styles.statSubtext}>+{stats.today.videos} hôm nay</Text>
                 </View>
-                <View style={styles.videoActions}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Báo cáo</Text>
+                  <Text style={styles.statValue}>{formatNumber(stats.total.reports)}</Text>
+                  <Text style={styles.statSubtext}>+{stats.today.reports} hôm nay</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Detailed Stats */}
+          {stats && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Chi tiết hệ thống</Text>
+              <View style={styles.detailedStats}>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Người dùng hoạt động</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.users.active)}</Text>
+                </View>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Người dùng bị khóa</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.users.locked)}</Text>
+                </View>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Video hoạt động</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.active)}</Text>
+                </View>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Video vi phạm</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.violation)}</Text>
+                </View>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Báo cáo chờ xử lý</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.pending)}</Text>
+                </View>
+                <View style={styles.detailedStatRow}>
+                  <Text style={styles.detailedStatLabel}>Báo cáo đã xử lý</Text>
+                  <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.resolved)}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Ad Management Card */}
+          <TouchableOpacity 
+            style={styles.section}
+            onPress={() => router.push("/(admin)/ads")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.adCardContent}>
+              <Ionicons name="megaphone" size={24} color={Colors.primary} />
+              <View style={styles.adCardText}>
+                <Text style={styles.sectionTitle}>Quản lý quảng cáo</Text>
+                <Text style={styles.sectionSubtitle}>Tạo và quản lý quảng cáo</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Recent Videos */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Video gần đây</Text>
+              <TouchableOpacity onPress={() => router.push("/(admin)/videos")}>
+                <Text style={styles.viewAllLink}>Xem tất cả</Text>
+              </TouchableOpacity>
+            </View>
+            {recentVideos.length > 0 ? (
+              recentVideos.map((video) => (
+                <View key={video._id} style={styles.videoItem}>
+                  <View style={styles.videoThumbnail}>
+                    <Ionicons name="videocam" size={24} color="#10B981" />
+                  </View>
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle}>{video.title}</Text>
+                    <Text style={styles.videoMeta}>
+                      {video.user?.name || video.user?.username || "Unknown"} • {formatNumber(video.views || 0)} lượt xem
+                    </Text>
+                  </View>
+                  <View style={styles.videoActions}>
+                    <TouchableOpacity 
+                      style={styles.viewButton}
+                      onPress={() => router.push({
+                        pathname: "/(admin)/video-detail",
+                        params: {
+                          videoId: video._id,
+                          videoUrl: video.thumbnail || "",
+                          title: video.title,
+                          author: video.user?.name || video.user?.username || "Unknown",
+                          views: String(video.views || 0),
+                        },
+                      })}
+                    >
+                      <Text style={styles.viewButtonText}>Xem</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.violationButton}
+                      onPress={() => router.push({
+                        pathname: "/(admin)/video-detail",
+                        params: {
+                          videoId: video._id,
+                          videoUrl: video.thumbnail || "",
+                          title: video.title,
+                          author: video.user?.name || video.user?.username || "Unknown",
+                          views: String(video.views || 0),
+                        },
+                      })}
+                    >
+                      <Text style={styles.violationButtonText}>Vi phạm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Chưa có video nào</Text>
+            )}
+          </View>
+
+          {/* New Reports */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Báo cáo mới</Text>
+              <TouchableOpacity onPress={() => router.push("/(admin)/reports")}>
+                <Text style={styles.viewAllLink}>Xem tất cả</Text>
+              </TouchableOpacity>
+            </View>
+            {recentReports.length > 0 ? (
+              recentReports.map((report) => (
+                <View key={report._id} style={styles.reportItem}>
+                  <View style={styles.reportThumbnail}>
+                    <Ionicons name="flag" size={24} color="#10B981" />
+                  </View>
+                  <View style={styles.reportInfo}>
+                    <Text style={styles.reportId}>Báo cáo #{report._id.slice(-6)}</Text>
+                    <Text style={styles.reportMeta}>
+                      {report.reportedType} • {report.reason} • {formatTimeAgo(report.createdAt)}
+                    </Text>
+                  </View>
                   <TouchableOpacity 
                     style={styles.viewButton}
-                    onPress={() => router.push({
-                      pathname: "/(admin)/video-detail",
-                      params: {
-                        videoId: video._id,
-                        videoUrl: video.thumbnail || "",
-                        title: video.title,
-                        author: video.user?.name || video.user?.username || "Unknown",
-                        views: String(video.views || 0),
-                      },
-                    })}
+                    onPress={() => router.push("/(admin)/reports")}
                   >
                     <Text style={styles.viewButtonText}>Xem</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.violationButton}
-                    onPress={() => router.push({
-                      pathname: "/(admin)/video-detail",
-                      params: {
-                        videoId: video._id,
-                        videoUrl: video.thumbnail || "",
-                        title: video.title,
-                        author: video.user?.name || video.user?.username || "Unknown",
-                        views: String(video.views || 0),
-                      },
-                    })}
-                  >
-                    <Text style={styles.violationButtonText}>Vi phạm</Text>
-                  </TouchableOpacity>
                 </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>Chưa có video nào</Text>
-          )}
-        </View>
-
-        {/* New Reports */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Báo cáo mới</Text>
-            <TouchableOpacity onPress={() => router.push("/(admin)/reports")}>
-              <Text style={styles.viewAllLink}>Xem tất cả</Text>
-            </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>Chưa có báo cáo nào</Text>
+            )}
           </View>
-          {recentReports.length > 0 ? (
-            recentReports.map((report) => (
-              <View key={report._id} style={styles.reportItem}>
-                <View style={styles.reportThumbnail}>
-                  <Ionicons name="flag" size={24} color="#10B981" />
-                </View>
-                <View style={styles.reportInfo}>
-                  <Text style={styles.reportId}>Báo cáo #{report._id.slice(-6)}</Text>
-                  <Text style={styles.reportMeta}>
-                    {report.reportedType} • {report.reason} • {formatTimeAgo(report.createdAt)}
-                  </Text>
-                </View>
-                <TouchableOpacity 
-                  style={styles.viewButton}
-                  onPress={() => router.push("/(admin)/reports")}
-                >
-                  <Text style={styles.viewButtonText}>Xem</Text>
-                </TouchableOpacity>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>Chưa có báo cáo nào</Text>
-          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -353,17 +354,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
   },
   adminCard: {
     backgroundColor: Colors.white,
@@ -405,21 +395,34 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
     marginTop: 2,
   },
-  card: {
+  dashboardCard: {
     backgroundColor: "#E5E5E5",
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
-  cardTitle: {
+  dashboardTitle: {
     fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
     marginBottom: Spacing.md,
   },
-  cardSubtitle: {
+  section: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  sectionTitle: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.sm,
+  },
+  sectionSubtitle: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
