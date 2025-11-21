@@ -6,12 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
@@ -29,6 +32,7 @@ interface Report {
 export default function AdminReportsScreen() {
   const router = useRouter();
   const { token } = useUser();
+  const { user } = useCurrentUser();
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -99,6 +103,10 @@ export default function AdminReportsScreen() {
     return `${diffInHours} giờ trước`;
   };
 
+  const formatReportMeta = (item: Report) => {
+    return `${item.targetType} - ${item.reason} - ${formatTimeAgo(item.createdAt)}`;
+  };
+
   const handleViewReport = (reportId: string) => {
     // TODO: Navigate to report detail
     console.log("View report:", reportId);
@@ -114,7 +122,7 @@ export default function AdminReportsScreen() {
           {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
         </Text>
         <Text style={styles.reportMeta}>
-          {item.targetType} • {item.reason} • {formatTimeAgo(item.createdAt)}
+          {formatReportMeta(item)}
         </Text>
       </View>
       <TouchableOpacity 
@@ -128,27 +136,68 @@ export default function AdminReportsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Báo cáo</Text>
-      </View>
-      
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Đang tải...</Text>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Profile</Text>
         </View>
-      ) : (
-        <FlatList
-          data={reports}
-          renderItem={renderReportItem}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
+
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <Image
+            source={getAvatarUri(user?.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
+        </View>
+
+        {/* New Reports Section */}
+        <View style={styles.reportsCard}>
+          <Text style={styles.reportsTitle}>Báo cáo mới</Text>
+          
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Đang tải...</Text>
+            </View>
+          ) : reports.length > 0 ? (
+            <View style={styles.reportsList}>
+              {reports.map((item) => (
+                <View key={item._id} style={styles.reportItem}>
+                  <View style={styles.reportThumbnail}>
+                    <Ionicons name="flag" size={24} color="#10B981" />
+                  </View>
+                  <View style={styles.reportInfo}>
+                    <Text style={styles.reportId}>
+                      {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
+                    </Text>
+                    <Text style={styles.reportMeta}>
+                      {formatReportMeta(item)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.viewButton}
+                    onPress={() => handleViewReport(item._id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.viewButtonText}>Xem</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Không có báo cáo nào</Text>
             </View>
-          }
-        />
-      )}
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -157,6 +206,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F5F5F5",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     paddingHorizontal: Spacing.lg,
@@ -169,17 +224,66 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
   },
-  listContent: {
-    paddingBottom: 100,
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.gray[200],
+  },
+  adminTextContainer: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  reportsCard: {
+    backgroundColor: "#E5E5E5",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  reportsTitle: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.md,
+  },
+  reportsList: {
+    gap: Spacing.sm,
   },
   reportItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
     gap: Spacing.sm,
   },
   reportThumbnail: {
@@ -219,8 +323,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
+    paddingVertical: Spacing.xl,
     alignItems: "center",
   },
   loadingText: {
@@ -229,10 +332,8 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: Spacing.xxxl,
+    alignItems: "center",
   },
   emptyText: {
     fontSize: Typography.fontSize.md,
