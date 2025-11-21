@@ -141,6 +141,7 @@ export const updateUserStatus = async (req, res) => {
 // Get all videos (admin only - includes violation videos)
 export const getAllVideos = async (req, res) => {
   try {
+    console.log("📹 getAllVideos controller called");
     const { status, page = 1, limit = 20, search } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -160,17 +161,34 @@ export const getAllVideos = async (req, res) => {
     const videos = await Video.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const total = await Video.countDocuments(query);
 
-    // Add views count for each video
+    // Add views count and ensure user data is populated for each video
     const videosWithViews = await Promise.all(
       videos.map(async (video) => {
         const viewsCount = await VideoView.countDocuments({ videoId: video._id });
+        
+        // If user._id exists but user data is incomplete, fetch from User model
+        let userData = video.user;
+        if (video.user?._id && (!video.user.name || !video.user.avatar)) {
+          const fullUser = await User.findById(video.user._id).select("name username avatar").lean();
+          if (fullUser) {
+            userData = {
+              _id: fullUser._id,
+              name: fullUser.name || video.user.name,
+              username: fullUser.username,
+              avatar: fullUser.avatar || video.user.avatar,
+            };
+          }
+        }
+        
         return {
-          ...video.toObject(),
+          ...video,
           views: viewsCount,
+          user: userData,
         };
       })
     );
@@ -327,18 +345,34 @@ export const getRecentVideos = async (req, res) => {
 export const getRecentReports = async (req, res) => {
   try {
     console.log("🚩 getRecentReports called");
+    console.log("🚩 Query params:", req.query);
     const limit = parseInt(req.query.limit) || 10;
+    const type = req.query.type; // Optional: filter by type (video, user, comment)
 
-    const reports = await Report.find()
+    // Build query
+    let query = {};
+    if (type && ["user", "video", "comment"].includes(type)) {
+      query.reportedType = type;
+    }
+
+    const reports = await Report.find(query)
       .populate("reporterId", "name username avatar")
       .populate("resolvedBy", "name username")
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
 
+    console.log(`🚩 Found ${reports.length} reports${type ? ` (type: ${type})` : ""}`);
+    console.log("🚩 Reports sample:", reports.slice(0, 2).map(r => ({
+      _id: r._id,
+      reportedType: r.reportedType,
+      status: r.status,
+      createdAt: r.createdAt
+    })));
+
     res.json({ reports });
   } catch (error) {
-    console.error("Error fetching recent reports:", error);
+    console.error("❌ Error fetching recent reports:", error);
     res.status(500).json({ message: error.message });
   }
 };
