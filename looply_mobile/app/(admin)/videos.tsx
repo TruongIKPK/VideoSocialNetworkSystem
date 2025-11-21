@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { formatNumber } from "@/utils/imageHelpers";
+import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
@@ -30,6 +32,7 @@ interface Video {
 
 export default function AdminVideosScreen() {
   const router = useRouter();
+  const { user } = useCurrentUser();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -119,6 +122,18 @@ export default function AdminVideosScreen() {
           renderItem={renderVideoItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.adminCard}>
+              <Image
+                source={getAvatarUri(user?.avatar)}
+                style={styles.avatar}
+              />
+              <View style={styles.adminTextContainer}>
+                <Text style={styles.adminName}>Admin</Text>
+                <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+              </View>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Không có video nào</Text>
@@ -145,6 +160,45 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+  },
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.gray[200],
+  },
+  adminTextContainer: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
   },
   listContent: {
     paddingBottom: 100,
