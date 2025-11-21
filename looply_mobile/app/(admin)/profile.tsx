@@ -6,11 +6,13 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUser } from "@/contexts/UserContext";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
@@ -45,6 +47,7 @@ interface RecentReport {
 export default function AdminProfileScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
+  const { logout } = useUser();
   const [stats, setStats] = useState<StatsData>({ users: 0, videos: 0, reports: 0 });
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
@@ -174,6 +177,31 @@ export default function AdminProfileScreen() {
     return `${diffInHours} giờ trước`;
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Đăng xuất",
+      "Bạn có chắc chắn muốn đăng xuất?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Đăng xuất",
+          style: "destructive",
+          onPress: async () => {
+            await logout();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditProfile = () => {
+    router.push("/(tabs)/settings/edit-profile");
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView 
@@ -195,6 +223,22 @@ export default function AdminProfileScreen() {
           <View style={styles.adminTextContainer}>
             <Text style={styles.adminName}>Admin</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
+          <View style={styles.adminActions}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEditProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.logoutButtonSmall}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -308,6 +352,36 @@ export default function AdminProfileScreen() {
               </TouchableOpacity>
             </View>
           ))}
+        </View>
+
+        {/* Settings Section */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Cài đặt</Text>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={handleEditProfile}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="person-outline" size={24} color={Colors.primary} />
+              <View style={styles.settingText}>
+                <Text style={styles.settingTitle}>Chỉnh sửa hồ sơ</Text>
+                <Text style={styles.settingSubtitle}>Cập nhật thông tin cá nhân</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout Button */}
+        <View style={styles.logoutSection}>
+          <Button
+            title="Đăng xuất"
+            onPress={handleLogout}
+            variant="danger"
+            fullWidth
+            style={styles.logoutButton}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -525,6 +599,62 @@ const styles = StyleSheet.create({
   },
   adCardText: {
     flex: 1,
+  },
+  adminActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.gray[100],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoutButtonSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  settingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  settingLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: Spacing.md,
+  },
+  settingText: {
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  settingSubtitle: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    marginTop: Spacing.xs / 2,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  logoutSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  logoutButton: {
+    marginTop: Spacing.md,
   },
 });
 
