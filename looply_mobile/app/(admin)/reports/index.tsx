@@ -111,10 +111,14 @@ export default function AdminReportsScreen() {
   };
 
   const formatReportId = (id: string) => {
-    // Extract last 3 digits and format as #101, #102, etc.
-    const lastDigits = id.slice(-3);
-    const num = parseInt(lastDigits, 16) % 1000; // Convert hex to number and mod 1000
-    return `#${num.toString().padStart(3, '0')}`;
+    // Extract last 3 characters from ObjectId and convert to number
+    // ObjectId is hex, so we take last 3 chars and convert to decimal
+    const lastChars = id.slice(-3);
+    // Convert hex to decimal, then mod 1000 to get 3-digit number
+    const num = parseInt(lastChars, 16) % 1000;
+    // Ensure it's at least 100 to match pattern #101, #102, etc.
+    const displayNum = num < 100 ? num + 100 : num;
+    return `#${displayNum.toString()}`;
   };
 
   const handleViewReport = (reportId: string) => {
@@ -215,7 +219,7 @@ export default function AdminReportsScreen() {
                   </View>
                   <View style={styles.reportInfo}>
                     <Text style={styles.reportId}>
-                      {`Báo cáo #${item._id.slice(-6)}`}
+                      {`Báo cáo ${formatReportId(item._id)}`}
                     </Text>
                     <Text style={styles.reportMeta}>
                       {formatReportMeta(item)}
