@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
+  Modal,
+  ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -66,10 +69,24 @@ export const VideoItem = ({
   const doubleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionModalVisible, setIsDescriptionModalVisible] = useState(false);
   const heartScale = useRef(new Animated.Value(0)).current;
+  const modalSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
   const isDescriptionLong = item.description && item.description.length > 100;
+
+  // Function to close modal
+  const handleCloseModal = () => {
+    Animated.spring(modalSlideAnim, {
+      toValue: SCREEN_HEIGHT,
+      useNativeDriver: true,
+      tension: 30,
+      friction: 10,
+    }).start(() => {
+      setIsDescriptionModalVisible(false);
+    });
+  };
 
   const player = useVideoPlayer(item.url, (player) => {
     player.loop = true;
@@ -267,12 +284,18 @@ export const VideoItem = ({
                 </Text>
                 {isDescriptionLong && (
                   <TouchableOpacity
-                    onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    onPress={() => {
+                      setIsDescriptionModalVisible(true);
+                      Animated.spring(modalSlideAnim, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                        tension: 40,
+                        friction: 10,
+                      }).start();
+                    }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.expandButton}>
-                      {isDescriptionExpanded ? "Thu gọn" : "Xem thêm"}
-                    </Text>
+                    <Text style={styles.expandButton}>Xem thêm</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -340,6 +363,64 @@ export const VideoItem = ({
           <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Description Modal */}
+      <Modal
+        visible={isDescriptionModalVisible}
+        transparent={true}
+        animationType="none"
+        onRequestClose={handleCloseModal}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleCloseModal}
+        >
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                transform: [{ translateY: modalSlideAnim }],
+              },
+            ]}
+          >
+            <SafeAreaView style={styles.modalSafeArea} edges={["bottom"]}>
+              {/* Handle bar */}
+              <View style={styles.modalHandleContainer}>
+                <View style={styles.modalHandle} />
+              </View>
+
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Mô tả</Text>
+                <TouchableOpacity
+                  onPress={handleCloseModal}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={Colors.black} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+                nestedScrollEnabled={true}
+              >
+                <Text style={styles.modalDescription}>{item.description}</Text>
+                {item.hashtags && item.hashtags.length > 0 && (
+                  <View style={styles.modalHashtagsContainer}>
+                    <Text style={styles.modalHashtags}>
+                      {item.hashtags.map((tag) => `#${tag}`).join(" ")}
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </SafeAreaView>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -542,6 +623,77 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    height: SCREEN_HEIGHT * 0.7,
+  },
+  modalSafeArea: {
+    flex: 1,
+  },
+  modalHandleContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.gray[600],
+    borderRadius: 2,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray[800],
+  },
+  modalTitle: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.black,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  modalCloseButton: {
+    padding: Spacing.xs,
+  },
+  modalScrollView: {
+    flex: 1,
+    flexGrow: 1,
+  },
+  modalScrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
+    flexGrow: 1,
+  },
+  modalDescription: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.black,
+    fontFamily: Typography.fontFamily.regular,
+    lineHeight: 24,
+    marginBottom: Spacing.md,
+  },
+  modalHashtagsContainer: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray[800],
+  },
+  modalHashtags: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.accent,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
   },
 });
 
