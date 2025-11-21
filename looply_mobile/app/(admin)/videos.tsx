@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -76,71 +76,73 @@ export default function AdminVideosScreen() {
     console.log("Report violation:", videoId);
   };
 
-  const renderVideoItem = ({ item }: { item: Video }) => (
-    <View style={styles.videoItem}>
-      <View style={styles.videoThumbnail}>
-        <Ionicons name="videocam" size={24} color="#10B981" />
-      </View>
-      <View style={styles.videoInfo}>
-        <Text style={styles.videoTitle} numberOfLines={2}>
-          {item.title || "Untitled Video"}
-        </Text>
-        <Text style={styles.videoMeta}>
-          {item.user?.name || "Unknown"} • {formatNumber(item.views || 0)} lượt xem
-        </Text>
-      </View>
-      <View style={styles.videoActions}>
-        <TouchableOpacity 
-          style={styles.viewButton}
-          onPress={() => handleViewVideo(item)}
-        >
-          <Text style={styles.viewButtonText}>Xem</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.violationButton}
-          onPress={() => handleViolation(item._id)}
-        >
-          <Text style={styles.violationButtonText}>Vi phạm</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Video gần đây</Text>
-      </View>
-      
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Đang tải...</Text>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <Image
+            source={getAvatarUri(user?.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
         </View>
-      ) : (
-        <FlatList
-          data={videos}
-          renderItem={renderVideoItem}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={
-            <View style={styles.adminCard}>
-              <Image
-                source={getAvatarUri(user?.avatar)}
-                style={styles.avatar}
-              />
-              <View style={styles.adminTextContainer}>
-                <Text style={styles.adminName}>Admin</Text>
-                <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-              </View>
+
+        {/* Videos Section */}
+        <View style={styles.videosCard}>
+          <Text style={styles.videosTitle}>Video gần đây</Text>
+          
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Đang tải...</Text>
             </View>
-          }
-          ListEmptyComponent={
+          ) : videos.length > 0 ? (
+            <View style={styles.videosList}>
+              {videos.map((item) => (
+                <View key={item._id} style={styles.videoItem}>
+                  <View style={styles.videoThumbnail}>
+                    <Ionicons name="videocam" size={24} color="#10B981" />
+                  </View>
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle} numberOfLines={2}>
+                      {item.title || "Untitled Video"}
+                    </Text>
+                    <Text style={styles.videoMeta}>
+                      {item.user?.name || "Unknown"} • {formatNumber(item.views || 0)} lượt xem
+                    </Text>
+                  </View>
+                  <View style={styles.videoActions}>
+                    <TouchableOpacity 
+                      style={styles.viewButton}
+                      onPress={() => handleViewVideo(item)}
+                    >
+                      <Text style={styles.viewButtonText}>Xem</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.violationButton}
+                      onPress={() => handleViolation(item._id)}
+                    >
+                      <Text style={styles.violationButtonText}>Vi phạm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Không có video nào</Text>
             </View>
-          }
-        />
-      )}
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -150,16 +152,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F5F5",
   },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+  scrollView: {
+    flex: 1,
   },
-  headerTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
+  scrollContent: {
+    paddingBottom: 100,
   },
   adminCard: {
     backgroundColor: Colors.white,
@@ -200,17 +197,27 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
     marginTop: 2,
   },
-  listContent: {
-    paddingBottom: 100,
+  videosCard: {
+    backgroundColor: "#E5E5E5",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  videosTitle: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.md,
+  },
+  videosList: {
+    gap: Spacing.sm,
   },
   videoItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
     gap: Spacing.sm,
   },
   videoThumbnail: {
@@ -266,9 +273,9 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
+    paddingVertical: Spacing.xl,
     alignItems: "center",
+    gap: Spacing.sm,
   },
   loadingText: {
     fontSize: Typography.fontSize.md,
@@ -276,10 +283,8 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
+    paddingVertical: Spacing.xl,
     alignItems: "center",
-    paddingVertical: Spacing.xxxl,
   },
   emptyText: {
     fontSize: Typography.fontSize.md,
