@@ -7,10 +7,9 @@ import {
 } from "expo-camera";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-// Nếu không có phosphor-react-native, hãy thay bằng Ionicons hoặc xóa dòng này
-import { Images } from "phosphor-react-native"; 
-// Dùng SafeAreaView chuẩn để tránh bị tai thỏ che mất nút
+import { Images } from "phosphor-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 
 export default function CameraScreen() {
   // 1. Xin quyền Camera và Micro
@@ -21,7 +20,7 @@ export default function CameraScreen() {
   const [mode, setMode] = useState("picture");
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-  
+
   // --- SỬA 1: Thêm biến này để khóa nút bấm tạm thời ---
   const [locking, setLocking] = useState(false);
 
@@ -54,7 +53,7 @@ export default function CameraScreen() {
   if (!cameraPermission.granted || !micPermission.granted) {
     return (
       <SafeAreaView style={styles.permissionContainer}>
-        <Text style={{ textAlign: "center", marginBottom: 10, color: '#fff' }}>
+        <Text style={{ textAlign: "center", marginBottom: 10, color: "#fff" }}>
           Ứng dụng cần quyền truy cập Camera và Microphone 🎥 🎙️
         </Text>
         <TouchableOpacity
@@ -78,6 +77,32 @@ export default function CameraScreen() {
     setMode(newMode);
   };
 
+  const pickImage = async () => {
+    try {
+      // Mở thư viện, cho phép chọn cả Ảnh và Video
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All, // All: cả ảnh và video
+        allowsEditing: false, // Để false để giữ nguyên gốc
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        router.push({
+          pathname: "/upload",
+          params: {
+            uri: asset.uri,
+            type: asset.type,
+          },
+        });
+      }
+    } catch (error) {
+      console.log("Lỗi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể mở thư viện ảnh.");
+    }
+  };
+
   const handleTakePicture = async () => {
     if (locking) return; // Nếu đang khóa thì không chụp
     setLocking(true); // Khóa nút để tránh bấm đúp
@@ -95,7 +120,7 @@ export default function CameraScreen() {
       console.error(err);
       Alert.alert("Lỗi", "Không thể chụp ảnh");
     } finally {
-        setLocking(false); // Mở khóa
+      setLocking(false); // Mở khóa
     }
   };
 
@@ -105,12 +130,12 @@ export default function CameraScreen() {
       if (!isRecording && cameraRef.current) {
         // BẮT ĐẦU QUAY
         setIsRecording(true);
-        
+
         // => KHÓA NÚT TRONG 1.2 GIÂY <=
         // Để đảm bảo video luôn dài hơn 1 giây, tránh lỗi crash
         setLocking(true);
         setTimeout(() => {
-            setLocking(false); // Sau 1.2s mới cho phép bấm dừng
+          setLocking(false); // Sau 1.2s mới cho phép bấm dừng
         }, 1200);
 
         const video = await cameraRef.current.recordAsync();
@@ -134,93 +159,94 @@ export default function CameraScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden' }}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={{ flex: 1, borderRadius: 20, overflow: "hidden" }}>
         <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            facing={facing}
-            mode={mode}
+          ref={cameraRef}
+          style={styles.camera}
+          facing={facing}
+          mode={mode}
         />
 
         {isRecording && (
-            <View style={styles.timerContainer}>
+          <View style={styles.timerContainer}>
             <View style={styles.redDot} />
             <Text style={styles.timerText}>{formatTime(duration)}</Text>
-            </View>
+          </View>
         )}
 
         {!isRecording && (
-            <View style={styles.topButton}>
+          <View style={styles.topButton}>
             <TouchableOpacity style={styles.soundBtn}>
-                <Text style={styles.soundText}>Thêm âm thanh</Text>
+              <Text style={styles.soundText}>Thêm âm thanh</Text>
             </TouchableOpacity>
-            </View>
+          </View>
         )}
 
         {!isRecording && (
-            <View style={styles.modeSelector}>
+          <View style={styles.modeSelector}>
             <TouchableOpacity onPress={() => switchMode("video")}>
-                <Text
+              <Text
                 style={[
-                    styles.modeText,
-                    mode === "video" && styles.activeModeText,
+                  styles.modeText,
+                  mode === "video" && styles.activeModeText,
                 ]}
-                >
+              >
                 Video
-                </Text>
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => switchMode("picture")}>
-                <Text
+              <Text
                 style={[
-                    styles.modeText,
-                    mode === "picture" && styles.activeModeText,
+                  styles.modeText,
+                  mode === "picture" && styles.activeModeText,
                 ]}
-                >
+              >
                 Ảnh
-                </Text>
+              </Text>
             </TouchableOpacity>
-            </View>
+          </View>
         )}
 
         <View style={styles.bottomControls}>
-            <TouchableOpacity
+          <TouchableOpacity
             style={{ opacity: isRecording ? 0 : 1 }}
             disabled={isRecording}
-            >
+            onPress={pickImage}
+          >
             <Images size={38} color="#fff" />
-            </TouchableOpacity>
+          </TouchableOpacity>
 
-            {/* NÚT QUAY/CHỤP */}
-            <TouchableOpacity
-                onPress={mode === "picture" ? handleTakePicture : handleRecordVideo}
-                activeOpacity={0.7}
-                disabled={locking} // Disable nút khi đang khóa
-            >
+          {/* NÚT QUAY/CHỤP */}
+          <TouchableOpacity
+            onPress={mode === "picture" ? handleTakePicture : handleRecordVideo}
+            activeOpacity={0.7}
+            disabled={locking} // Disable nút khi đang khóa
+          >
             <View
-                style={[
+              style={[
                 styles.captureBtn,
                 mode === "video" && styles.captureBtnVideo,
                 isRecording && styles.captureBtnRecording,
                 // Làm mờ nút nếu đang bị khóa để bạn biết
-                locking && { opacity: 0.5, borderColor: "#999" } 
-                ]}
+                locking && { opacity: 0.5, borderColor: "#999" },
+              ]}
             >
-                {isRecording && <View style={styles.stopIcon} />}
+              {isRecording && <View style={styles.stopIcon} />}
             </View>
-            </TouchableOpacity>
+          </TouchableOpacity>
 
-            <TouchableOpacity
+          <TouchableOpacity
             onPress={() => setFacing(facing === "back" ? "front" : "back")}
             style={{ opacity: isRecording ? 0 : 1 }}
             disabled={isRecording}
-            >
+          >
             <MaterialCommunityIcons
-                name="camera-switch-outline"
-                size={38}
-                color="#fff"
+              name="camera-switch-outline"
+              size={38}
+              color="#fff"
             />
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -232,7 +258,7 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   timerContainer: {
     position: "absolute",
-    top: 20, 
+    top: 20,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
@@ -321,6 +347,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
-    marginTop: 20
+    marginTop: 20,
   },
 });
