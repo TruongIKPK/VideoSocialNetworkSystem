@@ -56,7 +56,7 @@ export default function AdminVideoDetailScreen() {
   const handleSkip = () => {
     // TODO: Implement skip logic - move to next video
     Alert.alert("Thông báo", "Đã bỏ qua video này");
-    router.back();
+    router.replace("/(admin)/videos");
   };
 
   const handleViolation = () => {
@@ -92,10 +92,10 @@ export default function AdminVideoDetailScreen() {
       Alert.alert("Thành công", "Đã báo cáo vi phạm thành công", [
         {
           text: "OK",
-          onPress: () => {
-            handleCloseModal();
-            router.back();
-          },
+            onPress: () => {
+              handleCloseModal();
+              router.replace("/(admin)/videos");
+            },
         },
       ]);
     } catch (error) {
@@ -122,7 +122,7 @@ export default function AdminVideoDetailScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(admin)/videos")}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
@@ -132,7 +132,7 @@ export default function AdminVideoDetailScreen() {
             style={styles.avatar}
           />
           <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
           </View>
         </View>

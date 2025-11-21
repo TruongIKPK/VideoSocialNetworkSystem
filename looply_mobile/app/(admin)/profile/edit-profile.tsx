@@ -145,7 +145,7 @@ export default function AdminEditProfileScreen() {
       Alert.alert("Thành công", "Cập nhật hồ sơ thành công!", [
         {
           text: "OK",
-          onPress: () => router.back(),
+          onPress: () => router.replace("/(admin)/profile"),
         },
       ]);
     } catch (error: any) {
@@ -162,7 +162,7 @@ export default function AdminEditProfileScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(admin)/profile")}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
         </TouchableOpacity>
@@ -328,4 +328,3 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
   },
 });
-

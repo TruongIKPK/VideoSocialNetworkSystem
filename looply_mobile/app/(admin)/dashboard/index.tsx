@@ -203,8 +203,11 @@ export default function AdminDashboardScreen() {
             style={styles.avatar}
           />
           <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+            {user?.email && (
+              <Text style={styles.adminEmail}>{user.email}</Text>
+            )}
           </View>
         </View>
 
@@ -238,7 +241,7 @@ export default function AdminDashboardScreen() {
           {/* Ad Management Card */}
           <TouchableOpacity 
             style={styles.section}
-            onPress={() => router.push("/(admin)/ads")}
+            onPress={() => router.push({ pathname: "/(admin)/ads" as any })}
             activeOpacity={0.7}
           >
             <View style={styles.adCardContent}>
@@ -275,7 +278,7 @@ export default function AdminDashboardScreen() {
                     <TouchableOpacity 
                       style={styles.viewButton}
                       onPress={() => router.push({
-                        pathname: "/(admin)/video-detail",
+                        pathname: "/(admin)/videos/video-detail",
                         params: {
                           videoId: video._id,
                           videoUrl: video.thumbnail || "",
@@ -290,7 +293,7 @@ export default function AdminDashboardScreen() {
                     <TouchableOpacity 
                       style={styles.violationButton}
                       onPress={() => router.push({
-                        pathname: "/(admin)/video-detail",
+                        pathname: "/(admin)/videos/video-detail",
                         params: {
                           videoId: video._id,
                           videoUrl: video.thumbnail || "",
@@ -399,6 +402,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
   },
   adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  adminEmail: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,

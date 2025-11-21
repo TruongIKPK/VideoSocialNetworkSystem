@@ -44,7 +44,7 @@ export default function AdminProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    router.push("/(admin)/edit-profile");
+    router.push("/(admin)/profile/edit-profile");
   };
 
   return (
@@ -88,7 +88,7 @@ export default function AdminProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: Colors.border.light }]}
-            onPress={() => router.push("/(admin)/settings")}
+            onPress={() => router.push({ pathname: "/(admin)/settings" as any })}
             activeOpacity={0.7}
           >
             <View style={styles.settingLeft}>

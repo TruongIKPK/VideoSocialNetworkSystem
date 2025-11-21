@@ -101,14 +101,17 @@ export default function AdminAdsScreen() {
             style={styles.avatar}
           />
           <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+            {user?.email && (
+              <Text style={styles.adminEmail}>{user.email}</Text>
+            )}
           </View>
         </View>
 
         {/* Ad Creation Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quảng cáo</Text>
+          <Text style={styles.cardTitle}>Quản lý quảng cáo</Text>
           
           {/* Upload Area */}
           <TouchableOpacity
@@ -199,6 +202,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
   },
   adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  adminEmail: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,

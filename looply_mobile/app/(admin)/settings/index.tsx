@@ -64,7 +64,7 @@ export default function AdminSettingsScreen() {
       subtitle: "Cập nhật thông tin cá nhân",
       icon: "person-outline",
       type: "navigation",
-      onPress: () => router.push("/(admin)/edit-profile"),
+      onPress: () => router.push("/(admin)/profile/edit-profile"),
     },
     {
       id: "privacy",
@@ -200,7 +200,7 @@ export default function AdminSettingsScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(admin)/profile")}
             activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
@@ -215,8 +215,11 @@ export default function AdminSettingsScreen() {
             style={styles.avatar}
           />
           <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminName}>{currentUser?.name || currentUser?.username || "Admin"}</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+            {currentUser?.email && (
+              <Text style={styles.adminEmail}>{currentUser.email}</Text>
+            )}
           </View>
         </View>
 
@@ -324,6 +327,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
   },
   adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  adminEmail: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,

@@ -24,7 +24,7 @@ export default function AdminTabLayout() {
       }}
     >
       <Tabs.Screen
-        name="dashboard"
+        name="dashboard/index"
         options={{
           title: "Dashboard",
           tabBarIcon: ({ focused, color }) => (
@@ -37,7 +37,7 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="videos"
+        name="videos/index"
         options={{
           title: "Videos",
           tabBarIcon: ({ focused, color }) => (
@@ -50,7 +50,7 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="reports"
+        name="reports/index"
         options={{
           title: "Reports",
           tabBarIcon: ({ focused, color }) => (
@@ -63,7 +63,7 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: "Profile",
           tabBarIcon: ({ focused, color }) => (
@@ -76,25 +76,25 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ads"
+        name="ads/index"
         options={{
           href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
-        name="video-detail"
+        name="videos/video-detail"
         options={{
           href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="settings/index"
         options={{
           href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
-        name="edit-profile"
+        name="profile/edit-profile"
         options={{
           href: null, // Hide from tab bar
         }}

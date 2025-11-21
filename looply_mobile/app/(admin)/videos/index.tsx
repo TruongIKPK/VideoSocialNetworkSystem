@@ -5,134 +5,76 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { getAvatarUri } from "@/utils/imageHelpers";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
-interface Report {
+interface Video {
   _id: string;
-  reportId?: string;
-  type: string;
-  reason: string;
-  targetType: string;
-  targetId: string;
+  title: string;
+  thumbnail: string;
+  url?: string;
+  views: number;
+  user: {
+    name: string;
+    _id: string;
+  };
   createdAt: string;
-  status?: string;
 }
 
-export default function AdminReportsScreen() {
+export default function AdminVideosScreen() {
   const router = useRouter();
-  const { token } = useUser();
   const { user } = useCurrentUser();
-  const [reports, setReports] = useState<Report[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchReports();
+    fetchVideos();
   }, []);
 
-  const fetchReports = async () => {
+  const fetchVideos = async () => {
     try {
       setIsLoading(true);
-      if (!token) {
-        console.warn("No token available");
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/reports`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
+      // TODO: Replace with actual API endpoint
+      const response = await fetch(`${API_BASE_URL}/videos/latest`);
+      
       if (response.ok) {
         const data = await response.json();
-        const reportList = Array.isArray(data) ? data : (data.reports || []);
-        setReports(reportList);
-      } else {
-        console.error("Failed to fetch reports:", response.status);
-        // Fallback to mock data for now
-        setReports([
-          {
-            _id: "1",
-            reportId: "Báo cáo #101",
-            type: "video",
-            reason: "Nội dung bản quyền",
-            targetType: "video",
-            targetId: "video1",
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        const videoList = Array.isArray(data) ? data : (data.videos || []);
+        setVideos(videoList.slice(0, 20)); // Limit to 20 videos
       }
     } catch (error) {
-      console.error("Error fetching reports:", error);
-      // Fallback to mock data
-      setReports([
-        {
-          _id: "1",
-          reportId: "Báo cáo #101",
-          type: "video",
-          reason: "Nội dung bản quyền",
-          targetType: "video",
-          targetId: "video1",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      console.error("Error fetching videos:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return "Vừa xong";
-    if (diffInHours === 1) return "1 giờ trước";
-    return `${diffInHours} giờ trước`;
+  const handleViewVideo = (video: Video) => {
+    router.push({
+      pathname: "/(admin)/videos/video-detail",
+      params: {
+        videoId: video._id,
+        videoUrl: video.url || video.thumbnail || "",
+        title: video.title || "Untitled Video",
+        author: video.user?.name || "Unknown",
+        views: String(video.views || 0),
+      },
+    });
   };
 
-  const formatReportMeta = (item: Report) => {
-    return `${item.targetType} - ${item.reason} - ${formatTimeAgo(item.createdAt)}`;
+  const handleViolation = (video: Video) => {
+    // Navigate to video detail for violation reporting
+    handleViewVideo(video);
   };
-
-  const handleViewReport = (reportId: string) => {
-    // TODO: Navigate to report detail
-    console.log("View report:", reportId);
-  };
-
-  const renderReportItem = ({ item }: { item: Report }) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportThumbnail}>
-        <Ionicons name="flag" size={24} color="#10B981" />
-      </View>
-      <View style={styles.reportInfo}>
-        <Text style={styles.reportId}>
-          {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
-        </Text>
-        <Text style={styles.reportMeta}>
-          {formatReportMeta(item)}
-        </Text>
-      </View>
-      <TouchableOpacity 
-        style={styles.viewButton}
-        onPress={() => handleViewReport(item._id)}
-      >
-        <Text style={styles.viewButtonText}>Xem</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -148,47 +90,58 @@ export default function AdminReportsScreen() {
             style={styles.avatar}
           />
           <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+            {user?.email && (
+              <Text style={styles.adminEmail}>{user.email}</Text>
+            )}
           </View>
         </View>
 
-        {/* New Reports Section */}
-        <View style={styles.reportsCard}>
-          <Text style={styles.reportsTitle}>Báo cáo mới</Text>
+        {/* Videos Section */}
+        <View style={styles.videosCard}>
+          <Text style={styles.videosTitle}>Video gần đây</Text>
           
           {isLoading ? (
             <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
               <Text style={styles.loadingText}>Đang tải...</Text>
             </View>
-          ) : reports.length > 0 ? (
-            <View style={styles.reportsList}>
-              {reports.map((item) => (
-                <View key={item._id} style={styles.reportItem}>
-                  <View style={styles.reportThumbnail}>
-                    <Ionicons name="flag" size={24} color="#10B981" />
+          ) : videos.length > 0 ? (
+            <View style={styles.videosList}>
+              {videos.map((item) => (
+                <View key={item._id} style={styles.videoItem}>
+                  <View style={styles.videoThumbnail}>
+                    <Ionicons name="videocam" size={24} color="#10B981" />
                   </View>
-                  <View style={styles.reportInfo}>
-                    <Text style={styles.reportId}>
-                      {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle} numberOfLines={2}>
+                      {item.title || "Untitled Video"}
                     </Text>
-                    <Text style={styles.reportMeta}>
-                      {formatReportMeta(item)}
+                    <Text style={styles.videoMeta}>
+                      {item.user?.name || "Unknown"} • {formatNumber(item.views || 0)} lượt xem
                     </Text>
                   </View>
-                  <TouchableOpacity 
-                    style={styles.viewButton}
-                    onPress={() => handleViewReport(item._id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.viewButtonText}>Xem</Text>
-                  </TouchableOpacity>
+                  <View style={styles.videoActions}>
+                    <TouchableOpacity 
+                      style={styles.viewButton}
+                      onPress={() => handleViewVideo(item)}
+                    >
+                      <Text style={styles.viewButtonText}>Xem</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.violationButton}
+                      onPress={() => handleViolation(item)}
+                    >
+                      <Text style={styles.violationButtonText}>Vi phạm</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Không có báo cáo nào</Text>
+              <Text style={styles.emptyText}>Không có video nào</Text>
             </View>
           )}
         </View>
@@ -207,11 +160,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
-    paddingTop: Spacing.md,
   },
   adminCard: {
     backgroundColor: Colors.white,
     marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
@@ -248,30 +201,36 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
     marginTop: 2,
   },
-  reportsCard: {
+  adminEmail: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  videosCard: {
     backgroundColor: "#E5E5E5",
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
-  reportsTitle: {
+  videosTitle: {
     fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
     marginBottom: Spacing.md,
   },
-  reportsList: {
+  videosList: {
     gap: Spacing.sm,
   },
-  reportItem: {
+  videoItem: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  reportThumbnail: {
+  videoThumbnail: {
     width: 60,
     height: 60,
     borderRadius: BorderRadius.md,
@@ -279,21 +238,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  reportInfo: {
+  videoInfo: {
     flex: 1,
     marginLeft: Spacing.sm,
   },
-  reportId: {
+  videoTitle: {
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
     marginBottom: 2,
   },
-  reportMeta: {
+  videoMeta: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
+  },
+  videoActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
   },
   viewButton: {
     backgroundColor: "#D1D1D1",
@@ -307,9 +270,22 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
   },
+  violationButton: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  violationButtonText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.medium,
+  },
   loadingContainer: {
     paddingVertical: Spacing.xl,
     alignItems: "center",
+    gap: Spacing.sm,
   },
   loadingText: {
     fontSize: Typography.fontSize.md,
@@ -317,7 +293,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   emptyContainer: {
-    paddingVertical: Spacing.xxxl,
+    paddingVertical: Spacing.xl,
     alignItems: "center",
   },
   emptyText: {

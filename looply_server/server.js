@@ -110,6 +110,7 @@ app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
+console.log("✅ Admin routes registered at /api/admin");
 
 // Health check endpoint for quick testing
 app.get("/api/health", (req, res) => {

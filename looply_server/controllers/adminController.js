@@ -6,6 +6,7 @@ import Report from "../models/Report.js";
 // Get dashboard statistics
 export const getDashboardStats = async (req, res) => {
   try {
+    console.log("📊 getDashboardStats called");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -276,15 +277,36 @@ export const updateCommentStatus = async (req, res) => {
 // Get recent videos for admin dashboard
 export const getRecentVideos = async (req, res) => {
   try {
+    console.log("📹 getRecentVideos called");
     const limit = parseInt(req.query.limit) || 10;
 
     const videos = await Video.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate("user._id", "name username avatar");
+      .lean();
 
-    res.json({ videos });
+    // Manually populate user info if needed
+    const videosWithUser = await Promise.all(
+      videos.map(async (video) => {
+        if (video.user?._id) {
+          const user = await User.findById(video.user._id).select("name username avatar").lean();
+          return {
+            ...video,
+            user: user ? {
+              _id: user._id,
+              name: user.name || video.user.name,
+              username: user.username,
+              avatar: user.avatar || video.user.avatar,
+            } : video.user,
+          };
+        }
+        return video;
+      })
+    );
+
+    res.json({ videos: videosWithUser });
   } catch (error) {
+    console.error("Error fetching recent videos:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -292,6 +314,7 @@ export const getRecentVideos = async (req, res) => {
 // Get recent reports for admin dashboard
 export const getRecentReports = async (req, res) => {
   try {
+    console.log("🚩 getRecentReports called");
     const limit = parseInt(req.query.limit) || 10;
 
     const reports = await Report.find()

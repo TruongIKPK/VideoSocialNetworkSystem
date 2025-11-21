@@ -19,9 +19,20 @@ router.use(authenticateToken);
 router.use(requireAdmin);
 
 // Dashboard
-router.get("/dashboard/stats", getDashboardStats);
-router.get("/dashboard/recent-videos", getRecentVideos);
-router.get("/dashboard/recent-reports", getRecentReports);
+router.get("/dashboard/stats", (req, res, next) => {
+  console.log("📊 Dashboard stats route hit");
+  next();
+}, getDashboardStats);
+
+router.get("/dashboard/recent-videos", (req, res, next) => {
+  console.log("📹 Recent videos route hit");
+  next();
+}, getRecentVideos);
+
+router.get("/dashboard/recent-reports", (req, res, next) => {
+  console.log("🚩 Recent reports route hit");
+  next();
+}, getRecentReports);
 
 // Debug: Test route
 router.get("/test", (req, res) => {
