@@ -95,8 +95,8 @@ export default function AdminDashboardScreen() {
         setStats(statsData);
       }
 
-      // Fetch recent videos
-      const videosResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-videos?limit=9`, {
+      // Fetch recent videos (limit to 3 for display)
+      const videosResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -251,7 +251,7 @@ export default function AdminDashboardScreen() {
               </TouchableOpacity>
             </View>
             {recentVideos.length > 0 ? (
-              recentVideos.map((video) => (
+              recentVideos.slice(0, 3).map((video) => (
                 <View key={video._id} style={styles.videoItem}>
                   <View style={styles.videoThumbnail}>
                     <Ionicons name="videocam" size={24} color="#10B981" />
@@ -310,7 +310,7 @@ export default function AdminDashboardScreen() {
               </TouchableOpacity>
             </View>
             {recentReports.length > 0 ? (
-              recentReports.map((report) => (
+              recentReports.slice(0, 3).map((report) => (
                 <View key={report._id} style={styles.reportItem}>
                   <View style={styles.reportThumbnail}>
                     <Ionicons name="flag" size={24} color="#10B981" />
