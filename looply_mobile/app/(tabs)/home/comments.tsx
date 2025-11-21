@@ -22,7 +22,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useReport } from "@/hooks/useReport";
 import { ReportModal } from "@/components/report/ReportModal";
-import { Alert } from "react-native";
+import { useCustomAlert } from "@/hooks/useCustomAlert";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
@@ -72,6 +72,7 @@ export default function CommentsModal() {
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const { createReport, isSubmitting: isSubmittingReport } = useReport({ token });
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   useEffect(() => {
     if (videoId) {
@@ -376,17 +377,28 @@ export default function CommentsModal() {
             if (reportingCommentId) {
               const result = await createReport("comment", reportingCommentId, reason);
               if (result.success) {
-                Alert.alert("Thành công", result.message);
+                showAlert({
+                  title: "Thành công",
+                  message: result.message,
+                  type: "success",
+                });
                 setIsReportModalVisible(false);
                 setReportingCommentId(null);
               } else {
-                Alert.alert("Lỗi", result.message);
+                showAlert({
+                  title: "Lỗi",
+                  message: result.message,
+                  type: "error",
+                });
               }
             }
           }}
           type="comment"
           isSubmitting={isSubmittingReport}
         />
+
+        {/* Custom Alert */}
+        <AlertComponent />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

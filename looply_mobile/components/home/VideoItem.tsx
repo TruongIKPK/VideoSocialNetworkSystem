@@ -21,7 +21,7 @@ import { Dimensions } from "react-native";
 import { useReport } from "@/hooks/useReport";
 import { ReportModal } from "@/components/report/ReportModal";
 import { useUser } from "@/contexts/UserContext";
-import { Alert } from "react-native";
+import { useCustomAlert } from "@/hooks/useCustomAlert";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -80,6 +80,7 @@ export const VideoItem = ({
   const modalSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const { token } = useUser();
   const { createReport, isSubmitting } = useReport({ token });
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
   const isDescriptionLong = item.description && item.description.length > 100;
@@ -107,10 +108,18 @@ export const VideoItem = ({
     const result = await createReport(reportType, reportedId, reason);
     
     if (result.success) {
-      Alert.alert("Thành công", result.message);
+      showAlert({
+        title: "Thành công",
+        message: result.message,
+        type: "success",
+      });
       setIsReportModalVisible(false);
     } else {
-      Alert.alert("Lỗi", result.message);
+      showAlert({
+        title: "Lỗi",
+        message: result.message,
+        type: "error",
+      });
     }
   };
 
@@ -468,6 +477,9 @@ export const VideoItem = ({
         type={reportType}
         isSubmitting={isSubmitting}
       />
+
+      {/* Custom Alert */}
+      <AlertComponent />
     </View>
   );
 };
