@@ -94,11 +94,6 @@ export default function AdminAdsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Quản lý quảng cáo</Text>
-        </View>
-
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
           <Image
@@ -169,17 +164,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
   adminCard: {
     backgroundColor: Colors.white,
     marginHorizontal: Spacing.lg,
@@ -221,26 +205,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: "#E5E5E5",
     marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    padding: Spacing.md,
   },
   cardTitle: {
-    fontSize: Typography.fontSize.xl,
+    fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   uploadArea: {
     width: "100%",
