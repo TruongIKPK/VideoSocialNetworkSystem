@@ -148,16 +148,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: Colors.gray[200],
   },
   adminTextContainer: {
     flex: 1,
   },
   adminName: {
-    fontSize: Typography.fontSize.xxl,
+    fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
