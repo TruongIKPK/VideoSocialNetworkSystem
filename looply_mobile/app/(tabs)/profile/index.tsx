@@ -15,7 +15,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import {
+  Colors,
+  Typography,
+  Spacing,
+  BorderRadius,
+  Shadows,
+} from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 
@@ -30,14 +36,25 @@ interface VideoPost {
   title: string;
   likes?: number;
   views?: number;
+  type?: 'video' | 'image';
 }
 
 export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const targetUserId = params.userId as string | undefined;
+  const targetUsername = params.username as string | undefined;
+  const uploaded = params.uploaded as string | undefined;
+
+  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
+  const isViewingOtherProfile =
+    targetUserId && targetUserId !== currentUser?._id;
   const [profileUser, setProfileUser] = useState<any>(currentUser);
-  
-  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
+
+  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
+    "video"
+  );
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
   const [liked, setLiked] = useState<VideoPost[]>([]);
@@ -50,17 +67,54 @@ export default function Profile() {
       // Hiển thị profile của user hiện tại
       setProfileUser(currentUser);
       fetchProfileData();
-    } else {
+      if (uploaded === "true") {
+        // Xóa tham số khỏi URL để lần sau không tải lại
+        router.setParams({ uploaded: undefined });
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [
+    isAuthenticated,
+    currentUser,
+    activeTab,
+    targetUserId,
+    isViewingOtherProfile,
+    uploaded,
+  ]);
+
+  const fetchOtherUserProfile = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+      if (response.ok) {
+        const userData = await response.json();
+        setProfileUser(userData);
+        // Fetch videos của user đó
+        const videosResponse = await fetch(
+          `${API_BASE_URL}/videos/user/${userId}`
+        );
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(
+            Array.isArray(videosData.videos || videosData)
+              ? videosData.videos || videosData
+              : []
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching other user profile:", error);
+    } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, currentUser, activeTab]);
-
+  };
 
   const fetchProfileData = async () => {
     try {
       setIsLoading(true);
       const token = await require("@/utils/tokenStorage").getToken();
-      
+
       if (!token || !currentUser?._id) return;
 
       // Fetch user videos
@@ -84,7 +138,11 @@ export default function Profile() {
 
       if (videosResponse.ok) {
         const videosData = await videosResponse.json();
-        setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
+        setVideos(
+          Array.isArray(videosData.videos || videosData)
+            ? videosData.videos || videosData
+            : []
+        );
       }
 
       // For now, use empty arrays for favorites and liked
@@ -118,7 +176,9 @@ export default function Profile() {
       <View style={styles.videoOverlay}>
         <View style={styles.videoStats}>
           <Ionicons name="eye-outline" size={12} color={Colors.white} />
-          <Text style={styles.videoStatsText}>{formatNumber(item.views || 0)}</Text>
+          <Text style={styles.videoStatsText}>
+            {formatNumber(item.views || 0)}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -128,7 +188,11 @@ export default function Profile() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>
-          <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
+          <Ionicons
+            name="person-circle-outline"
+            size={80}
+            color={Colors.gray[400]}
+          />
           <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
           <Button
             title="Đăng nhập"
@@ -144,12 +208,21 @@ export default function Profile() {
   if (isLoading && videos.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <Loading message="Loading profile..." color={Colors.primary} fullScreen />
+        <Loading
+          message="Loading profile..."
+          color={Colors.primary}
+          fullScreen
+        />
       </SafeAreaView>
     );
   }
 
-  const currentVideos = activeTab === "video" ? videos : activeTab === "favorites" ? favorites : liked;
+  const currentVideos =
+    activeTab === "video"
+      ? videos
+      : activeTab === "favorites"
+      ? favorites
+      : liked;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -172,8 +245,12 @@ export default function Profile() {
             contentFit="cover"
           />
 
-          <Text style={styles.username}>{profileUser?.name || profileUser?.username || "User"}</Text>
-          {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
+          <Text style={styles.username}>
+            {profileUser?.name || profileUser?.username || "User"}
+          </Text>
+          {profileUser?.bio && (
+            <Text style={styles.bio}>{profileUser.bio}</Text>
+          )}
 
           <View style={styles.buttonContainer}>
             <Button
@@ -206,7 +283,9 @@ export default function Profile() {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {formatNumber(totalLikes)}
+                {formatNumber(
+                  videos.reduce((sum, v) => sum + (v.likes || 0), 0)
+                )}
               </Text>
               <Text style={styles.statLabel}>Lượt thích</Text>
             </View>
@@ -222,7 +301,9 @@ export default function Profile() {
               <Ionicons
                 name="grid"
                 size={16}
-                color={activeTab === "video" ? Colors.primary : Colors.gray[400]}
+                color={
+                  activeTab === "video" ? Colors.primary : Colors.gray[400]
+                }
               />
               <Text
                 style={[
@@ -234,14 +315,19 @@ export default function Profile() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === "favorites" && styles.activeTab]}
+              style={[
+                styles.tab,
+                activeTab === "favorites" && styles.activeTab,
+              ]}
               onPress={() => setActiveTab("favorites")}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="bookmark-outline"
                 size={16}
-                color={activeTab === "favorites" ? Colors.primary : Colors.gray[400]}
+                color={
+                  activeTab === "favorites" ? Colors.primary : Colors.gray[400]
+                }
               />
               <Text
                 style={[
@@ -260,7 +346,9 @@ export default function Profile() {
               <Ionicons
                 name="heart-outline"
                 size={16}
-                color={activeTab === "liked" ? Colors.primary : Colors.gray[400]}
+                color={
+                  activeTab === "liked" ? Colors.primary : Colors.gray[400]
+                }
               />
               <Text
                 style={[
@@ -286,7 +374,11 @@ export default function Profile() {
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons
-              name={activeTab === "video" ? "videocam-off-outline" : "bookmark-outline"}
+              name={
+                activeTab === "video"
+                  ? "videocam-off-outline"
+                  : "bookmark-outline"
+              }
               size={64}
               color={Colors.gray[400]}
             />
