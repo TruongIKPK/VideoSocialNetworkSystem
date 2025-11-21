@@ -1,15 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,
-    domains: ["localhost", "res.cloudinary.com"],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
   },
+  // Add empty turbopack config to silence the error about having webpack config without turbopack config
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.resolve.fallback = {

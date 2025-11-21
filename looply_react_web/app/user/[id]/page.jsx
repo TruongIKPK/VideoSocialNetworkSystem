@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/language-context"
 import { UserPlus, CheckCheck, Share2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { fetchUserVideos, getUserProfile, followUser } from "@/lib/api"
+import { fetchUserVideos, getUserProfile, followUser, unfollowUser } from "@/lib/api"
 import LoginModal from "@/components/login-modal"
 
 // User profile page component
@@ -49,17 +49,17 @@ export default function UserProfile() {
             getUserProfile(userId),
             fetchUserVideos(userId)
           ])
-          
+
           setProfileUser(profileData)
           setIsFollowing(profileData.isFollowingUser || false)
           setFollowersCount(profileData.followers || 0)
           setFollowingCount(profileData.following || 0)
-          
+
           // Sort videos by creation date (newest first)
-          const sortedVideos = [...videosData].sort((a, b) => 
+          const sortedVideos = [...videosData].sort((a, b) =>
             new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
           )
-          
+
           setVideos(sortedVideos)
         } catch (error) {
           console.error("Failed to fetch user data:", error)
@@ -78,26 +78,27 @@ export default function UserProfile() {
       setShowLoginModal(true)
       return
     }
-    
+
     try {
       setFollowLoading(true)
-      
+
       // Cập nhật UI ngay lập tức (optimistic update)
-      setIsFollowing(!isFollowing)
-      setFollowersCount(prev => isFollowing ? prev - 1 : prev + 1)
-      
-      const result = await followUser(userId)
-      
-      // Cập nhật state từ phản hồi của server
-      setIsFollowing(result.isFollowing)
-      setFollowersCount(result.followersCount)
-      
+      const newIsFollowing = !isFollowing;
+      setIsFollowing(newIsFollowing)
+      setFollowersCount(prev => newIsFollowing ? prev + 1 : prev - 1)
+
+      if (isFollowing) {
+        await unfollowUser(userId)
+      } else {
+        await followUser(userId)
+      }
+
     } catch (error) {
-      console.error("Failed to follow user:", error)
+      console.error("Failed to follow/unfollow user:", error)
       // Khôi phục trạng thái nếu có lỗi
       setIsFollowing(isFollowing)
       setFollowersCount(followersCount)
-      alert(language === "en" ? "Failed to follow user" : "Không thể theo dõi người dùng")
+      alert(language === "en" ? "Failed to update follow status" : "Không thể cập nhật trạng thái theo dõi")
     } finally {
       setFollowLoading(false)
     }
@@ -118,8 +119,8 @@ export default function UserProfile() {
           {language === "en" ? "User not found" : "Không tìm thấy người dùng"}
         </h1>
         <p className="mt-4 text-gray-500">
-          {language === "en" 
-            ? "The user you are looking for does not exist or has been deleted." 
+          {language === "en"
+            ? "The user you are looking for does not exist or has been deleted."
             : "Người dùng bạn đang tìm kiếm không tồn tại hoặc đã bị xóa."}
         </p>
         <div className="mt-8">
@@ -173,11 +174,10 @@ export default function UserProfile() {
                 <button
                   onClick={handleFollow}
                   disabled={followLoading}
-                  className={`inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
-                    isFollowing
+                  className={`inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${isFollowing
                       ? "border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
                       : "border-transparent text-white bg-red-500 hover:bg-red-600"
-                  }`}
+                    }`}
                 >
                   {isFollowing ? (
                     <>
@@ -213,9 +213,8 @@ export default function UserProfile() {
           <div className="flex">
             <button
               onClick={() => setActiveTab("videos")}
-              className={`flex-1 py-3 px-4 text-center font-medium ${
-                activeTab === "videos" ? "text-red-500 border-b-2 border-red-500" : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === "videos" ? "text-red-500 border-b-2 border-red-500" : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               {language === "en" ? "Videos" : "Video"}
             </button>
@@ -278,7 +277,7 @@ export default function UserProfile() {
           </div>
         )}
       </div>
-      
+
       {/* Login Modal */}
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>

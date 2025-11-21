@@ -6,6 +6,7 @@ import VideoCard from "@/components/video-card"
 import { useUser } from "@/context/user-context"
 import { useLanguage } from "@/context/language-context"
 import { fetchVideos } from "@/lib/api"
+import { normalizeMongoData } from "@/lib/utils"
 import Link from "next/link"
 
 // Following page component
@@ -29,9 +30,12 @@ export default function FollowingPage() {
       const loadVideos = async () => {
         try {
           const data = await fetchVideos()
+          // Normalize MongoDB special fields
+          const normalizedData = normalizeMongoData(data);
+
           // Filter videos for following page (in a real app, this would be videos from followed users)
           // For demo, we'll just show a subset of videos
-          const followingVideos = data.slice(0, 2)
+          const followingVideos = normalizedData.slice(0, 2)
           setVideos(followingVideos)
         } catch (error) {
           console.error("Failed to fetch videos:", error)
@@ -79,7 +83,7 @@ export default function FollowingPage() {
       ) : (
         <div className="space-y-8">
           {videos.map((video) => (
-            <VideoCard key={video.id} video={video} />
+            <VideoCard key={video._id || video.id} video={video} />
           ))}
         </div>
       )}

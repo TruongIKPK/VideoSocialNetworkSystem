@@ -64,8 +64,8 @@ export default function Header() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className={`absolute inset-y-0 right-0 pr-3 flex items-center ${searchQuery.trim() ? 'text-red-500' : 'text-gray-400'}`}
           >
             <span className="text-sm font-medium">{language === "en" ? "Search" : "Tìm"}</span>
@@ -80,7 +80,7 @@ export default function Header() {
               <div className="w-10 h-10 rounded-full overflow-hidden">
                 <Image
                   src={user.avatar || "/no_avatar.png"}
-                  alt={user.name}
+                  alt={user.name || "User Avatar"}
                   width={40}
                   height={40}
                   className="object-cover"
