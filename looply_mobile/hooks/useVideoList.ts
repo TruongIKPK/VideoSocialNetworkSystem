@@ -307,12 +307,12 @@ export const useVideoList = ({
               const randomData = await randomResponse.json();
               const randomVideoList = Array.isArray(randomData) ? randomData : (randomData.videos || randomData);
               const randomNewVideos = randomVideoList.filter(
-                (video) => !loadedVideoIds.has(video._id)
+                (video: VideoPost) => !loadedVideoIds.has(video._id)
               );
               if (randomNewVideos.length > 0) {
                 const randomVideosToAdd = randomNewVideos.slice(0, BATCH_SIZE);
                 const randomNewVideoIds = new Set(loadedVideoIds);
-                randomVideosToAdd.forEach((video) => randomNewVideoIds.add(video._id));
+                randomVideosToAdd.forEach((video: VideoPost) => randomNewVideoIds.add(video._id));
                 setLoadedVideoIds(randomNewVideoIds);
                 const processedRandomVideos = await processVideos(randomVideosToAdd);
                 setVideos((prev) => {
