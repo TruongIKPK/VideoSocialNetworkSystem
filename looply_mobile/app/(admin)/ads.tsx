@@ -94,17 +94,20 @@ export default function AdminAdsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Admin Info */}
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.adminInfo}>
-            <Image
-              source={getAvatarUri(user?.avatar)}
-              style={styles.avatar}
-            />
-            <View style={styles.adminTextContainer}>
-              <Text style={styles.adminName}>Admin</Text>
-              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            </View>
+          <Text style={styles.headerTitle}>Quản lý quảng cáo</Text>
+        </View>
+
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <Image
+            source={getAvatarUri(user?.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
           </View>
         </View>
 
@@ -169,12 +172,32 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  adminInfo: {
+  headerTitle: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   avatar: {
     width: 50,
