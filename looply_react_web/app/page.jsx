@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import VideoCard from "@/components/video-card"
 import { useLanguage } from "@/context/language-context"
 import { fetchVideos, updateUserProfile } from "@/lib/api"
+import { normalizeMongoData } from "@/lib/utils"
+
 
 // Home page component
 export default function Home() {
@@ -11,55 +13,22 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const { language } = useLanguage()
 
-  // Normalize MongoDB data by handling $oid and $numberInt fields
-  const normalizeMongoData = (data) => {
-    if (!data) return data;
-    
-    if (Array.isArray(data)) {
-      return data.map(item => normalizeMongoData(item));
-    }
-    
-    if (typeof data === 'object' && data !== null) {
-      // Deep copy to avoid mutation
-      const result = {};
-      
-      for (const [key, value] of Object.entries(data)) {
-        if (key === '$oid') {
-          // If this is an $oid object, return the string value directly
-          return value;
-        }
-        
-        if (key === '$numberInt' || key === '$numberLong' || key === '$numberDouble') {
-          // Convert number values
-          return Number(value);
-        }
-        
-        // Process nested objects/arrays
-        result[key] = normalizeMongoData(value);
-      }
-      
-      return result;
-    }
-    
-    return data;
-  };
-
   // Fetch videos on component mount
   useEffect(() => {
     const loadVideos = async () => {
       try {
         const data = await fetchVideos()
-        
+
         // Normalize MongoDB special fields
         const normalizedData = normalizeMongoData(data);
-        
+
         // Sort videos by createdAt in descending order (newest first)
         const sortedVideos = [...normalizedData].sort((a, b) => {
           const dateA = new Date(a.createdAt);
           const dateB = new Date(b.createdAt);
           return dateB - dateA;
         });
-        
+
         setVideos(sortedVideos)
       } catch (error) {
         console.error("Failed to fetch videos:", error)
@@ -86,8 +55,8 @@ export default function Home() {
       <div className="space-y-8">
         {videos.length > 0 ? (
           videos.map((video) => (
-            <VideoCard 
-              key={video._id || video.id} 
+            <VideoCard
+              key={video._id || video.id}
               video={{
                 ...video,
                 // Đảm bảo ID được truyền đúng cách
@@ -97,14 +66,14 @@ export default function Home() {
                   ...video.user,
                   _id: video.user._id || video.user.id
                 } : null
-              }} 
+              }}
             />
           ))
         ) : (
           <div className="text-center py-12 bg-white rounded-lg shadow">
             <p className="text-xl text-gray-500">
-              {language === "en" 
-                ? "No videos found." 
+              {language === "en"
+                ? "No videos found."
                 : "Không tìm thấy video nào."}
             </p>
           </div>
