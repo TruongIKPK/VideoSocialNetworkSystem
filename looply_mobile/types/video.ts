@@ -18,6 +18,7 @@ export interface VideoPost {
   commentsCount?: number;
   shares?: number;
   saves?: number;
+  savesCount?: number;
   views?: number;
   viewedBy?: string[];
   savedBy?: string[];

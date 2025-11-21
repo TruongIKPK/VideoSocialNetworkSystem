@@ -45,8 +45,8 @@ export default function HomeScreen() {
     userId,
   });
 
-  // Video actions (like, comment, follow)
-  const { handleLike, handleComment, handleFollow } = useVideoActions({
+  // Video actions (like, comment, follow, save)
+  const { handleLike, handleComment, handleFollow, handleSave } = useVideoActions({
     videos,
     setVideos,
     userId,
@@ -195,6 +195,7 @@ export default function HomeScreen() {
         onVideoProgress={handleVideoProgress}
         onComment={handleComment}
         onFollow={handleFollow}
+        onSave={handleSave}
         currentUserId={userId}
         isScreenFocused={isScreenFocused}
         isLoadingMore={isLoadingMore}

@@ -349,7 +349,7 @@ export default function SearchScreen() {
     console.log(`[Search] 👤 User pressed:`, user._id, user.username);
     // Navigate đến profile của user này
     router.push({
-      pathname: "/(tabs)/profile",
+      pathname: "/user/[userId]",
       params: { userId: user._id, username: user.username }
     });
   };

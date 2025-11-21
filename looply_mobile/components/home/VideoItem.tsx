@@ -42,6 +42,7 @@ interface VideoItemProps {
   onVideoProgress: (videoId: string, duration: number) => void;
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
+  onSave?: (videoId: string) => void;
   currentUserId: string | null;
   isScreenFocused: boolean;
 }
@@ -54,6 +55,7 @@ export const VideoItem = ({
   onVideoProgress,
   onComment,
   onFollow,
+  onSave,
   currentUserId,
   isScreenFocused,
 }: VideoItemProps) => {
@@ -63,9 +65,18 @@ export const VideoItem = ({
     item.likedBy &&
     Array.isArray(item.likedBy) &&
     item.likedBy.includes(currentUserId);
+  
+  // Kiểm tra xem video đã được save chưa
+  const isSaved =
+    currentUserId &&
+    item.savedBy &&
+    Array.isArray(item.savedBy) &&
+    item.savedBy.includes(currentUserId);
+  
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
+  const savesCount = item.saves || item.savesCount || 0;
   const viewsCount = item.views || 0;
 
   const watchTimeRef = useRef(0);
@@ -293,7 +304,7 @@ export const VideoItem = ({
           <TouchableOpacity
             onPress={() => {
               router.push({
-                pathname: "/(tabs)/profile",
+                pathname: "/user/[userId]",
                 params: {
                   userId: item.user._id,
                   username: item.user.name,
@@ -312,7 +323,7 @@ export const VideoItem = ({
               <TouchableOpacity
                 onPress={() => {
                   router.push({
-                    pathname: "/(tabs)/profile",
+                    pathname: "/user/[userId]",
                     params: {
                       userId: item.user._id,
                       username: item.user.name,
@@ -418,8 +429,18 @@ export const VideoItem = ({
         </TouchableOpacity>
 
         {/* Save */}
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="bookmark-outline" size={30} color="#FFF" />
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onSave && onSave(item._id)}
+        >
+          <Ionicons
+            name={isSaved ? "bookmark" : "bookmark-outline"}
+            size={30}
+            color={isSaved ? "#FFD700" : "#FFF"}
+          />
+          {savesCount > 0 && (
+            <Text style={styles.actionText}>{formatNumber(savesCount)}</Text>
+          )}
         </TouchableOpacity>
 
         {/* Share */}
