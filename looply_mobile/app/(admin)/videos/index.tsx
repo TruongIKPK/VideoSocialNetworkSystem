@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
@@ -22,34 +23,50 @@ interface Video {
   title: string;
   thumbnail: string;
   url?: string;
-  views: number;
+  views?: number;
   user: {
     name: string;
     _id: string;
+    avatar?: string;
   };
   createdAt: string;
+  status?: string;
 }
 
 export default function AdminVideosScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
+  const { token } = useUser();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchVideos();
-  }, []);
+    if (token) {
+      fetchVideos();
+    }
+  }, [token]);
 
   const fetchVideos = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API endpoint
-      const response = await fetch(`${API_BASE_URL}/videos/latest`);
+      if (!token) {
+        console.warn("No token available");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/videos`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       
       if (response.ok) {
         const data = await response.json();
         const videoList = Array.isArray(data) ? data : (data.videos || []);
-        setVideos(videoList.slice(0, 20)); // Limit to 20 videos
+        setVideos(videoList);
+      } else {
+        console.error("Failed to fetch videos:", response.status);
       }
     } catch (error) {
       console.error("Error fetching videos:", error);
@@ -67,6 +84,7 @@ export default function AdminVideosScreen() {
         title: video.title || "Untitled Video",
         author: video.user?.name || "Unknown",
         views: String(video.views || 0),
+        authorId: video.user?._id || "",
       },
     });
   };
