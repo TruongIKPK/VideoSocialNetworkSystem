@@ -11,6 +11,7 @@ import {
     getFollowers,
     getFollowing,
     getMe,
+    getUserById,
     updateUserStatus,
     checkFollow,
 } from "../controllers/userController.js";
@@ -25,6 +26,7 @@ const upload = multer({ dest: "uploads/" });
 router.post("/register", register);
 router.post("/login", login);
 router.get("/search", searchUsers);
+router.get("/:id", getUserById); // Lấy thông tin user theo ID (phải đặt trước các route /:id/...)
 router.get("/:id/followers", getFollowers);
 router.get("/:id/following", getFollowing);
 

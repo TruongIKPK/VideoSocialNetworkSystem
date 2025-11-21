@@ -286,6 +286,50 @@ export const getMe = async (req, res) => {
   }
 };
 
+// Get user by ID (public - để xem profile người khác)
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Tìm user theo ID, loại bỏ password
+    const user = await User.findById(id).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Kiểm tra trạng thái tài khoản (nếu bị khóa, có thể ẩn một số thông tin)
+    if (user.status === "locked") {
+      return res.status(403).json({ 
+        message: "Tài khoản này đã bị khóa",
+        code: "ACCOUNT_LOCKED"
+      });
+    }
+
+    // Trả về thông tin user
+    res.json({
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      bio: user.bio,
+      followers: user.followers || 0,
+      following: user.following || 0,
+      role: user.role || "user",
+      status: user.status || "active",
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (error) {
+    // Xử lý lỗi ObjectId không hợp lệ
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "ID người dùng không hợp lệ" });
+    }
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Update user status (admin only)
 export const updateUserStatus = async (req, res) => {
   try {
