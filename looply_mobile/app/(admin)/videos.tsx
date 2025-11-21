@@ -106,7 +106,7 @@ export default function AdminVideosScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Videos</Text>
+        <Text style={styles.headerTitle}>Video gần đây</Text>
       </View>
       
       {isLoading ? (
