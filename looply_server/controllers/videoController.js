@@ -6,6 +6,7 @@ import cloudinary from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
   try {
+    configureCloudinary();
     const { title, description, userId } = req.body;
     const file = req.file;
 
