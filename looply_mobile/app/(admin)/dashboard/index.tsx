@@ -146,8 +146,11 @@ export default function AdminDashboardScreen() {
       
       if (reportsResponse.ok) {
         const reportsData = await reportsResponse.json();
-        console.log("Recent reports:", reportsData);
-        setRecentReports(reportsData.reports || []);
+        console.log("Recent reports response:", reportsData);
+        const reportsList = reportsData.reports || reportsData || [];
+        console.log("Recent reports list:", reportsList);
+        console.log("Recent reports count:", reportsList.length);
+        setRecentReports(Array.isArray(reportsList) ? reportsList : []);
       } else {
         const errorText = await reportsResponse.text();
         console.error("Failed to fetch reports:", reportsResponse.status, errorText);
@@ -177,6 +180,32 @@ export default function AdminDashboardScreen() {
     if (diffInHours < 1) return "Vừa xong";
     if (diffInHours === 1) return "1 giờ trước";
     return `${diffInHours} giờ trước`;
+  };
+
+  const getReportedTypeText = (type: string) => {
+    switch (type) {
+      case "user":
+        return "người dùng";
+      case "video":
+        return "video";
+      case "comment":
+        return "comment";
+      default:
+        return type;
+    }
+  };
+
+  const formatReportMeta = (report: RecentReport) => {
+    const typeText = getReportedTypeText(report.reportedType);
+    return `${typeText} - ${report.reason} - ${formatTimeAgo(report.createdAt)}`;
+  };
+
+  const formatReportId = (id: string) => {
+    // Extract last 3 characters from ObjectId and convert to number
+    const lastChars = id.slice(-3);
+    const num = parseInt(lastChars, 16) % 1000;
+    const displayNum = num < 100 ? num + 100 : num;
+    return `#${displayNum.toString()}`;
   };
 
   if (isLoading) {
@@ -325,17 +354,33 @@ export default function AdminDashboardScreen() {
               recentReports.slice(0, 3).map((report) => (
                 <View key={report._id} style={styles.reportItem}>
                   <View style={styles.reportThumbnail}>
-                    <Ionicons name="flag" size={24} color="#10B981" />
+                    <Ionicons 
+                      name="flag" 
+                      size={24} 
+                      color={
+                        report.status === "resolved" ? "#10B981" :
+                        report.status === "rejected" ? "#EF4444" :
+                        "#F59E0B"
+                      } 
+                    />
                   </View>
                   <View style={styles.reportInfo}>
-                    <Text style={styles.reportId}>Báo cáo #{report._id.slice(-6)}</Text>
+                    <Text style={styles.reportId}>
+                      {`Báo cáo ${formatReportId(report._id)}`}
+                    </Text>
                     <Text style={styles.reportMeta}>
-                      {report.reportedType} • {report.reason} • {formatTimeAgo(report.createdAt)}
+                      {formatReportMeta(report)}
                     </Text>
                   </View>
                   <TouchableOpacity 
                     style={styles.viewButton}
-                    onPress={() => router.push("/(admin)/reports")}
+                    onPress={() => router.push({
+                      pathname: "/(admin)/reports/report-detail",
+                      params: {
+                        reportId: report._id,
+                      },
+                    })}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.viewButtonText}>Xem</Text>
                   </TouchableOpacity>
