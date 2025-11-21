@@ -7,14 +7,17 @@ import {
   ScrollView,
   Switch,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { getAvatarUri } from "@/utils/imageHelpers";
 
 interface SettingItem {
   id: string;
@@ -29,6 +32,7 @@ interface SettingItem {
 export default function AdminSettingsScreen() {
   const router = useRouter();
   const { user, logout } = useUser();
+  const { user: currentUser } = useCurrentUser();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
@@ -204,6 +208,18 @@ export default function AdminSettingsScreen() {
           <Text style={styles.headerTitle}>Cài đặt</Text>
         </View>
 
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <Image
+            source={getAvatarUri(currentUser?.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
+        </View>
+
         {/* Account Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tài khoản</Text>
@@ -272,6 +288,46 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+  },
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.gray[200],
+  },
+  adminTextContainer: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
   },
   section: {
     marginTop: Spacing.lg,
