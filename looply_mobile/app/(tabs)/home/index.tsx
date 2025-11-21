@@ -110,8 +110,15 @@ export default function HomeScreen() {
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);
 
-  // Reset tracking khi có video mới được load
+  // Reset tracking khi có video mới được load hoặc videos list bị trim
   useEffect(() => {
+    // Đảm bảo currentIndex luôn trong bounds khi videos list thay đổi
+    if (videos.length > 0 && currentIndex >= videos.length) {
+      const validIndex = Math.max(0, videos.length - 1);
+      setCurrentIndex(validIndex);
+      console.log(`[Home] ⚠️ Adjusted currentIndex from ${currentIndex} to ${validIndex} (videos.length: ${videos.length})`);
+    }
+    
     if (videos.length > lastVideosLengthRef.current) {
       // Có video mới được thêm vào
       // Reset lastFetchedIndex để cho phép fetch tiếp theo khi cần
@@ -120,8 +127,19 @@ export default function HomeScreen() {
         lastFetchedIndexRef.current = Math.max(-1, currentIndex - 1);
       }
       lastVideosLengthRef.current = videos.length;
+    } else if (videos.length < lastVideosLengthRef.current) {
+      // Videos list bị trim (giảm số lượng) - có thể do memory management
+      console.log(`[Home] ⚠️ Videos list trimmed from ${lastVideosLengthRef.current} to ${videos.length}`);
+      // Điều chỉnh currentIndex nếu cần
+      if (currentIndex >= videos.length) {
+        const validIndex = Math.max(0, videos.length - 1);
+        setCurrentIndex(validIndex);
+      }
+      lastVideosLengthRef.current = videos.length;
+      // Reset fetch tracking để có thể fetch lại nếu cần
+      lastFetchedIndexRef.current = Math.max(-1, currentIndex - 3);
     }
-  }, [videos.length, currentIndex, BATCH_SIZE]);
+  }, [videos.length, currentIndex, BATCH_SIZE, setCurrentIndex]);
 
   // Theo dõi khi gần hết video để load thêm
   useEffect(() => {

@@ -150,27 +150,41 @@ export const VideoItem = ({
   useEffect(() => {
     // Chỉ phát video nếu: là video hiện tại, không bị pause bởi user, và screen đang được focus
     if (isCurrent && !isPaused && isScreenFocused) {
-      player.play();
-      // Record video view ngay khi bắt đầu phát
-      if (onVideoStart) {
-        onVideoStart(item._id);
-      }
-      // Bắt đầu đếm thời gian xem
-      watchTimeRef.current = 0;
-      intervalRef.current = setInterval(() => {
-        watchTimeRef.current += 1;
+      try {
+        if (player) {
+          player.play();
+          // Record video view ngay khi bắt đầu phát
+          if (onVideoStart) {
+            onVideoStart(item._id);
+          }
+          // Bắt đầu đếm thời gian xem
+          watchTimeRef.current = 0;
+          intervalRef.current = setInterval(() => {
+            watchTimeRef.current += 1;
 
-        // Gửi thông tin sau mỗi 5 giây
-        if (watchTimeRef.current % 5 === 0) {
-          onVideoProgress(item._id, watchTimeRef.current);
+            // Gửi thông tin sau mỗi 5 giây
+            if (watchTimeRef.current % 5 === 0) {
+              onVideoProgress(item._id, watchTimeRef.current);
+            }
+          }, 1000);
         }
-      }, 1000);
+      } catch (error) {
+        console.error(`[VideoItem] Error playing video ${item._id}:`, error);
+      }
     } else {
-      player.pause();
+      try {
+        if (player) {
+          player.pause();
+        }
+      } catch (error) {
+        // Player có thể đã bị release, ignore error
+        console.log(`[VideoItem] Player already released when pausing video ${item._id}`);
+      }
 
       // Dừng đếm và gửi thông tin cuối cùng
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
         if (watchTimeRef.current > 0) {
           onVideoProgress(item._id, watchTimeRef.current);
         }
@@ -180,9 +194,36 @@ export const VideoItem = ({
     return () => {
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isCurrent, player, isPaused, isScreenFocused]);
+  }, [isCurrent, player, isPaused, isScreenFocused, item._id, onVideoStart, onVideoProgress]);
+
+  // Cleanup video player khi component unmount hoặc không còn current
+  useEffect(() => {
+    if (!isCurrent) {
+      // Pause và reset player khi không còn visible
+      try {
+        if (player) {
+          player.pause();
+          // Không reset currentTime vì có thể gây lỗi
+        }
+      } catch (error) {
+        // Player có thể đã bị release, ignore error
+        console.log(`[VideoItem] Player already released for video ${item._id}`);
+      }
+    }
+
+    return () => {
+      // Cleanup khi unmount
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Không gọi player.pause() trong cleanup vì player có thể đã bị release
+      // expo-video sẽ tự động cleanup player khi component unmount
+    };
+  }, [isCurrent, player, item._id]);
 
   // Reset pause state khi video không còn current
   useEffect(() => {
