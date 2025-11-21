@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Video from "../models/Video.js";
 import Comment from "../models/Comment.js";
 import Report from "../models/Report.js";
+import VideoView from "../models/VideoView.js";
 
 // Get dashboard statistics
 export const getDashboardStats = async (req, res) => {
@@ -163,11 +164,22 @@ export const getAllVideos = async (req, res) => {
 
     const total = await Video.countDocuments(query);
 
+    // Add views count for each video
+    const videosWithViews = await Promise.all(
+      videos.map(async (video) => {
+        const viewsCount = await VideoView.countDocuments({ videoId: video._id });
+        return {
+          ...video.toObject(),
+          views: viewsCount,
+        };
+      })
+    );
+
     res.json({
       total,
       page: parseInt(page),
       limit: parseInt(limit),
-      videos,
+      videos: videosWithViews,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
