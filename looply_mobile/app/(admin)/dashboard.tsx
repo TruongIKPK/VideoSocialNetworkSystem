@@ -423,11 +423,11 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border.light,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.lg,
+    fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   sectionSubtitle: {
     fontSize: Typography.fontSize.sm,
