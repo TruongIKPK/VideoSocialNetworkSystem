@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
   adminCard: {
     backgroundColor: Colors.white,
     marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
