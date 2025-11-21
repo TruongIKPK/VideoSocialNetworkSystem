@@ -85,6 +85,48 @@ export default function AdminProfileScreen() {
           views: 1245,
           user: { name: "anhHai" },
         },
+        {
+          _id: "4",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
+        {
+          _id: "5",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
+        {
+          _id: "6",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
+        {
+          _id: "7",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
+        {
+          _id: "8",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
+        {
+          _id: "9",
+          title: "Hướng dẫn nấu phở",
+          thumbnail: "",
+          views: 1245,
+          user: { name: "anhHai" },
+        },
       ]);
 
       // Fetch recent reports
@@ -144,14 +186,16 @@ export default function AdminProfileScreen() {
           <Text style={styles.headerTitle}>My Profile</Text>
         </View>
 
-        {/* Admin Info */}
-        <View style={styles.adminInfo}>
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
           <Image
             source={getAvatarUri(user?.avatar)}
             style={styles.avatar}
           />
-          <Text style={styles.adminName}>Admin</Text>
-          <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
         </View>
 
         {/* Quick Overview */}
@@ -192,12 +236,7 @@ export default function AdminProfileScreen() {
 
         {/* Recent Videos */}
         <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Video gần đây</Text>
-            <TouchableOpacity onPress={() => router.push("/(admin)/videos")}>
-              <Text style={styles.viewAllLink}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.cardTitle}>Video gần đây</Text>
           {recentVideos.map((video) => (
             <View key={video._id} style={styles.videoItem}>
               <View style={styles.videoThumbnail}>
@@ -210,10 +249,34 @@ export default function AdminProfileScreen() {
                 </Text>
               </View>
               <View style={styles.videoActions}>
-                <TouchableOpacity style={styles.viewButton}>
+                <TouchableOpacity 
+                  style={styles.viewButton}
+                  onPress={() => router.push({
+                    pathname: "/(admin)/video-detail",
+                    params: {
+                      videoId: video._id,
+                      videoUrl: video.thumbnail || "",
+                      title: video.title,
+                      author: video.user.name,
+                      views: String(video.views),
+                    },
+                  })}
+                >
                   <Text style={styles.viewButtonText}>Xem</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.violationButton}>
+                <TouchableOpacity 
+                  style={styles.violationButton}
+                  onPress={() => router.push({
+                    pathname: "/(admin)/video-detail",
+                    params: {
+                      videoId: video._id,
+                      videoUrl: video.thumbnail || "",
+                      title: video.title,
+                      author: video.user.name,
+                      views: String(video.views),
+                    },
+                  })}
+                >
                   <Text style={styles.violationButtonText}>Vi phạm</Text>
                 </TouchableOpacity>
               </View>
@@ -273,18 +336,32 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
   },
-  adminInfo: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: Colors.gray[200],
+  },
+  adminTextContainer: {
+    flex: 1,
   },
   adminName: {
     fontSize: Typography.fontSize.xxl,
@@ -306,11 +383,11 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   cardTitle: {
-    fontSize: Typography.fontSize.lg,
+    fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   cardSubtitle: {
     fontSize: Typography.fontSize.sm,
