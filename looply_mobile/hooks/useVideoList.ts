@@ -148,6 +148,68 @@ export const useVideoList = ({
 
           const processedVideos = await processVideos(uniqueVideos);
           setVideos(processedVideos);
+          
+          console.log(`[useVideoList] ✅ Initial load: ${processedVideos.length} videos`);
+
+          // Nếu đã đăng nhập, tự động load thêm video để có đủ nội dung
+          if (isAuthenticated && token && processedVideos.length > 0) {
+            // Load thêm 2 batch nữa để có đủ video cho user scroll
+            const additionalBatches = 2;
+            console.log(`[useVideoList] 📥 Auto-loading ${additionalBatches} more batches for authenticated user...`);
+            
+            // Lưu current loaded IDs để dùng trong closure
+            const currentLoadedIds = new Set(newVideoIds);
+            
+            // Load thêm video trong background (không block UI)
+            setTimeout(async () => {
+              let accumulatedLoadedIds = new Set(currentLoadedIds);
+              
+              for (let i = 0; i < additionalBatches; i++) {
+                try {
+                  const moreResponse = await fetch(
+                    `${API_BASE_URL}/video-views/recommended?limit=${BATCH_SIZE}`,
+                    {
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (moreResponse.ok) {
+                    const moreData = await moreResponse.json();
+                    const moreVideoList = Array.isArray(moreData) ? moreData : (moreData.videos || moreData);
+
+                    if (Array.isArray(moreVideoList) && moreVideoList.length > 0) {
+                      const newMoreVideos = moreVideoList.filter(
+                        (video: VideoPost) => !accumulatedLoadedIds.has(video._id)
+                      );
+
+                      if (newMoreVideos.length > 0) {
+                        newMoreVideos.forEach((video: VideoPost) => accumulatedLoadedIds.add(video._id));
+                        
+                        // Update state
+                        setLoadedVideoIds(accumulatedLoadedIds);
+
+                        const processedMoreVideos = await processVideos(newMoreVideos);
+                        setVideos((prev) => [...prev, ...processedMoreVideos]);
+                        console.log(`[useVideoList] ✅ Auto-loaded batch ${i + 1}: ${processedMoreVideos.length} videos`);
+                      } else {
+                        console.log(`[useVideoList] ⚠️ Batch ${i + 1}: All videos are duplicates`);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error(`[useVideoList] Error auto-loading batch ${i + 1}:`, error);
+                }
+                
+                // Delay giữa các batch để tránh quá tải
+                if (i < additionalBatches - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
+              }
+            }, 1000); // Delay 1s sau khi initial load xong
+          }
         } else {
           setError("No new videos available");
         }
@@ -162,8 +224,8 @@ export const useVideoList = ({
     }
   };
 
-  const fetchMoreVideos = async () => {
-    if (isLoadingMore) return;
+  const fetchMoreVideos = async (): Promise<boolean> => {
+    if (isLoadingMore) return false;
 
     setIsLoadingMore(true);
     try {
@@ -200,10 +262,19 @@ export const useVideoList = ({
 
           const processedVideos = await processVideos(newVideos);
           setVideos((prev) => [...prev, ...processedVideos]);
+          console.log(`[useVideoList] ✅ Loaded ${processedVideos.length} new videos. Total: ${videos.length + processedVideos.length}`);
+          return true; // Có video mới
+        } else {
+          console.log(`[useVideoList] ⚠️ All videos from API are duplicates. Already loaded ${loadedVideoIds.size} videos.`);
+          return false; // Không có video mới
         }
+      } else {
+        console.log(`[useVideoList] ⚠️ No videos returned from API`);
+        return false; // Không có video mới
       }
     } catch (error) {
       console.error("Fetch more videos error:", error);
+      return false;
     } finally {
       setIsLoadingMore(false);
     }

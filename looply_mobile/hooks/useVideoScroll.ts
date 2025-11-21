@@ -16,15 +16,13 @@ export const useVideoScroll = ({
   const flatListRef = useRef<FlatList | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollStartIndexRef = useRef<number>(0);
-  const isScrollingRef = useRef<boolean>(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSnappedIndexRef = useRef<number>(-1);
 
   const updateCurrentIndex = (index: number) => {
     setCurrentIndex(index);
     onIndexChange(index);
   };
 
+  // Track index thông qua onViewableItemsChanged
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
       const visibleIndex = viewableItems[0].index;
@@ -40,95 +38,61 @@ export const useVideoScroll = ({
 
   const snapToOffsets = videos.map((_, index) => index * SCREEN_HEIGHT);
 
+  // Lưu index khi bắt đầu scroll
   const handleScrollBeginDrag = () => {
     scrollStartIndexRef.current = currentIndex;
-    isScrollingRef.current = true;
-    lastSnappedIndexRef.current = -1;
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-      scrollTimeoutRef.current = null;
-    }
   };
 
-  const handleScroll = (event: any) => {
-    if (!isScrollingRef.current) return;
-
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const startIndex = scrollStartIndexRef.current;
-    const maxOffset = (startIndex + 1) * SCREEN_HEIGHT;
-    const minOffset = Math.max(0, (startIndex - 1) * SCREEN_HEIGHT);
-
-    if (offsetY > maxOffset) {
-      const targetIndex = Math.min(startIndex + 1, videos.length - 1);
-      if (targetIndex !== currentIndex) {
-        updateCurrentIndex(targetIndex);
-        flatListRef.current?.scrollToIndex({
-          index: targetIndex,
-          animated: false,
-        });
-      }
-    } else if (offsetY < minOffset) {
-      const targetIndex = Math.max(0, startIndex - 1);
-      if (targetIndex !== currentIndex) {
-        updateCurrentIndex(targetIndex);
-        flatListRef.current?.scrollToIndex({
-          index: targetIndex,
-          animated: false,
-        });
-      }
-    }
-  };
-
+  // Kiểm soát tốc độ cuộn với threshold khi kết thúc drag
   const handleScrollEndDrag = (event: any) => {
-    isScrollingRef.current = false;
     const offsetY = event.nativeEvent.contentOffset.y;
     const startIndex = scrollStartIndexRef.current;
     const startOffset = startIndex * SCREEN_HEIGHT;
+    const threshold = SCREEN_HEIGHT * 0.10; // 10% threshold để giảm tốc độ cuộn
 
     let targetIndex = startIndex;
-    if (offsetY > startOffset + SCREEN_HEIGHT * 0.10) {
+    if (offsetY > startOffset + threshold) {
+      // Scroll xuống đủ xa - chuyển sang video bên dưới
       targetIndex = Math.min(startIndex + 1, videos.length - 1);
-    } else if (offsetY < startOffset - SCREEN_HEIGHT * 0.10) {
+    } else if (offsetY < startOffset - threshold) {
+      // Scroll lên đủ xa - chuyển sang video bên trên
       targetIndex = Math.max(0, startIndex - 1);
     } else {
+      // Scroll chưa đủ xa - quay về video hiện tại
       targetIndex = startIndex;
     }
 
-    if (targetIndex !== currentIndex) {
-      updateCurrentIndex(targetIndex);
+    // Đảm bảo targetIndex hợp lệ
+    if (targetIndex >= 0 && targetIndex < videos.length && targetIndex !== currentIndex) {
+      scrollToIndex(targetIndex, true);
     }
-    flatListRef.current?.scrollToIndex({
-      index: targetIndex,
-      animated: true,
-    });
   };
 
+  // Kiểm soát tốc độ cuộn với threshold khi momentum scroll kết thúc
   const handleMomentumScrollEnd = (event: any) => {
-    isScrollingRef.current = false;
     const offsetY = event.nativeEvent.contentOffset.y;
     const startIndex = scrollStartIndexRef.current;
     const startOffset = startIndex * SCREEN_HEIGHT;
+    const threshold = SCREEN_HEIGHT * 0.15; // 15% threshold cho momentum scroll
 
     let targetIndex = startIndex;
-    if (offsetY > startOffset + SCREEN_HEIGHT * 0.15) {
+    if (offsetY > startOffset + threshold) {
       targetIndex = Math.min(startIndex + 1, videos.length - 1);
-    } else if (offsetY < startOffset - SCREEN_HEIGHT * 0.15) {
+    } else if (offsetY < startOffset - threshold) {
       targetIndex = Math.max(0, startIndex - 1);
     } else {
       targetIndex = startIndex;
     }
 
-    if (targetIndex !== currentIndex) {
-      updateCurrentIndex(targetIndex);
+    // Đảm bảo targetIndex hợp lệ
+    if (targetIndex >= 0 && targetIndex < videos.length && targetIndex !== currentIndex) {
+      scrollToIndex(targetIndex, true);
     }
-    flatListRef.current?.scrollToIndex({
-      index: targetIndex,
-      animated: true,
-    });
   };
 
+  // Scroll đến index cụ thể
   const scrollToIndex = (index: number, animated: boolean = true) => {
-    if (flatListRef.current) {
+    if (flatListRef.current && index >= 0 && index < videos.length) {
       try {
         flatListRef.current.scrollToIndex({
           index,
@@ -137,7 +101,7 @@ export const useVideoScroll = ({
         });
         updateCurrentIndex(index);
       } catch (error) {
-        console.log(`Error scrolling to index:`, error);
+        // Fallback: scroll to offset
         const offset = index * SCREEN_HEIGHT;
         flatListRef.current.scrollToOffset({
           offset,
@@ -156,7 +120,6 @@ export const useVideoScroll = ({
     viewabilityConfig,
     snapToOffsets,
     handleScrollBeginDrag,
-    handleScroll,
     handleScrollEndDrag,
     handleMomentumScrollEnd,
     scrollToIndex,

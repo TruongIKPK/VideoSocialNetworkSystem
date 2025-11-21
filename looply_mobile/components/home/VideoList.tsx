@@ -13,7 +13,6 @@ interface VideoListProps {
   onViewableItemsChanged: (info: { viewableItems: any[] }) => void;
   viewabilityConfig: any;
   snapToOffsets: number[];
-  onScroll: (event: any) => void;
   onScrollBeginDrag: () => void;
   onScrollEndDrag: (event: any) => void;
   onMomentumScrollEnd: (event: any) => void;
@@ -33,7 +32,6 @@ export const VideoList = ({
   onViewableItemsChanged,
   viewabilityConfig,
   snapToOffsets,
-  onScroll,
   onScrollBeginDrag,
   onScrollEndDrag,
   onMomentumScrollEnd,
@@ -95,8 +93,6 @@ export const VideoList = ({
       windowSize={5}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={viewabilityConfig}
-      onScroll={onScroll}
-      scrollEventThrottle={100}
       onScrollBeginDrag={onScrollBeginDrag}
       onScrollEndDrag={onScrollEndDrag}
       onMomentumScrollEnd={onMomentumScrollEnd}

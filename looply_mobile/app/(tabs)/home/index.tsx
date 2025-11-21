@@ -26,6 +26,8 @@ export default function HomeScreen() {
   const { isAuthenticated, token } = useUser();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const hasScrolledToVideoRef = useRef(false);
+  const lastFetchedIndexRef = useRef(-1); // Track index đã fetch để tránh fetch nhiều lần
+  const lastVideosLengthRef = useRef(0); // Track số lượng video để phát hiện khi có video mới
 
   // Video list management
   const {
@@ -67,7 +69,6 @@ export default function HomeScreen() {
     viewabilityConfig,
     snapToOffsets,
     handleScrollBeginDrag,
-    handleScroll,
     handleScrollEndDrag,
     handleMomentumScrollEnd,
     scrollToIndex,
@@ -92,14 +93,14 @@ export default function HomeScreen() {
   useEffect(() => {
     const videoId = params.videoId as string | undefined;
     const shouldScroll = params.scrollToVideo === "true";
-
+    
     if (videoId && shouldScroll && videos.length > 0 && !hasScrolledToVideoRef.current) {
       const videoIndex = videos.findIndex((v) => v._id === videoId);
-
+      
       if (videoIndex !== -1) {
         console.log(`[Home] 🎬 Scrolling to video: ${videoId} at index: ${videoIndex}`);
         hasScrolledToVideoRef.current = true;
-
+        
         setTimeout(() => {
           scrollToIndex(videoIndex, true);
         }, 500);
@@ -109,20 +110,47 @@ export default function HomeScreen() {
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);
 
-  // Theo dõi khi xem đến video thứ 2 trong batch để load thêm
+  // Reset tracking khi có video mới được load
   useEffect(() => {
-    if (isLoading || isLoadingMore) return;
-
-    const currentBatch = Math.floor(currentIndex / BATCH_SIZE);
-    const positionInBatch = currentIndex % BATCH_SIZE;
-
-    if (positionInBatch === 1) {
-      const nextBatchStart = (currentBatch + 1) * BATCH_SIZE;
-      if (videos.length <= nextBatchStart) {
-        fetchMoreVideos();
+    if (videos.length > lastVideosLengthRef.current) {
+      // Có video mới được thêm vào
+      // Reset lastFetchedIndex để cho phép fetch tiếp theo khi cần
+      if (videos.length - lastVideosLengthRef.current >= BATCH_SIZE) {
+        // Nếu có nhiều video mới (>= BATCH_SIZE), reset tracking
+        lastFetchedIndexRef.current = Math.max(-1, currentIndex - 1);
       }
+      lastVideosLengthRef.current = videos.length;
     }
-  }, [currentIndex, videos.length, isLoading, isLoadingMore, BATCH_SIZE, fetchMoreVideos]);
+  }, [videos.length, currentIndex, BATCH_SIZE]);
+
+  // Theo dõi khi gần hết video để load thêm
+  useEffect(() => {
+    if (isLoading || isLoadingMore || videos.length === 0) return;
+
+    const remainingVideos = videos.length - currentIndex - 1;
+    const isLastVideo = currentIndex === videos.length - 1;
+    
+    // KHÔNG trigger fetch khi đang ở video cuối cùng để tránh lag
+    // Chỉ trigger khi còn ít nhất 1 video nữa (remainingVideos >= 1)
+    const shouldFetch = remainingVideos >= 1 && remainingVideos <= 3;
+    
+    // Chỉ fetch nếu:
+    // 1. Điều kiện trigger đúng (còn 1-3 video, KHÔNG phải video cuối)
+    // 2. Chưa fetch ở index này hoặc index gần đây (để tránh fetch nhiều lần)
+    const hasFetchedRecently = lastFetchedIndexRef.current >= currentIndex - 1;
+    
+    if (shouldFetch && !hasFetchedRecently && !isLastVideo) {
+      console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`);
+      lastFetchedIndexRef.current = currentIndex;
+      
+      // Gọi fetchMoreVideos
+      fetchMoreVideos().then((hasNewVideos) => {
+        if (!hasNewVideos) {
+          console.log(`[Home] ⚠️ No new videos found. User can continue scrolling.`);
+        }
+      });
+    }
+  }, [currentIndex, videos.length, isLoading, isLoadingMore, fetchMoreVideos]);
 
   const handleSearchIconPress = () => {
     console.log(`[Home] 🔍 Search icon pressed, navigating to search screen`);
@@ -143,9 +171,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
-
+      
       {/* Search Button */}
-      <TouchableOpacity
+      <TouchableOpacity 
         style={styles.searchButton}
         onPress={handleSearchIconPress}
         activeOpacity={0.7}
@@ -160,7 +188,6 @@ export default function HomeScreen() {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         snapToOffsets={snapToOffsets}
-        onScroll={handleScroll}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
         onMomentumScrollEnd={handleMomentumScrollEnd}
