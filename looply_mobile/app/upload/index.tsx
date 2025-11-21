@@ -52,6 +52,13 @@ export default function UploadScreen() {
 
     try {
       const token = await require("@/utils/tokenStorage").getToken();
+      
+      if (!token) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        router.replace("/(tabs)/profile/index");
+        setIsUploading(false);
+        return;
+      }
 
       const interval = setInterval(() => {
         setProgress((prev) => (prev >= 95 ? 95 : prev + 5));

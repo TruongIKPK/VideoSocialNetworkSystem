@@ -384,7 +384,8 @@ export async function uploadVideo(file, title, description, onProgress) {
     const response = await fetch(`${API_BASE_URL}/videos/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          "Accept": "application/json",
       },
       body: formData,
     })

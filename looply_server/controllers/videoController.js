@@ -7,10 +7,16 @@ import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
 export const uploadVideo = async (req, res) => {
   try {
     configureCloudinary();
-    const { title, description, userId } = req.body;
+    const { title, description } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ message: "Thiếu file video" });
+
+    // Sử dụng userId từ req.user (đã được set bởi authenticateToken middleware)
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Không tìm thấy thông tin user" });
+    }
 
     const result = await cloudinary.uploader.upload(file.path, {
       resource_type: "video",
