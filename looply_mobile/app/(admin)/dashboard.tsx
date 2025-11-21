@@ -76,12 +76,27 @@ export default function AdminDashboardScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (token) {
+      fetchDashboardData();
+    }
+  }, [token]);
 
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
+      
+      if (!token) {
+        console.warn("No token available");
+        // Set fallback data
+        setStats({
+          total: { users: 0, videos: 0, reports: 0 },
+          today: { users: 0, videos: 0, reports: 0 },
+          users: { active: 0, locked: 0 },
+          videos: { active: 0, violation: 0 },
+          reports: { pending: 0, resolved: 0 },
+        });
+        return;
+      }
       
       // Fetch stats
       const statsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/stats`, {
@@ -92,7 +107,18 @@ export default function AdminDashboardScreen() {
       
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
+        console.log("Dashboard stats:", statsData);
         setStats(statsData);
+      } else {
+        console.error("Failed to fetch stats:", statsResponse.status);
+        // Set fallback stats
+        setStats({
+          total: { users: 0, videos: 0, reports: 0 },
+          today: { users: 0, videos: 0, reports: 0 },
+          users: { active: 0, locked: 0 },
+          videos: { active: 0, violation: 0 },
+          reports: { pending: 0, resolved: 0 },
+        });
       }
 
       // Fetch recent videos (limit to 3 for display)
@@ -104,7 +130,11 @@ export default function AdminDashboardScreen() {
       
       if (videosResponse.ok) {
         const videosData = await videosResponse.json();
+        console.log("Recent videos:", videosData);
         setRecentVideos(videosData.videos || []);
+      } else {
+        console.error("Failed to fetch videos:", videosResponse.status);
+        // Keep empty array, will show "Chưa có video nào"
       }
 
       // Fetch recent reports
@@ -116,10 +146,22 @@ export default function AdminDashboardScreen() {
       
       if (reportsResponse.ok) {
         const reportsData = await reportsResponse.json();
+        console.log("Recent reports:", reportsData);
         setRecentReports(reportsData.reports || []);
+      } else {
+        console.error("Failed to fetch reports:", reportsResponse.status);
+        // Keep empty array, will show "Chưa có báo cáo nào"
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+      // Set fallback data on error
+      setStats({
+        total: { users: 0, videos: 0, reports: 0 },
+        today: { users: 0, videos: 0, reports: 0 },
+        users: { active: 0, locked: 0 },
+        videos: { active: 0, violation: 0 },
+        reports: { pending: 0, resolved: 0 },
+      });
     } finally {
       setIsLoading(false);
     }
