@@ -108,8 +108,42 @@ export default function AdminVideoDetailScreen() {
       });
 
       if (!reportResponse.ok) {
-        const errorData = await reportResponse.json();
-        throw new Error(errorData.message || "Không thể tạo báo cáo");
+        const contentType = reportResponse.headers.get("content-type");
+        let errorMessage = "Không thể tạo báo cáo";
+        
+        // Response body chỉ có thể đọc một lần, nên cần clone hoặc đọc text trước
+        try {
+          const responseText = await reportResponse.text();
+          
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+              // Nếu không parse được JSON, dùng text hoặc status code
+              if (reportResponse.status === 404) {
+                errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+              } else {
+                errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
+              }
+            }
+          } else {
+            // Server trả về HTML (404 page)
+            if (reportResponse.status === 404) {
+              errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+            } else {
+              errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
+            }
+          }
+        } catch (e) {
+          // Nếu không đọc được response, dùng status code
+          if (reportResponse.status === 404) {
+            errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+          } else {
+            errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       // 2. Cập nhật video status thành "violation"
@@ -125,8 +159,42 @@ export default function AdminVideoDetailScreen() {
       });
 
       if (!statusResponse.ok) {
-        const errorData = await statusResponse.json();
-        throw new Error(errorData.message || "Không thể cập nhật trạng thái video");
+        const contentType = statusResponse.headers.get("content-type");
+        let errorMessage = "Không thể cập nhật trạng thái video";
+        
+        // Response body chỉ có thể đọc một lần, nên cần clone hoặc đọc text trước
+        try {
+          const responseText = await statusResponse.text();
+          
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+              // Nếu không parse được JSON, dùng text hoặc status code
+              if (statusResponse.status === 404) {
+                errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+              } else {
+                errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
+              }
+            }
+          } else {
+            // Server trả về HTML (404 page)
+            if (statusResponse.status === 404) {
+              errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+            } else {
+              errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
+            }
+          }
+        } catch (e) {
+          // Nếu không đọc được response, dùng status code
+          if (statusResponse.status === 404) {
+            errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+          } else {
+            errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       Alert.alert("Thành công", "Đã báo cáo vi phạm và cập nhật trạng thái video thành công", [
