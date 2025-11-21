@@ -93,7 +93,7 @@ export default function ChatDetail() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 10 }}>
+          <TouchableOpacity onPress={() => router.navigate("/(tabs)/inbox")} style={{ marginRight: 10 }}>
             <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
           <Image

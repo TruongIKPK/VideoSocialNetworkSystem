@@ -20,8 +20,6 @@ export default function CameraScreen() {
   const [mode, setMode] = useState("picture");
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-
-  // --- SỬA 1: Thêm biến này để khóa nút bấm tạm thời ---
   const [locking, setLocking] = useState(false);
 
   const cameraRef = useRef(null);
@@ -124,7 +122,6 @@ export default function CameraScreen() {
     }
   };
 
-  // --- SỬA 2: Logic quay video an toàn ---
   const handleRecordVideo = async () => {
     try {
       if (!isRecording && cameraRef.current) {

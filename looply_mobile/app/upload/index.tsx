@@ -26,7 +26,6 @@ export default function UploadScreen() {
   const mediaUri = Array.isArray(uri) ? uri[0] : uri ?? "";
   const isVideo = type === "video";
 
-  // 1. SỬA LỖI TỰ PHÁT VIDEO
   const player = useVideoPlayer(isVideo ? mediaUri : null, (player) => {
     if (isVideo) {
       player.loop = true;
@@ -41,58 +40,46 @@ export default function UploadScreen() {
     setIsUploading(true);
     setProgress(0);
 
+    const formData = new FormData();
+    formData.append("title", title || "Video mới");
+    formData.append("description", desc || "");
+
+    formData.append("file", {
+      uri: mediaUri,
+      type: "video/mp4",
+      name: "upload.mp4",
+    } as any);
+
     try {
       const token = await require("@/utils/tokenStorage").getToken();
 
-      const formData = new FormData();
-      formData.append("title", title);
-
-      formData.append("description", desc);
-
-      formData.append("type", type);
-
-      formData.append("file", {
-        uri: mediaUri,
-        type: "video/mp4",
-        name: "upload.mp4",
-      } as any);
-
-      // Giả lập loading
       const interval = setInterval(() => {
-        setProgress((prev) => (prev >= 90 ? 90 : prev + 10));
+        setProgress((prev) => (prev >= 95 ? 95 : prev + 5));
       }, 500);
-
-      console.log("--- ĐANG GỬI ĐẾN: /api/videos/upload ---");
 
       const response = await fetch(`${API_BASE_URL}/videos/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: "application/json",
+          "Accept": "application/json",
         },
         body: formData,
       });
 
       clearInterval(interval);
-      const text = await response.text();
-      console.log("STATUS:", response.status);
-      console.log("RESPONSE:", text);
 
       if (response.ok) {
         setProgress(100);
-        Alert.alert("Thành công", "Upload xong!");
-        router.replace({
-          pathname: "/(tabs)/profile/index",
-          params: { uploaded: "true" },
-        });
+        Alert.alert("Thành công", "Video đã được đăng!");
+        router.replace({ pathname: "/(tabs)/profile/index", params: { uploaded: "true" }});
       } else {
-        // Nếu vẫn lỗi "Must supply api_key" thì LÀ DO SERVER 100%
-        Alert.alert("Lỗi Server", text);
+        const errorText = await response.text();
+        Alert.alert("Lỗi Server", errorText);
         setProgress(0);
       }
+
     } catch (err) {
-      console.log(err);
-      Alert.alert("Lỗi", "Không kết nối được server");
+      Alert.alert("Lỗi Mạng", "Kiểm tra kết nối internet");
       setProgress(0);
     } finally {
       setIsUploading(false);
