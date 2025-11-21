@@ -65,10 +65,10 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Cài đặt",
+          title: "Profile",
           tabBarIcon: ({ focused, color }) => (
             <Ionicons 
-              name={focused ? "settings" : "settings-outline"} 
+              name={focused ? "person" : "person-outline"} 
               size={24} 
               color={color} 
             />
