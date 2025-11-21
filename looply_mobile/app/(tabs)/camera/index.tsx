@@ -113,17 +113,29 @@ export default function CameraScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Videos, // Chỉ video
         allowsEditing: false,
         quality: 1,
-        videoMaxDuration: 300, // Max 5 phút
+        // Không dùng videoMaxDuration vì nó tính bằng seconds, 
+        // nhưng validation sẽ check thủ công để có thông báo lỗi rõ ràng hơn
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         
         // Validate video duration
-        if (asset.duration && asset.duration > 300) {
-          Alert.alert("Lỗi", "Video không được dài hơn 5 phút.");
-          setIsProcessing(false);
-          return;
+        // asset.duration is in milliseconds, convert to seconds
+        if (asset.duration) {
+          const durationInSeconds = asset.duration / 1000;
+          const maxDurationSeconds = 300; // 5 phút = 300 giây
+          
+          if (durationInSeconds > maxDurationSeconds) {
+            const minutes = Math.floor(durationInSeconds / 60);
+            const seconds = Math.floor(durationInSeconds % 60);
+            Alert.alert(
+              "Lỗi", 
+              `Video dài ${minutes} phút ${seconds} giây. Video không được dài hơn 5 phút.`
+            );
+            setIsProcessing(false);
+            return;
+          }
         }
 
         router.push({
