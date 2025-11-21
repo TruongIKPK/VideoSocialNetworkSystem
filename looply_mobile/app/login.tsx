@@ -43,8 +43,8 @@ export default function LoginScreen() {
       if (response.success && response.token && response.user) {
         // Update user context
         await login(response.user, response.token);
-        // Tự động navigate, không cần thông báo
-        router.replace("/(tabs)/home");
+        // Tự động navigate về trang index (root route)
+        router.replace("/");
       } else {
         setGeneralError(response.message || "Đăng nhập thất bại");
       }
