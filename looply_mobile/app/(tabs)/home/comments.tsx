@@ -20,6 +20,9 @@ import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { format, isToday, isYesterday } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useReport } from "@/hooks/useReport";
+import { ReportModal } from "@/components/report/ReportModal";
+import { useCustomAlert } from "@/hooks/useCustomAlert";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
@@ -65,7 +68,11 @@ export default function CommentsModal() {
   const [commentText, setCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const { createReport, isSubmitting: isSubmittingReport } = useReport({ token });
+  const { showAlert, AlertComponent } = useCustomAlert();
 
   useEffect(() => {
     if (videoId) {
@@ -206,14 +213,40 @@ export default function CommentsModal() {
 
     return (
       <View style={styles.commentItem}>
-        <Image
-          source={getAvatarUri(commentUser.avatar)}
-          style={styles.commentAvatar}
-          contentFit="cover"
-        />
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: "/user/[userId]",
+              params: {
+                userId: commentUser._id,
+                username: commentUser.name,
+              },
+            });
+          }}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={getAvatarUri(commentUser.avatar)}
+            style={styles.commentAvatar}
+            contentFit="cover"
+          />
+        </TouchableOpacity>
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
-            <Text style={styles.commentUserName}>{commentUser.name}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: "/user/[userId]",
+                  params: {
+                    userId: commentUser._id,
+                    username: commentUser.name,
+                  },
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.commentUserName}>{commentUser.name}</Text>
+            </TouchableOpacity>
             <Text style={styles.commentTime}>
               {formatCommentTime(item.createdAt)}
             </Text>
@@ -239,6 +272,17 @@ export default function CommentsModal() {
                 <Text style={styles.commentLikesCount}>{formatNumber(likesCount)}</Text>
               )}
             </TouchableOpacity>
+            {isAuthenticated && (
+              <TouchableOpacity
+                style={styles.commentActionButton}
+                onPress={() => {
+                  setReportingCommentId(item._id);
+                  setIsReportModalVisible(true);
+                }}
+              >
+                <Ionicons name="flag-outline" size={16} color={Colors.gray[400]} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -347,6 +391,40 @@ export default function CommentsModal() {
             </Text>
           </View>
         )}
+
+        {/* Report Modal */}
+        <ReportModal
+          visible={isReportModalVisible}
+          onClose={() => {
+            setIsReportModalVisible(false);
+            setReportingCommentId(null);
+          }}
+          onSubmit={async (reason) => {
+            if (reportingCommentId) {
+              const result = await createReport("comment", reportingCommentId, reason);
+              if (result.success) {
+                showAlert({
+                  title: "Thành công",
+                  message: result.message,
+                  type: "success",
+                });
+                setIsReportModalVisible(false);
+                setReportingCommentId(null);
+              } else {
+                showAlert({
+                  title: "Lỗi",
+                  message: result.message,
+                  type: "error",
+                });
+              }
+            }
+          }}
+          type="comment"
+          isSubmitting={isSubmittingReport}
+        />
+
+        {/* Custom Alert */}
+        <AlertComponent />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

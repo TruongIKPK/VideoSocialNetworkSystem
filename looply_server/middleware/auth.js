@@ -17,11 +17,17 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token" });
     }
 
+<<<<<<< HEAD
     // Populate role and status into req.user
+=======
+    // Ensure role and status are included, và đảm bảo followingList/followersList là arrays
+>>>>>>> df4026aa05bbbe506caa98460e56412567405776
     req.user = {
       ...user.toObject(),
       role: user.role || "user",
-      status: user.status || "active"
+      status: user.status || "active",
+      followingList: user.followingList || [],
+      followersList: user.followersList || [],
     };
     next();
   } catch (error) {
