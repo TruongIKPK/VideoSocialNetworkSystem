@@ -9,7 +9,10 @@ import {
   getRandomVideos,
   getLatestVideos,
   searchVideosByHashtags,
-  updateVideoStatus
+  updateVideoStatus,
+  getVideosByUserId,
+  getLikedVideosByUserId,
+  getSavedVideosByUserId
 } from "../controllers/videoController.js";
 import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
 
@@ -26,6 +29,9 @@ router.get("/search", searchVideos);
 router.get("/search/hashtags", searchVideosByHashtags);
 router.get("/random", getRandomVideos); 
 router.get("/latest", getLatestVideos);
+router.get("/user/:userId", getVideosByUserId); // Lấy video theo userId
+router.get("/liked/:userId", getLikedVideosByUserId); // Lấy video đã thích
+router.get("/saved/:userId", getSavedVideosByUserId); // Lấy video đã save
 router.get("/", getAllVideos);                              
 router.get("/:id", getVideoById);                       
 
