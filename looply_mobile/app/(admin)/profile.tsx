@@ -209,11 +209,6 @@ export default function AdminProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Profile</Text>
-        </View>
-
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
           <Image
@@ -223,22 +218,6 @@ export default function AdminProfileScreen() {
           <View style={styles.adminTextContainer}>
             <Text style={styles.adminName}>Admin</Text>
             <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-          </View>
-          <View style={styles.adminActions}>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEditProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={20} color={Colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.logoutButtonSmall}
-              onPress={handleLogout}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -412,17 +391,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
-  },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
   },
   adminCard: {
     backgroundColor: Colors.white,
@@ -613,26 +581,6 @@ const styles = StyleSheet.create({
   },
   adCardText: {
     flex: 1,
-  },
-  adminActions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.gray[100],
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoutButtonSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FEE2E2",
-    justifyContent: "center",
-    alignItems: "center",
   },
   settingItem: {
     flexDirection: "row",
