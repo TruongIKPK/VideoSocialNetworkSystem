@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { AppState, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserProvider } from "@/contexts/UserContext";
+import { initDB } from "@/utils/database";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -23,6 +24,10 @@ export function CustomHeader() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    initDB();
+  }, []);
 
   // useEffect(() => {
   //   const hideNavBar = async () => {
