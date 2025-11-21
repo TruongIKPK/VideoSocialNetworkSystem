@@ -191,7 +191,7 @@ export const VideoItem = ({
         <VideoView
           player={player}
           style={styles.video}
-          contentFit="cover"
+          contentFit="contain"
           allowsPictureInPicture={false}
           nativeControls={false} // Tắt controls mặc định
         />
@@ -350,15 +350,20 @@ const styles = StyleSheet.create({
     height: SCREEN_HEIGHT,
     position: "relative",
     backgroundColor: Colors.black,
+    justifyContent: "center",
+    alignItems: "center",
   },
   videoPressable: {
-    width: "100%",
-    height: "100%",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
     position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
   },
   video: {
-    width: "100%",
+    width: SCREEN_WIDTH,
     height: "100%",
+    alignSelf: "center",
   },
   pauseOverlay: {
     position: "absolute",
