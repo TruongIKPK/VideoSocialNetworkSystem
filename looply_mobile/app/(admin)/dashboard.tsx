@@ -6,13 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { formatNumber } from "@/utils/imageHelpers";
+import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
@@ -67,6 +69,7 @@ interface RecentReport {
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { token } = useUser();
+  const { user } = useCurrentUser();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
@@ -151,6 +154,18 @@ export default function AdminDashboardScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Dashboard</Text>
+        </View>
+
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <Image
+            source={getAvatarUri(user?.avatar)}
+            style={styles.avatar}
+          />
+          <View style={styles.adminTextContainer}>
+            <Text style={styles.adminName}>Admin</Text>
+            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+          </View>
         </View>
 
         {/* Quick Overview */}
@@ -349,6 +364,46 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+  },
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.gray[200],
+  },
+  adminTextContainer: {
+    flex: 1,
+  },
+  adminName: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
   },
   card: {
     backgroundColor: "#E5E5E5",
