@@ -17,7 +17,7 @@ export default function Index() {
 
   // Redirect admin to admin dashboard
   if (user?.role === "admin") {
-    return <Redirect href="/(admin)/dashboard" />;
+    return <Redirect href="/(admin)/dashboard/" />;
   }
 
   // Redirect regular users to home
