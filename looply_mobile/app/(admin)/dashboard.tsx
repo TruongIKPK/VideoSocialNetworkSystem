@@ -208,8 +208,6 @@ export default function AdminDashboardScreen() {
 
         {/* Dashboard Content */}
         <View style={styles.dashboardCard}>
-          <Text style={styles.dashboardTitle}>Dashboard</Text>
-
             {/* Quick Overview */}
           {stats && (
             <View style={styles.section}>
@@ -230,39 +228,6 @@ export default function AdminDashboardScreen() {
                   <Text style={styles.statLabel}>Báo cáo</Text>
                   <Text style={styles.statValue}>{formatNumber(stats.total.reports)}</Text>
                   <Text style={styles.statSubtext}>+{stats.today.reports} hôm nay</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Detailed Stats */}
-          {stats && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Chi tiết hệ thống</Text>
-              <View style={styles.detailedStats}>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Người dùng hoạt động</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.users.active)}</Text>
-                </View>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Người dùng bị khóa</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.users.locked)}</Text>
-                </View>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Video hoạt động</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.active)}</Text>
-                </View>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Video vi phạm</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.videos.violation)}</Text>
-                </View>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Báo cáo chờ xử lý</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.pending)}</Text>
-                </View>
-                <View style={styles.detailedStatRow}>
-                  <Text style={styles.detailedStatLabel}>Báo cáo đã xử lý</Text>
-                  <Text style={styles.detailedStatValue}>{formatNumber(stats.reports.resolved)}</Text>
                 </View>
               </View>
             </View>
@@ -499,28 +464,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontFamily: Typography.fontFamily.medium,
     marginTop: Spacing.xs / 2,
-  },
-  detailedStats: {
-    gap: Spacing.sm,
-  },
-  detailedStatRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  detailedStatLabel: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  detailedStatValue: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
   },
   sectionHeader: {
     flexDirection: "row",
