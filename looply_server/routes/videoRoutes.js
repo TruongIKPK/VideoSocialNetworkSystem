@@ -8,9 +8,10 @@ import {
   searchVideos,
   getRandomVideos,
   getLatestVideos,
-  searchVideosByHashtags
+  searchVideosByHashtags,
+  updateVideoStatus
 } from "../controllers/videoController.js";
-import { authenticateToken, checkOwnership } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -18,6 +19,7 @@ const upload = multer({ dest: "uploads/" });
 // Protected routes - require authentication
 router.post("/upload", authenticateToken, upload.single("file"), uploadVideo); 
 router.delete("/:id", authenticateToken, deleteVideo);
+router.put("/:id/status", authenticateToken, requireAdmin, updateVideoStatus);
 
 // Public routes
 router.get("/search", searchVideos);
