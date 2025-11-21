@@ -52,7 +52,7 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="reports"
         options={{
-          title: "Báo cáo",
+          title: "Reports",
           tabBarIcon: ({ focused, color }) => (
             <Ionicons 
               name={focused ? "flag" : "flag-outline"} 
