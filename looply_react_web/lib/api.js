@@ -197,6 +197,114 @@ export async function updateUserProfile(data) {
   }
 }
 
+// Get user profile by ID
+export async function getUserProfile(userId) {
+  try {
+    console.log('Fetching user profile for:', userId);
+
+    // Handle ObjectId format
+    let normalizedUserId = userId;
+    if (typeof userId === 'object' && userId !== null && userId.$oid) {
+      normalizedUserId = userId.$oid;
+    }
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/${normalizedUserId}`, {
+      headers
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to fetch user profile');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    throw error;
+  }
+}
+
+// Follow a user
+export async function followUser(targetUserId) {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('User not authenticated');
+    }
+
+    // Handle ObjectId format
+    let normalizedTargetId = targetUserId;
+    if (typeof targetUserId === 'object' && targetUserId !== null && targetUserId.$oid) {
+      normalizedTargetId = targetUserId.$oid;
+    }
+
+    console.log('Following user:', normalizedTargetId);
+
+    const response = await fetch(`${API_BASE_URL}/users/${normalizedTargetId}/follow`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to follow user');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error following user:', error);
+    throw error;
+  }
+}
+
+// Unfollow a user
+export async function unfollowUser(targetUserId) {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('User not authenticated');
+    }
+
+    // Handle ObjectId format
+    let normalizedTargetId = targetUserId;
+    if (typeof targetUserId === 'object' && targetUserId !== null && targetUserId.$oid) {
+      normalizedTargetId = targetUserId.$oid;
+    }
+
+    console.log('Unfollowing user:', normalizedTargetId);
+
+    const response = await fetch(`${API_BASE_URL}/users/${normalizedTargetId}/follow`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to unfollow user');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    throw error;
+  }
+}
+
 // --- Video Related Functions ---
 
 // Fetch videos from the server
