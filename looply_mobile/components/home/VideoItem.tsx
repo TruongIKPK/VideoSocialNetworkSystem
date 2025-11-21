@@ -40,8 +40,10 @@ interface VideoItemProps {
   isCurrent: boolean;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  onVideoStart?: (videoId: string) => void;
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
+  onSave?: (videoId: string) => void;
   currentUserId: string | null;
   isScreenFocused: boolean;
 }
@@ -52,8 +54,10 @@ export const VideoItem = ({
   isCurrent,
   onLike,
   onVideoProgress,
+  onVideoStart,
   onComment,
   onFollow,
+  onSave,
   currentUserId,
   isScreenFocused,
 }: VideoItemProps) => {
@@ -63,9 +67,18 @@ export const VideoItem = ({
     item.likedBy &&
     Array.isArray(item.likedBy) &&
     item.likedBy.includes(currentUserId);
+  
+  // Kiểm tra xem video đã được save chưa
+  const isSaved =
+    currentUserId &&
+    item.savedBy &&
+    Array.isArray(item.savedBy) &&
+    item.savedBy.includes(currentUserId);
+  
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
+  const savesCount = item.saves || item.savesCount || 0;
   const viewsCount = item.views || 0;
 
   const watchTimeRef = useRef(0);
@@ -137,23 +150,41 @@ export const VideoItem = ({
   useEffect(() => {
     // Chỉ phát video nếu: là video hiện tại, không bị pause bởi user, và screen đang được focus
     if (isCurrent && !isPaused && isScreenFocused) {
-      player.play();
-      // Bắt đầu đếm thời gian xem
-      watchTimeRef.current = 0;
-      intervalRef.current = setInterval(() => {
-        watchTimeRef.current += 1;
+      try {
+        if (player) {
+          player.play();
+          // Record video view ngay khi bắt đầu phát
+          if (onVideoStart) {
+            onVideoStart(item._id);
+          }
+          // Bắt đầu đếm thời gian xem
+          watchTimeRef.current = 0;
+          intervalRef.current = setInterval(() => {
+            watchTimeRef.current += 1;
 
-        // Gửi thông tin sau mỗi 5 giây
-        if (watchTimeRef.current % 5 === 0) {
-          onVideoProgress(item._id, watchTimeRef.current);
+            // Gửi thông tin sau mỗi 5 giây
+            if (watchTimeRef.current % 5 === 0) {
+              onVideoProgress(item._id, watchTimeRef.current);
+            }
+          }, 1000);
         }
-      }, 1000);
+      } catch (error) {
+        console.error(`[VideoItem] Error playing video ${item._id}:`, error);
+      }
     } else {
-      player.pause();
+      try {
+        if (player) {
+          player.pause();
+        }
+      } catch (error) {
+        // Player có thể đã bị release, ignore error
+        console.log(`[VideoItem] Player already released when pausing video ${item._id}`);
+      }
 
       // Dừng đếm và gửi thông tin cuối cùng
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
         if (watchTimeRef.current > 0) {
           onVideoProgress(item._id, watchTimeRef.current);
         }
@@ -163,9 +194,36 @@ export const VideoItem = ({
     return () => {
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isCurrent, player, isPaused, isScreenFocused]);
+  }, [isCurrent, player, isPaused, isScreenFocused, item._id, onVideoStart, onVideoProgress]);
+
+  // Cleanup video player khi component unmount hoặc không còn current
+  useEffect(() => {
+    if (!isCurrent) {
+      // Pause và reset player khi không còn visible
+      try {
+        if (player) {
+          player.pause();
+          // Không reset currentTime vì có thể gây lỗi
+        }
+      } catch (error) {
+        // Player có thể đã bị release, ignore error
+        console.log(`[VideoItem] Player already released for video ${item._id}`);
+      }
+    }
+
+    return () => {
+      // Cleanup khi unmount
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Không gọi player.pause() trong cleanup vì player có thể đã bị release
+      // expo-video sẽ tự động cleanup player khi component unmount
+    };
+  }, [isCurrent, player, item._id]);
 
   // Reset pause state khi video không còn current
   useEffect(() => {
@@ -293,7 +351,7 @@ export const VideoItem = ({
           <TouchableOpacity
             onPress={() => {
               router.push({
-                pathname: "/(tabs)/profile",
+                pathname: "/user/[userId]",
                 params: {
                   userId: item.user._id,
                   username: item.user.name,
@@ -312,7 +370,7 @@ export const VideoItem = ({
               <TouchableOpacity
                 onPress={() => {
                   router.push({
-                    pathname: "/(tabs)/profile",
+                    pathname: "/user/[userId]",
                     params: {
                       userId: item.user._id,
                       username: item.user.name,
@@ -418,8 +476,18 @@ export const VideoItem = ({
         </TouchableOpacity>
 
         {/* Save */}
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="bookmark-outline" size={30} color="#FFF" />
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onSave && onSave(item._id)}
+        >
+          <Ionicons
+            name={isSaved ? "bookmark" : "bookmark-outline"}
+            size={30}
+            color={isSaved ? "#FFD700" : "#FFF"}
+          />
+          {savesCount > 0 && (
+            <Text style={styles.actionText}>{formatNumber(savesCount)}</Text>
+          )}
         </TouchableOpacity>
 
         {/* Share */}

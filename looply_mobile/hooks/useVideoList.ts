@@ -20,6 +20,9 @@ export const useVideoList = ({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
+  
+  // Giới hạn số lượng video trong memory để tránh tràn RAM
+  const MAX_VIDEOS_IN_MEMORY = 50;
 
   // Check like status for a video
   const checkLikeStatus = async (video: VideoPost): Promise<VideoPost> => {
@@ -192,7 +195,17 @@ export const useVideoList = ({
                         setLoadedVideoIds(accumulatedLoadedIds);
 
                         const processedMoreVideos = await processVideos(newMoreVideos);
-                        setVideos((prev) => [...prev, ...processedMoreVideos]);
+                        setVideos((prev) => {
+                          const newList = [...prev, ...processedMoreVideos];
+                          // Giới hạn số lượng video trong memory
+                          if (newList.length > MAX_VIDEOS_IN_MEMORY) {
+                            const trimmed = newList.slice(-MAX_VIDEOS_IN_MEMORY);
+                            const trimmedIds = new Set(trimmed.map(v => v._id));
+                            setLoadedVideoIds(trimmedIds);
+                            return trimmed;
+                          }
+                          return newList;
+                        });
                         console.log(`[useVideoList] ✅ Auto-loaded batch ${i + 1}: ${processedMoreVideos.length} videos`);
                       } else {
                         console.log(`[useVideoList] ⚠️ Batch ${i + 1}: All videos are duplicates`);
@@ -229,16 +242,19 @@ export const useVideoList = ({
 
     setIsLoadingMore(true);
     try {
+      // Tăng limit để đảm bảo có đủ video mới sau khi filter
+      const fetchLimit = BATCH_SIZE * 3; // Fetch nhiều hơn để có đủ video mới
+      
       let url: string;
       let headers: HeadersInit = {
         "Content-Type": "application/json",
       };
 
       if (isAuthenticated && token) {
-        url = `${API_BASE_URL}/video-views/recommended?limit=${BATCH_SIZE}`;
+        url = `${API_BASE_URL}/video-views/recommended?limit=${fetchLimit}`;
         headers.Authorization = `Bearer ${token}`;
       } else {
-        url = `${API_BASE_URL}/videos/random?limit=${BATCH_SIZE}`;
+        url = `${API_BASE_URL}/videos/random?limit=${fetchLimit}`;
       }
 
       const response = await fetch(url, { headers });
@@ -251,21 +267,71 @@ export const useVideoList = ({
       const videoList = Array.isArray(data) ? data : (data.videos || data);
 
       if (Array.isArray(videoList) && videoList.length > 0) {
+        // Filter video chưa load
         const newVideos = videoList.filter(
           (video) => !loadedVideoIds.has(video._id)
         );
 
         if (newVideos.length > 0) {
+          // Chỉ lấy số lượng video cần thiết (BATCH_SIZE)
+          const videosToAdd = newVideos.slice(0, BATCH_SIZE);
+          
           const newVideoIds = new Set(loadedVideoIds);
-          newVideos.forEach((video) => newVideoIds.add(video._id));
+          videosToAdd.forEach((video) => newVideoIds.add(video._id));
           setLoadedVideoIds(newVideoIds);
 
-          const processedVideos = await processVideos(newVideos);
-          setVideos((prev) => [...prev, ...processedVideos]);
+          const processedVideos = await processVideos(videosToAdd);
+          setVideos((prev) => {
+            const newList = [...prev, ...processedVideos];
+            // Giới hạn số lượng video trong memory để tránh tràn RAM
+            if (newList.length > MAX_VIDEOS_IN_MEMORY) {
+              // Giữ lại MAX_VIDEOS_IN_MEMORY video gần nhất
+              const trimmed = newList.slice(-MAX_VIDEOS_IN_MEMORY);
+              // Cập nhật loadedVideoIds để match với trimmed list
+              const trimmedIds = new Set(trimmed.map(v => v._id));
+              setLoadedVideoIds(trimmedIds);
+              console.log(`[useVideoList] ⚠️ Trimmed videos list from ${newList.length} to ${trimmed.length} to save memory`);
+              return trimmed;
+            }
+            return newList;
+          });
           console.log(`[useVideoList] ✅ Loaded ${processedVideos.length} new videos. Total: ${videos.length + processedVideos.length}`);
           return true; // Có video mới
         } else {
           console.log(`[useVideoList] ⚠️ All videos from API are duplicates. Already loaded ${loadedVideoIds.size} videos.`);
+          // Nếu không có video mới, thử fetch từ random endpoint
+          if (isAuthenticated && token) {
+            console.log(`[useVideoList] 🔄 Trying random videos as fallback...`);
+            const randomResponse = await fetch(`${API_BASE_URL}/videos/random?limit=${fetchLimit}`, { headers });
+            if (randomResponse.ok) {
+              const randomData = await randomResponse.json();
+              const randomVideoList = Array.isArray(randomData) ? randomData : (randomData.videos || randomData);
+              const randomNewVideos = randomVideoList.filter(
+                (video) => !loadedVideoIds.has(video._id)
+              );
+              if (randomNewVideos.length > 0) {
+                const randomVideosToAdd = randomNewVideos.slice(0, BATCH_SIZE);
+                const randomNewVideoIds = new Set(loadedVideoIds);
+                randomVideosToAdd.forEach((video) => randomNewVideoIds.add(video._id));
+                setLoadedVideoIds(randomNewVideoIds);
+                const processedRandomVideos = await processVideos(randomVideosToAdd);
+                setVideos((prev) => {
+                  const newList = [...prev, ...processedRandomVideos];
+                  // Giới hạn số lượng video trong memory
+                  if (newList.length > MAX_VIDEOS_IN_MEMORY) {
+                    const trimmed = newList.slice(-MAX_VIDEOS_IN_MEMORY);
+                    const trimmedIds = new Set(trimmed.map(v => v._id));
+                    setLoadedVideoIds(trimmedIds);
+                    console.log(`[useVideoList] ⚠️ Trimmed videos list from ${newList.length} to ${trimmed.length} to save memory`);
+                    return trimmed;
+                  }
+                  return newList;
+                });
+                console.log(`[useVideoList] ✅ Loaded ${processedRandomVideos.length} random videos. Total: ${videos.length + processedRandomVideos.length}`);
+                return true;
+              }
+            }
+          }
           return false; // Không có video mới
         }
       } else {

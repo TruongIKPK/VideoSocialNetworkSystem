@@ -148,10 +148,72 @@ export const useVideoActions = ({
     }
   };
 
+  const handleSave = async (videoId: string) => {
+    if (!userId || !isAuthenticated || !token) {
+      return;
+    }
+
+    const currentVideo = videos.find((v) => v._id === videoId);
+    if (!currentVideo) return;
+
+    const isCurrentlySaved = currentVideo.savedBy?.includes(userId) || false;
+    const currentSaves = currentVideo.saves || currentVideo.savesCount || 0;
+
+    // Optimistic UI update
+    setVideos((prev) =>
+      prev.map((video) => {
+        if (video._id === videoId) {
+          return {
+            ...video,
+            saves: isCurrentlySaved ? currentSaves - 1 : currentSaves + 1,
+            savesCount: isCurrentlySaved ? currentSaves - 1 : currentSaves + 1,
+            savedBy: isCurrentlySaved
+              ? (video.savedBy || []).filter((id) => id !== userId)
+              : [...(video.savedBy || []), userId],
+          };
+        }
+        return video;
+      })
+    );
+
+    try {
+      const endpoint = isCurrentlySaved ? "unsave" : "save";
+      const response = await fetch(`${API_BASE_URL}/saves/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${endpoint} video`);
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      // Revert on error
+      setVideos((prev) =>
+        prev.map((video) => {
+          if (video._id === videoId) {
+            return {
+              ...video,
+              saves: currentSaves,
+              savesCount: currentSaves,
+              savedBy: currentVideo.savedBy || [],
+            };
+          }
+          return video;
+        })
+      );
+    }
+  };
+
   return {
     handleLike,
     handleComment,
     handleFollow,
+    handleSave,
   };
 };
 
