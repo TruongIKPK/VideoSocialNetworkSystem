@@ -370,14 +370,20 @@ export const getFollowing = async (req, res) => {
   }
 };
 
-// Get current user info
+// Get current user info (including role)
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
-    res.json(user);
+    
+    // Ensure role and status are included in response
+    res.json({
+      ...user.toObject(),
+      role: user.role || "user",
+      status: user.status || "active"
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
