@@ -2,6 +2,8 @@ import Video from "../models/Video.js";
 import User from "../models/User.js";
 import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
+import Save from "../models/Save.js";
+import Comment from "../models/Comment.js";
 import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
@@ -249,6 +251,177 @@ export const updateVideoStatus = async (req, res) => {
       video
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy danh sách video theo userId (người dùng đăng tải)
+export const getVideosByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId" });
+    }
+
+    // Tìm tất cả video do user này đăng tải, loại bỏ video vi phạm
+    const videos = await Video.find({
+      "user._id": userId,
+      status: { $ne: "violation" }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Lấy thống kê views, likes, comments cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: videosWithStats.length,
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get videos by userId error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy danh sách video người dùng đã thích
+export const getLikedVideosByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId" });
+    }
+
+    // Tìm tất cả like của user này cho video
+    const likes = await Like.find({
+      user: userId,
+      targetType: "video"
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const videoIds = likes.map(like => like.targetId);
+
+    if (videoIds.length === 0) {
+      return res.json({
+        total: 0,
+        videos: []
+      });
+    }
+
+    // Lấy thông tin video, loại bỏ video vi phạm
+    const videos = await Video.find({
+      _id: { $in: videoIds },
+      status: { $ne: "violation" }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Lấy thống kê views, likes, comments cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: videosWithStats.length,
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get liked videos by userId error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Lấy danh sách video người dùng đã save
+export const getSavedVideosByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId" });
+    }
+
+    // Tìm tất cả save của user này
+    const saves = await Save.find({
+      user: userId
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const videoIds = saves.map(save => save.videoId);
+
+    if (videoIds.length === 0) {
+      return res.json({
+        total: 0,
+        videos: []
+      });
+    }
+
+    // Lấy thông tin video, loại bỏ video vi phạm
+    const videos = await Video.find({
+      _id: { $in: videoIds },
+      status: { $ne: "violation" }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Lấy thống kê views, likes, comments cho từng video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: videosWithStats.length,
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get saved videos by userId error:", error);
     res.status(500).json({ message: error.message });
   }
 };

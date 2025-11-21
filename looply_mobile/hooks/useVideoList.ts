@@ -67,8 +67,8 @@ export const useVideoList = ({
     let isFollowing = false;
     if (video.user && video.user._id && video.user._id !== userId && isAuthenticated && token && userId) {
       try {
-        const userResponse = await fetch(
-          `${API_BASE_URL}/users/${userId}`,
+        const checkFollowResponse = await fetch(
+          `${API_BASE_URL}/users/check-follow?userId=${encodeURIComponent(video.user._id)}`,
           {
             method: "GET",
             headers: {
@@ -78,13 +78,9 @@ export const useVideoList = ({
           }
         );
 
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          if (userData.followingList && Array.isArray(userData.followingList)) {
-            isFollowing = userData.followingList.some(
-              (id: string) => String(id) === String(video.user._id)
-            );
-          }
+        if (checkFollowResponse.ok) {
+          const checkFollowData = await checkFollowResponse.json();
+          isFollowing = checkFollowData.isFollowing || checkFollowData.followed || false;
         }
       } catch (error) {
         console.error(`Error checking follow status for user ${video.user._id}:`, error);

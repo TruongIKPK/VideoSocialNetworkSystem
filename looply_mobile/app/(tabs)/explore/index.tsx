@@ -128,9 +128,12 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Khám phá</Text>
-        <TouchableOpacity>
-          <Ionicons name="search-outline" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
+      <TouchableOpacity 
+        onPress={() => router.push("/search")}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search" size={24} color="#000" />
+      </TouchableOpacity>
       </View>
 
       {/* Categories */}
