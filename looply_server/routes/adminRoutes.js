@@ -23,6 +23,11 @@ router.get("/dashboard/stats", getDashboardStats);
 router.get("/dashboard/recent-videos", getRecentVideos);
 router.get("/dashboard/recent-reports", getRecentReports);
 
+// Debug: Test route
+router.get("/test", (req, res) => {
+  res.json({ message: "Admin routes are working" });
+});
+
 // User Management
 router.get("/users", getAllUsers);
 router.put("/users/:userId/status", updateUserStatus);
