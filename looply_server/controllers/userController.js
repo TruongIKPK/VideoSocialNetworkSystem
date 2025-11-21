@@ -160,34 +160,99 @@ export const followUser = async (req, res) => {
       return res.status(400).json({ message: "Không thể follow chính mình" });
     }
 
+    // Fetch user hiện tại từ DB để có followingList đầy đủ
+    const currentUser = await User.findById(currentUserId).select("followingList following");
+    if (!currentUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng hiện tại" });
+    }
+
     // Kiểm tra user được follow tồn tại
     const userToFollow = await User.findById(id);
     if (!userToFollow) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
 
-    // Kiểm tra đã follow chưa
-    if (req.user.followingList.includes(id)) {
-      return res.status(400).json({ message: "Đã follow người dùng này rồi" });
+    // Kiểm tra đã follow chưa - convert id sang string để so sánh chính xác
+    const idString = id.toString();
+    const currentUserIdString = currentUserId.toString();
+    
+    // Kiểm tra trong followingList của currentUser
+    const isAlreadyFollowing = currentUser.followingList && currentUser.followingList.length > 0
+      ? currentUser.followingList.some(
+          (followedId) => {
+            const followedIdString = followedId ? (followedId.toString ? followedId.toString() : String(followedId)) : '';
+            return followedIdString === idString;
+          }
+        )
+      : false;
+
+    if (isAlreadyFollowing) {
+      return res.status(400).json({ 
+        message: "Bạn đã follow người dùng này rồi. Vui lòng sử dụng chức năng unfollow để hủy follow.",
+        code: "ALREADY_FOLLOWING"
+      });
+    }
+
+    // Kiểm tra lại một lần nữa sau khi fetch để đảm bảo không có race condition
+    const doubleCheckUser = await User.findById(currentUserId).select("followingList");
+    const doubleCheckFollowing = doubleCheckUser.followingList && doubleCheckUser.followingList.length > 0
+      ? doubleCheckUser.followingList.some(
+          (followedId) => {
+            const followedIdString = followedId ? (followedId.toString ? followedId.toString() : String(followedId)) : '';
+            return followedIdString === idString;
+          }
+        )
+      : false;
+
+    if (doubleCheckFollowing) {
+      return res.status(400).json({ 
+        message: "Bạn đã follow người dùng này rồi. Vui lòng sử dụng chức năng unfollow để hủy follow.",
+        code: "ALREADY_FOLLOWING"
+      });
     }
 
     // Thêm vào followingList của user hiện tại và tăng following count
-    await User.findByIdAndUpdate(currentUserId, {
-      $push: { followingList: id },
-      $inc: { following: 1 }
-    });
+    // Sử dụng $addToSet để đảm bảo không có duplicate
+    const updateCurrentUser = await User.findByIdAndUpdate(
+      currentUserId,
+      {
+        $addToSet: { followingList: id }, // $addToSet tự động kiểm tra duplicate
+        $inc: { following: 1 }
+      },
+      { new: true }
+    );
+
+    // Kiểm tra xem có thực sự thêm được không (nếu đã có thì $addToSet sẽ không thêm)
+    const wasAdded = updateCurrentUser.followingList.some(
+      (followedId) => {
+        const followedIdString = followedId ? (followedId.toString ? followedId.toString() : String(followedId)) : '';
+        return followedIdString === idString;
+      }
+    );
+
+    if (!wasAdded) {
+      // Nếu không thêm được (có thể do duplicate), rollback
+      await User.findByIdAndUpdate(currentUserId, {
+        $inc: { following: -1 }
+      });
+      return res.status(400).json({ 
+        message: "Bạn đã follow người dùng này rồi. Vui lòng sử dụng chức năng unfollow để hủy follow.",
+        code: "ALREADY_FOLLOWING"
+      });
+    }
 
     // Thêm vào followersList của user được follow và tăng followers count
     await User.findByIdAndUpdate(id, {
-      $push: { followersList: currentUserId },
+      $addToSet: { followersList: currentUserId }, // $addToSet để tránh duplicate
       $inc: { followers: 1 }
     });
 
     res.json({ 
       message: "Follow thành công",
-      following: req.user.following + 1
+      following: (currentUser.following || 0) + 1
     });
   } catch (error) {
+    console.error("Follow user error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -203,16 +268,41 @@ export const unfollowUser = async (req, res) => {
       return res.status(400).json({ message: "Không thể unfollow chính mình" });
     }
 
-    // Kiểm tra đã follow chưa
-    if (!req.user.followingList.includes(id)) {
-      return res.status(400).json({ message: "Chưa follow người dùng này" });
+    // Fetch user hiện tại từ DB để có followingList đầy đủ
+    const currentUser = await User.findById(currentUserId).select("followingList following");
+    if (!currentUser) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng hiện tại" });
+    }
+
+    // Kiểm tra đã follow chưa - convert id sang string để so sánh chính xác
+    const idString = id.toString();
+    
+    // Kiểm tra trong followingList của currentUser
+    const isFollowing = currentUser.followingList && currentUser.followingList.length > 0
+      ? currentUser.followingList.some(
+          (followedId) => {
+            const followedIdString = followedId ? (followedId.toString ? followedId.toString() : String(followedId)) : '';
+            return followedIdString === idString;
+          }
+        )
+      : false;
+
+    if (!isFollowing) {
+      return res.status(400).json({ 
+        message: "Bạn chưa follow người dùng này. Vui lòng follow trước khi unfollow.",
+        code: "NOT_FOLLOWING"
+      });
     }
 
     // Xóa khỏi followingList của user hiện tại và giảm following count
-    await User.findByIdAndUpdate(currentUserId, {
-      $pull: { followingList: id },
-      $inc: { following: -1 }
-    });
+    const updateResult = await User.findByIdAndUpdate(
+      currentUserId,
+      {
+        $pull: { followingList: id },
+        $inc: { following: -1 }
+      },
+      { new: true }
+    );
 
     // Xóa khỏi followersList của user được unfollow và giảm followers count
     await User.findByIdAndUpdate(id, {
@@ -222,9 +312,10 @@ export const unfollowUser = async (req, res) => {
 
     res.json({ 
       message: "Unfollow thành công",
-      following: req.user.following - 1
+      following: Math.max(0, (currentUser.following || 0) - 1)
     });
   } catch (error) {
+    console.error("Unfollow user error:", error);
     res.status(500).json({ message: error.message });
   }
 };
