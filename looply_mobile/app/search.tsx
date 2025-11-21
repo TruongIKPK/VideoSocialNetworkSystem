@@ -19,6 +19,7 @@ import searchService, {
   HashtagSearchResult,
 } from "@/service/searchService";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   getAvatarUri,
   getThumbnailUri,
@@ -34,6 +35,7 @@ type TabType = "video" | "user" | "hashtag";
 export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { userId: currentUserId } = useCurrentUser();
   
   // Nhận params từ navigation (nếu có)
   const initialQuery = (params.query as string) || "";
@@ -84,7 +86,11 @@ export default function SearchScreen() {
         case "video": {
           const videoResponse = await searchService.searchVideos(query);
           if (videoResponse.success) {
-            setVideos(videoResponse.data);
+            // Filter để loại bỏ video của user hiện tại khỏi kết quả
+            const filteredVideos = currentUserId 
+              ? videoResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+              : videoResponse.data;
+            setVideos(filteredVideos);
           } else {
             logger.warn(`[Search] Video search failed:`, videoResponse.message);
             setVideos([]);
@@ -94,7 +100,11 @@ export default function SearchScreen() {
         case "user": {
           const userResponse = await searchService.searchUsers(query);
           if (userResponse.success) {
-            setUsers(userResponse.data);
+            // Filter để loại bỏ user hiện tại khỏi kết quả
+            const filteredUsers = currentUserId 
+              ? userResponse.data.filter(user => String(user._id) !== String(currentUserId))
+              : userResponse.data;
+            setUsers(filteredUsers);
           } else {
             logger.warn(`[Search] User search failed:`, userResponse.message);
             setUsers([]);
@@ -127,7 +137,11 @@ export default function SearchScreen() {
           // Also search videos by hashtag
           const videoByHashtagResponse = await searchService.searchVideosByHashtags(query);
           if (videoByHashtagResponse.success) {
-            setVideos(videoByHashtagResponse.data);
+            // Filter để loại bỏ video của user hiện tại khỏi kết quả
+            const filteredVideos = currentUserId 
+              ? videoByHashtagResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+              : videoByHashtagResponse.data;
+            setVideos(filteredVideos);
           } else {
             logger.warn(`[Search] Video search by hashtag failed:`, videoByHashtagResponse.message);
             setVideos([]);
@@ -145,7 +159,7 @@ export default function SearchScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, setVideos, setUsers, setHashtags, setIsLoading]);
+  }, [activeTab, setVideos, setUsers, setHashtags, setIsLoading, currentUserId]);
 
   // Xử lý params khi component mount hoặc params thay đổi
   useEffect(() => {
@@ -344,7 +358,11 @@ export default function SearchScreen() {
     try {
       const videoResponse = await searchService.searchVideosByHashtags(hashtagQuery);
       if (videoResponse.success) {
-        setVideos(videoResponse.data);
+        // Filter để loại bỏ video của user hiện tại khỏi kết quả
+        const filteredVideos = currentUserId 
+          ? videoResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+          : videoResponse.data;
+        setVideos(filteredVideos);
       } else {
         setVideos([]);
       }
