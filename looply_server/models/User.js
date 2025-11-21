@@ -7,10 +7,24 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   bio: { type: String, default: "" },
   avatar: { type: String, default: "/no_avatar.png" },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+  status: { type: String, enum: ["active", "locked"], default: "active" },
   followers: { type: Number, default: 0 },
-  followersList: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  followersList: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User",
+    // Không dùng unique: true vì nó sẽ áp dụng cho toàn bộ array, không phải từng phần tử
+  }],
   following: { type: Number, default: 0 },
-  followingList: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  followingList: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User",
+    // Không dùng unique: true vì nó sẽ áp dụng cho toàn bộ array, không phải từng phần tử
+  }],
 }, { timestamps: true });
+
+// Thêm index để đảm bảo performance khi query
+userSchema.index({ followingList: 1 });
+userSchema.index({ followersList: 1 });
 
 export default mongoose.model("User", userSchema);

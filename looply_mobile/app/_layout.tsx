@@ -56,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="user/[userId]" options={{ headerShown: false }} />
 
           {/* Tabs có header riêng */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

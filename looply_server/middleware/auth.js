@@ -17,10 +17,34 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token" });
     }
 
-    req.user = user; // Attach user to request
+    // Ensure role and status are included, và đảm bảo followingList/followersList là arrays
+    req.user = {
+      ...user.toObject(),
+      role: user.role || "user",
+      status: user.status || "active",
+      followingList: user.followingList || [],
+      followersList: user.followersList || [],
+    };
     next();
   } catch (error) {
     return res.status(403).json({ message: "Invalid or expired token" });
+  }
+};
+
+// Middleware check admin role
+export const requireAdmin = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied. Admin role required" });
+    }
+    
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
 

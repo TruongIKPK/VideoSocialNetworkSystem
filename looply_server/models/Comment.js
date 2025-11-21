@@ -7,6 +7,7 @@ const commentSchema = new mongoose.Schema({
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: "Comment", default: null }, // Thêm dòng này
   likesCount: { type: Number, default: 0 },
   likedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  status: { type: String, enum: ["active", "violation"], default: "active" },
 }, { timestamps: true });
 
 export default mongoose.model("Comment", commentSchema);

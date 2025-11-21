@@ -2,10 +2,11 @@ import Video from "../models/Video.js";
 import User from "../models/User.js";
 import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
-import cloudinary from "../config/cloudinary.js";
+import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
   try {
+    configureCloudinary();
     const { title, description, userId } = req.body;
     const file = req.file;
 
@@ -39,7 +40,7 @@ export const uploadVideo = async (req, res) => {
 
 export const getAllVideos = async (req, res) => {
   try {
-    const videos = await Video.find().sort({ createdAt: -1 });
+    const videos = await Video.find({ status: { $ne: "violation" } }).sort({ createdAt: -1 });
     res.json(videos);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -50,6 +51,9 @@ export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: "Không tìm thấy video" });
+    if (video.status === "violation") {
+      return res.status(403).json({ message: "Video này đã bị vi phạm" });
+    }
     res.json(video);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -73,12 +77,13 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
-    // Tìm kiếm trong cả title và description
+    // Tìm kiếm trong cả title và description, loại bỏ video vi phạm
     const videos = await Video.find({
       $or: [
         { title: { $regex: q, $options: 'i' } },
         { description: { $regex: q, $options: 'i' } }
-      ]
+      ],
+      status: { $ne: "violation" }
     }).sort({ createdAt: -1 });
 
     // Lấy thông tin views và likes cho từng video
@@ -118,8 +123,9 @@ export const getRandomVideos = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 3;
     
-    // Lấy video ngẫu nhiên
+    // Lấy video ngẫu nhiên, loại bỏ video vi phạm
     const videos = await Video.aggregate([
+      { $match: { status: { $ne: "violation" } } },
       { $sample: { size: limit } }
     ]);
     
@@ -134,7 +140,7 @@ export const getRandomVideos = async (req, res) => {
 
 export const getLatestVideos = async (req, res) => {
   try {
-    const videos = await Video.find()
+    const videos = await Video.find({ status: { $ne: "violation" } })
       .sort({ createdAt: -1 })
       .limit(3);
     
@@ -183,7 +189,8 @@ export const searchVideosByHashtags = async (req, res) => {
       const regexPattern = new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i');
       
       videos = await Video.find({
-        description: { $regex: regexPattern }
+        description: { $regex: regexPattern },
+        status: { $ne: "violation" }
       }).sort({ createdAt: -1 });
     } else {
       // Nếu có nhiều hashtags, tìm video chứa TẤT CẢ các hashtags
@@ -194,7 +201,10 @@ export const searchVideosByHashtags = async (req, res) => {
       });
       
       videos = await Video.find({
-        $and: regexConditions
+        $and: [
+          ...regexConditions,
+          { status: { $ne: "violation" } }
+        ]
       }).sort({ createdAt: -1 });
     }
 
@@ -202,6 +212,35 @@ export const searchVideosByHashtags = async (req, res) => {
       total: videos.length,
       hashtags: searchTags,
       videos: videos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update video status (admin only)
+export const updateVideoStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !["active", "violation"].includes(status)) {
+      return res.status(400).json({ message: "Status phải là 'active' hoặc 'violation'" });
+    }
+
+    const video = await Video.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!video) {
+      return res.status(404).json({ message: "Không tìm thấy video" });
+    }
+
+    res.json({
+      message: "Cập nhật trạng thái video thành công",
+      video
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
