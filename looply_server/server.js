@@ -85,6 +85,7 @@ app.use(cors({
   origin: [
     "http://localhost:3000",
     "http://localhost:19006",
+    "https://looply-nine.vercel.app/",
   ], // Add your frontend URLs
   credentials: true,
 }));
