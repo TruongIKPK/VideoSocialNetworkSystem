@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUser } from "@/contexts/UserContext";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
@@ -35,11 +36,13 @@ export default function AdminVideoDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useCurrentUser();
+  const { token } = useUser();
   
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [violationDetails, setViolationDetails] = useState<string>("");
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get video data from params or use defaults
   const videoId = (Array.isArray(params.videoId) ? params.videoId[0] : params.videoId) || "1";
@@ -81,26 +84,65 @@ export default function AdminVideoDetailScreen() {
       return;
     }
 
+    if (!token) {
+      Alert.alert("Lỗi", "Không có token xác thực");
+      return;
+    }
+
     try {
-      // TODO: Implement API call to report violation
-      console.log("Reporting violation:", {
-        videoId,
-        reason: selectedReason,
-        details: violationDetails,
+      setIsSubmitting(true);
+
+      // 1. Tạo report
+      const reportReason = `${selectedReason}\n\nChi tiết: ${violationDetails}`;
+      const reportResponse = await fetch(`${API_BASE_URL}/reports`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reportedType: "video",
+          reportedId: videoId,
+          reason: reportReason,
+        }),
       });
 
-      Alert.alert("Thành công", "Đã báo cáo vi phạm thành công", [
+      if (!reportResponse.ok) {
+        const errorData = await reportResponse.json();
+        throw new Error(errorData.message || "Không thể tạo báo cáo");
+      }
+
+      // 2. Cập nhật video status thành "violation"
+      const statusResponse = await fetch(`${API_BASE_URL}/admin/videos/${videoId}/status`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "violation",
+        }),
+      });
+
+      if (!statusResponse.ok) {
+        const errorData = await statusResponse.json();
+        throw new Error(errorData.message || "Không thể cập nhật trạng thái video");
+      }
+
+      Alert.alert("Thành công", "Đã báo cáo vi phạm và cập nhật trạng thái video thành công", [
         {
           text: "OK",
-            onPress: () => {
-              handleCloseModal();
-              router.replace("/(admin)/videos");
-            },
+          onPress: () => {
+            handleCloseModal();
+            router.replace("/(admin)/videos");
+          },
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reporting violation:", error);
-      Alert.alert("Lỗi", "Không thể báo cáo vi phạm. Vui lòng thử lại.");
+      Alert.alert("Lỗi", error.message || "Không thể báo cáo vi phạm. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -245,11 +287,14 @@ export default function AdminVideoDetailScreen() {
             {/* Confirm Button */}
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.confirmButton}
+                style={[styles.confirmButton, isSubmitting && styles.confirmButtonDisabled]}
                 onPress={handleConfirmViolation}
                 activeOpacity={0.7}
+                disabled={isSubmitting}
               >
-                <Text style={styles.confirmButtonText}>Xác nhận</Text>
+                <Text style={styles.confirmButtonText}>
+                  {isSubmitting ? "Đang xử lý..." : "Xác nhận"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -526,6 +571,9 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.white,
     fontFamily: Typography.fontFamily.medium,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.6,
   },
 });
 
