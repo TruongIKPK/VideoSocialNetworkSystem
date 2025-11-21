@@ -204,20 +204,6 @@ export default function AdminSettingsScreen() {
           <Text style={styles.headerTitle}>Cài đặt</Text>
         </View>
 
-        {/* User Info */}
-        {user && (
-          <Card style={styles.userCard}>
-            <View style={styles.userInfo}>
-              <Ionicons name="person-circle" size={48} color={Colors.primary} />
-              <View style={styles.userText}>
-                <Text style={styles.userName}>{user.name || user.username || "Admin"}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-                <Text style={styles.userRole}>Bảng quản trị | Mobile</Text>
-              </View>
-            </View>
-          </Card>
-        )}
-
         {/* Account Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tài khoản</Text>
@@ -286,36 +272,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
-  },
-  userCard: {
-    margin: Spacing.md,
-    marginBottom: 0,
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  userText: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.semibold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  userEmail: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  userRole: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.primary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.medium,
   },
   section: {
     marginTop: Spacing.lg,
