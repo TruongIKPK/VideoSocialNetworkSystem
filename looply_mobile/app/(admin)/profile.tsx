@@ -174,6 +174,22 @@ export default function AdminProfileScreen() {
           </View>
         </View>
 
+        {/* Ad Management Card */}
+        <TouchableOpacity 
+          style={styles.card}
+          onPress={() => router.push("/(admin)/ads")}
+          activeOpacity={0.7}
+        >
+          <View style={styles.adCardContent}>
+            <Ionicons name="megaphone" size={24} color={Colors.primary} />
+            <View style={styles.adCardText}>
+              <Text style={styles.cardTitle}>Quản lý quảng cáo</Text>
+              <Text style={styles.cardSubtitle}>Tạo và quản lý quảng cáo</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
+          </View>
+        </TouchableOpacity>
+
         {/* Recent Videos */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
@@ -424,6 +440,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
+  },
+  adCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  adCardText: {
+    flex: 1,
   },
 });
 

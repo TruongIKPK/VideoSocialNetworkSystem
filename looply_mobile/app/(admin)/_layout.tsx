@@ -75,6 +75,18 @@ export default function AdminTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="ads"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="video-detail"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
     </Tabs>
   );
 }
