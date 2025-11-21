@@ -213,14 +213,40 @@ export default function CommentsModal() {
 
     return (
       <View style={styles.commentItem}>
-        <Image
-          source={getAvatarUri(commentUser.avatar)}
-          style={styles.commentAvatar}
-          contentFit="cover"
-        />
+        <TouchableOpacity
+          onPress={() => {
+            router.push({
+              pathname: "/(tabs)/profile",
+              params: {
+                userId: commentUser._id,
+                username: commentUser.name,
+              },
+            });
+          }}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={getAvatarUri(commentUser.avatar)}
+            style={styles.commentAvatar}
+            contentFit="cover"
+          />
+        </TouchableOpacity>
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
-            <Text style={styles.commentUserName}>{commentUser.name}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: "/(tabs)/profile",
+                  params: {
+                    userId: commentUser._id,
+                    username: commentUser.name,
+                  },
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.commentUserName}>{commentUser.name}</Text>
+            </TouchableOpacity>
             <Text style={styles.commentTime}>
               {formatCommentTime(item.createdAt)}
             </Text>

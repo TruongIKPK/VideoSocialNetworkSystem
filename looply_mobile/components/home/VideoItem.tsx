@@ -22,6 +22,7 @@ import { useReport } from "@/hooks/useReport";
 import { ReportModal } from "@/components/report/ReportModal";
 import { useUser } from "@/contexts/UserContext";
 import { useCustomAlert } from "@/hooks/useCustomAlert";
+import { useRouter } from "expo-router";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -81,6 +82,7 @@ export const VideoItem = ({
   const { token } = useUser();
   const { createReport, isSubmitting } = useReport({ token });
   const { showAlert, AlertComponent } = useCustomAlert();
+  const router = useRouter();
 
   // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
   const isDescriptionLong = item.description && item.description.length > 100;
@@ -288,15 +290,41 @@ export const VideoItem = ({
       {/* User Info */}
       <View style={styles.userInfo}>
         <View style={styles.userInfoLeft}>
-          <Image
-            source={getAvatarUri(item.user.avatar)}
-            style={styles.avatar}
-          />
+          <TouchableOpacity
+            onPress={() => {
+              router.push({
+                pathname: "/(tabs)/profile",
+                params: {
+                  userId: item.user._id,
+                  username: item.user.name,
+                },
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <Image
+              source={getAvatarUri(item.user.avatar)}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
           <View style={styles.userText}>
             <View style={styles.userHeader}>
-              <Text style={styles.username} numberOfLines={1}>
-                {item.user.name}
-              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  router.push({
+                    pathname: "/(tabs)/profile",
+                    params: {
+                      userId: item.user._id,
+                      username: item.user.name,
+                    },
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.username} numberOfLines={1}>
+                  {item.user.name}
+                </Text>
+              </TouchableOpacity>
               {viewsCount > 0 && (
                 <View style={styles.videoStats}>
                   <Ionicons name="eye-outline" size={12} color="#FFF" />
