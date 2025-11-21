@@ -121,39 +121,85 @@ export default function AdminDashboardScreen() {
         });
       }
 
-      // Fetch recent videos (limit to 3 for display)
-      const videosResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`, {
+      // Fetch recent videos - mặc định hiển thị 3 video mới nhất
+      // Thử route admin trước, nếu fail thì dùng route videos/latest làm fallback
+      let videosResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      // Fallback: Nếu admin route không hoạt động (404), dùng route videos/latest
+      if (videosResponse.status === 404) {
+        console.warn("⚠️ Admin route not found, using fallback: /api/videos/latest");
+        videosResponse = await fetch(`${API_BASE_URL}/videos/latest`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
       
       if (videosResponse.ok) {
         const videosData = await videosResponse.json();
-        console.log("Recent videos:", videosData);
-        setRecentVideos(videosData.videos || []);
+        console.log("✅ Recent videos response:", videosData);
+        let videosList = videosData.videos || videosData || [];
+        
+        // Nếu dùng fallback route, limit 3 videos
+        if (Array.isArray(videosList) && videosList.length > 3) {
+          videosList = videosList.slice(0, 3);
+        }
+        
+        console.log("✅ Recent videos list:", videosList);
+        console.log("✅ Recent videos count:", videosList.length);
+        setRecentVideos(Array.isArray(videosList) ? videosList : []);
       } else {
-        console.error("Failed to fetch videos:", videosResponse.status);
+        const errorText = await videosResponse.text();
+        console.error("❌ Failed to fetch videos:", videosResponse.status);
+        console.error("❌ Error details:", errorText);
         // Keep empty array, will show "Chưa có video nào"
+        setRecentVideos([]);
       }
 
-      // Fetch recent reports
-      const reportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3`, {
+      // Fetch recent video reports only - mặc định hiển thị 3 video reports mới nhất
+      // Thử route admin trước, nếu fail thì dùng route reports làm fallback
+      let reportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       
+      // Fallback: Nếu admin route không hoạt động (404), dùng route reports
+      if (reportsResponse.status === 404) {
+        console.warn("⚠️ Admin route not found, using fallback: /api/reports");
+        reportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+      
       if (reportsResponse.ok) {
         const reportsData = await reportsResponse.json();
-        console.log("Recent reports response:", reportsData);
-        const reportsList = reportsData.reports || reportsData || [];
-        console.log("Recent reports list:", reportsList);
-        console.log("Recent reports count:", reportsList.length);
+        console.log("✅ Recent reports response:", reportsData);
+        let reportsList = reportsData.reports || reportsData || [];
+        
+        // Nếu dùng fallback route, filter video reports và limit 3
+        if (Array.isArray(reportsList)) {
+          reportsList = reportsList
+            .filter((report: RecentReport) => report.reportedType === "video")
+            .slice(0, 3);
+        }
+        
+        console.log("✅ Recent video reports list:", reportsList);
+        console.log("✅ Recent video reports count:", reportsList.length);
+        
+        // Sẽ hiển thị tối đa 3 video reports mới nhất trong Dashboard
         setRecentReports(Array.isArray(reportsList) ? reportsList : []);
       } else {
         const errorText = await reportsResponse.text();
-        console.error("Failed to fetch reports:", reportsResponse.status, errorText);
+        console.error("❌ Failed to fetch reports:", reportsResponse.status);
+        console.error("❌ Error details:", errorText);
+        
         // Keep empty array, will show "Chưa có báo cáo nào"
         setRecentReports([]);
       }
@@ -342,17 +388,31 @@ export default function AdminDashboardScreen() {
             )}
           </View>
 
-          {/* New Reports */}
+          {/* Video Reports - Hiển thị tối đa 3 video reports mới nhất */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Báo cáo mới</Text>
-              <TouchableOpacity onPress={() => router.push("/(admin)/reports")}>
+              <Text style={styles.sectionTitle}>Báo cáo video</Text>
+              <TouchableOpacity 
+                onPress={() => router.push("/(admin)/reports")}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.viewAllLink}>Xem tất cả</Text>
               </TouchableOpacity>
             </View>
             {recentReports.length > 0 ? (
-              recentReports.slice(0, 3).map((report) => (
-                <View key={report._id} style={styles.reportItem}>
+              // Hiển thị tối đa 3 video reports mới nhất (đã được limit ở API)
+              recentReports.map((report) => (
+                <TouchableOpacity
+                  key={report._id}
+                  style={styles.reportItem}
+                  onPress={() => router.push({
+                    pathname: "/(admin)/reports/report-detail",
+                    params: {
+                      reportId: report._id,
+                    },
+                  })}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.reportThumbnail}>
                     <Ionicons 
                       name="flag" 
@@ -368,26 +428,40 @@ export default function AdminDashboardScreen() {
                     <Text style={styles.reportId}>
                       {`Báo cáo ${formatReportId(report._id)}`}
                     </Text>
-                    <Text style={styles.reportMeta}>
+                    <Text style={styles.reportMeta} numberOfLines={2}>
                       {formatReportMeta(report)}
                     </Text>
+                    <View style={styles.reportStatusBadge}>
+                      <Text style={[
+                        styles.reportStatusText,
+                        { color: 
+                          report.status === "resolved" ? "#10B981" :
+                          report.status === "rejected" ? "#EF4444" :
+                          "#F59E0B"
+                        }
+                      ]}>
+                        {report.status === "resolved" ? "Đã xử lý" :
+                         report.status === "rejected" ? "Đã từ chối" :
+                         "Đang chờ"}
+                      </Text>
+                    </View>
                   </View>
-                  <TouchableOpacity 
-                    style={styles.viewButton}
-                    onPress={() => router.push({
-                      pathname: "/(admin)/reports/report-detail",
-                      params: {
-                        reportId: report._id,
-                      },
-                    })}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.viewButtonText}>Xem</Text>
-                  </TouchableOpacity>
-                </View>
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={20} 
+                    color={Colors.text.secondary} 
+                    style={{ marginLeft: Spacing.xs }}
+                  />
+                </TouchableOpacity>
               ))
             ) : (
-              <Text style={styles.emptyText}>Chưa có báo cáo nào</Text>
+              <View style={styles.emptyReportContainer}>
+                <Ionicons name="videocam-outline" size={48} color={Colors.gray[400]} />
+                <Text style={styles.emptyText}>Chưa có báo cáo video nào</Text>
+                <Text style={styles.emptySubtext}>
+                  Các báo cáo video mới sẽ hiển thị ở đây
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -603,6 +677,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: Spacing.md,
     gap: Spacing.sm,
+    padding: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   reportThumbnail: {
     width: 60,
@@ -621,12 +700,37 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   reportMeta: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
+    marginBottom: 4,
+  },
+  reportStatusBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.gray[100],
+  },
+  reportStatusText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  emptyReportContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl,
+  },
+  emptySubtext: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: Spacing.xs,
+    textAlign: "center",
   },
   emptyText: {
     fontSize: Typography.fontSize.sm,
