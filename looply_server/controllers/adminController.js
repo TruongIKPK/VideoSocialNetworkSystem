@@ -298,10 +298,12 @@ export const getRecentReports = async (req, res) => {
       .populate("reporterId", "name username avatar")
       .populate("resolvedBy", "name username")
       .sort({ createdAt: -1 })
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     res.json({ reports });
   } catch (error) {
+    console.error("Error fetching recent reports:", error);
     res.status(500).json({ message: error.message });
   }
 };
