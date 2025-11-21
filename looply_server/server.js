@@ -112,6 +112,14 @@ app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
 console.log("✅ Admin routes registered at /api/admin");
+console.log("   Available routes:");
+console.log("   - GET  /api/admin/test");
+console.log("   - GET  /api/admin/dashboard/stats");
+console.log("   - GET  /api/admin/dashboard/recent-videos");
+console.log("   - GET  /api/admin/dashboard/recent-reports");
+console.log("   - GET  /api/admin/users");
+console.log("   - GET  /api/admin/videos");
+console.log("   - GET  /api/admin/comments");
 app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
@@ -130,9 +138,6 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
 
 // Store connected users: userId -> socketId
 const connectedUsers = {};
@@ -335,6 +340,10 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(5000, () => {
-  console.log("Server listening on port 5000");
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log(`✅ Admin routes available at http://localhost:${PORT}/api/admin`);
+  console.log(`   Test route: GET http://localhost:${PORT}/api/admin/ping (no auth required)`);
+  console.log(`   Dashboard: GET http://localhost:${PORT}/api/admin/dashboard/stats`);
+  console.log(`   Videos: GET http://localhost:${PORT}/api/admin/videos`);
 });
