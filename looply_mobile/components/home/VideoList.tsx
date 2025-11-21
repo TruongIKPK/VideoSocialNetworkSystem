@@ -18,8 +18,10 @@ interface VideoListProps {
   onMomentumScrollEnd: (event: any) => void;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  onVideoStart?: (videoId: string) => void;
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
+  onSave?: (videoId: string) => void;
   currentUserId: string | null;
   isScreenFocused: boolean;
   isLoadingMore: boolean;
@@ -37,8 +39,10 @@ export const VideoList = ({
   onMomentumScrollEnd,
   onLike,
   onVideoProgress,
+  onVideoStart,
   onComment,
   onFollow,
+  onSave,
   currentUserId,
   isScreenFocused,
   isLoadingMore,
@@ -57,8 +61,10 @@ export const VideoList = ({
         isCurrent={index === currentIndex}
         onLike={onLike}
         onVideoProgress={onVideoProgress}
+        onVideoStart={onVideoStart}
         onComment={onComment}
         onFollow={onFollow}
+        onSave={onSave}
         currentUserId={currentUserId}
         isScreenFocused={isScreenFocused}
       />
@@ -89,8 +95,10 @@ export const VideoList = ({
       snapToAlignment="start"
       decelerationRate="fast"
       removeClippedSubviews={true}
-      maxToRenderPerBatch={3}
-      windowSize={5}
+      maxToRenderPerBatch={2}
+      windowSize={3}
+      initialNumToRender={2}
+      updateCellsBatchingPeriod={50}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={viewabilityConfig}
       onScrollBeginDrag={onScrollBeginDrag}

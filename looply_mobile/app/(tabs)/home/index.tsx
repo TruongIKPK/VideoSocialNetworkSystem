@@ -45,8 +45,8 @@ export default function HomeScreen() {
     userId,
   });
 
-  // Video actions (like, comment, follow)
-  const { handleLike, handleComment, handleFollow } = useVideoActions({
+  // Video actions (like, comment, follow, save)
+  const { handleLike, handleComment, handleFollow, handleSave } = useVideoActions({
     videos,
     setVideos,
     userId,
@@ -55,7 +55,7 @@ export default function HomeScreen() {
   });
 
   // Video view tracking
-  const { handleVideoProgress } = useVideoView({
+  const { handleVideoProgress, recordVideoStart } = useVideoView({
     isAuthenticated,
     token,
   });
@@ -110,8 +110,15 @@ export default function HomeScreen() {
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);
 
-  // Reset tracking khi có video mới được load
+  // Reset tracking khi có video mới được load hoặc videos list bị trim
   useEffect(() => {
+    // Đảm bảo currentIndex luôn trong bounds khi videos list thay đổi
+    if (videos.length > 0 && currentIndex >= videos.length) {
+      const validIndex = Math.max(0, videos.length - 1);
+      setCurrentIndex(validIndex);
+      console.log(`[Home] ⚠️ Adjusted currentIndex from ${currentIndex} to ${validIndex} (videos.length: ${videos.length})`);
+    }
+    
     if (videos.length > lastVideosLengthRef.current) {
       // Có video mới được thêm vào
       // Reset lastFetchedIndex để cho phép fetch tiếp theo khi cần
@@ -120,33 +127,47 @@ export default function HomeScreen() {
         lastFetchedIndexRef.current = Math.max(-1, currentIndex - 1);
       }
       lastVideosLengthRef.current = videos.length;
+    } else if (videos.length < lastVideosLengthRef.current) {
+      // Videos list bị trim (giảm số lượng) - có thể do memory management
+      console.log(`[Home] ⚠️ Videos list trimmed from ${lastVideosLengthRef.current} to ${videos.length}`);
+      // Điều chỉnh currentIndex nếu cần
+      if (currentIndex >= videos.length) {
+        const validIndex = Math.max(0, videos.length - 1);
+        setCurrentIndex(validIndex);
+      }
+      lastVideosLengthRef.current = videos.length;
+      // Reset fetch tracking để có thể fetch lại nếu cần
+      lastFetchedIndexRef.current = Math.max(-1, currentIndex - 3);
     }
-  }, [videos.length, currentIndex, BATCH_SIZE]);
+  }, [videos.length, currentIndex, BATCH_SIZE, setCurrentIndex]);
 
   // Theo dõi khi gần hết video để load thêm
   useEffect(() => {
     if (isLoading || isLoadingMore || videos.length === 0) return;
 
     const remainingVideos = videos.length - currentIndex - 1;
-    const isLastVideo = currentIndex === videos.length - 1;
     
-    // KHÔNG trigger fetch khi đang ở video cuối cùng để tránh lag
-    // Chỉ trigger khi còn ít nhất 1 video nữa (remainingVideos >= 1)
-    const shouldFetch = remainingVideos >= 1 && remainingVideos <= 3;
+    // Fetch khi còn 3 video hoặc ít hơn để đảm bảo có video mới trước khi hết
+    const shouldFetch = remainingVideos >= 0 && remainingVideos <= 3;
     
     // Chỉ fetch nếu:
-    // 1. Điều kiện trigger đúng (còn 1-3 video, KHÔNG phải video cuối)
+    // 1. Điều kiện trigger đúng (còn 0-3 video)
     // 2. Chưa fetch ở index này hoặc index gần đây (để tránh fetch nhiều lần)
+    // 3. Không đang fetch
     const hasFetchedRecently = lastFetchedIndexRef.current >= currentIndex - 1;
     
-    if (shouldFetch && !hasFetchedRecently && !isLastVideo) {
+    if (shouldFetch && !hasFetchedRecently) {
       console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`);
       lastFetchedIndexRef.current = currentIndex;
       
-      // Gọi fetchMoreVideos
+      // Gọi fetchMoreVideos ngay lập tức để có video mới sớm
       fetchMoreVideos().then((hasNewVideos) => {
         if (!hasNewVideos) {
-          console.log(`[Home] ⚠️ No new videos found. User can continue scrolling.`);
+          console.log(`[Home] ⚠️ No new videos found. Will retry later.`);
+          // Reset lastFetchedIndex để có thể thử lại sau khi scroll thêm
+          lastFetchedIndexRef.current = Math.max(-1, currentIndex - 3);
+        } else {
+          console.log(`[Home] ✅ Successfully loaded new videos`);
         }
       });
     }
@@ -193,8 +214,10 @@ export default function HomeScreen() {
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onLike={handleLike}
         onVideoProgress={handleVideoProgress}
+        onVideoStart={recordVideoStart}
         onComment={handleComment}
         onFollow={handleFollow}
+        onSave={handleSave}
         currentUserId={userId}
         isScreenFocused={isScreenFocused}
         isLoadingMore={isLoadingMore}

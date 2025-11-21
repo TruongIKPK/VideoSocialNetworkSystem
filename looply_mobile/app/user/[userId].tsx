@@ -14,6 +14,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUser } from "@/contexts/UserContext";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
@@ -32,11 +33,15 @@ interface VideoPost {
   views?: number;
 }
 
-export default function Profile() {
-  const { user: currentUser, isAuthenticated } = useCurrentUser();
+export default function OtherUserProfile() {
+  const { user: currentUser } = useCurrentUser();
+  const { token, isAuthenticated } = useUser();
   const router = useRouter();
-  const [profileUser, setProfileUser] = useState<any>(currentUser);
-  
+  const params = useLocalSearchParams();
+  const userId = params.userId as string;
+  const username = params.username as string | undefined;
+
+  const [profileUser, setProfileUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
@@ -44,70 +49,126 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLoadingFollow, setIsLoadingFollow] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      // Hiển thị profile của user hiện tại
-      setProfileUser(currentUser);
-      fetchProfileData();
-    } else {
-      setIsLoading(false);
+    if (userId) {
+      fetchUserProfile();
     }
-  }, [isAuthenticated, currentUser, activeTab]);
+  }, [userId]);
 
-
-  const fetchProfileData = async () => {
+  const fetchUserProfile = async () => {
     try {
       setIsLoading(true);
-      const token = await require("@/utils/tokenStorage").getToken();
-      
-      if (!token || !currentUser?._id) return;
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+      if (response.ok) {
+        const userData = await response.json();
+        setProfileUser(userData);
+        
+        // Fetch videos của user đó
+        const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
+        }
+        
+        // Fetch total likes received
+        const totalLikesResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/total-likes`
+        );
+        if (totalLikesResponse.ok) {
+          const totalLikesData = await totalLikesResponse.json();
+          setTotalLikes(totalLikesData.totalLikes || 0);
+        }
 
-      // Fetch user videos
-      const videosResponse = await fetch(
-        `${API_BASE_URL}/videos/user/${currentUser._id}`,
+        // Check follow status
+        if (isAuthenticated && token && currentUser?._id) {
+          checkFollowStatus();
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkFollowStatus = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/users/check-follow?userId=${userId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
-
-      // Fetch total likes received
-      const totalLikesResponse = await fetch(
-        `${API_BASE_URL}/users/${currentUser._id}/total-likes`
-      );
-      if (totalLikesResponse.ok) {
-        const totalLikesData = await totalLikesResponse.json();
-        setTotalLikes(totalLikesData.totalLikes || 0);
+      if (response.ok) {
+        const data = await response.json();
+        setIsFollowing(data.isFollowing || data.followed || false);
       }
-
-      if (videosResponse.ok) {
-        const videosData = await videosResponse.json();
-        setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
-      }
-
-      // For now, use empty arrays for favorites and liked
-      // These would need separate API endpoints
-      setFavorites([]);
-      setLiked([]);
     } catch (error) {
-      console.error("Error fetching profile data:", error);
+      console.error("Error checking follow status:", error);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!isAuthenticated || !token || !currentUser?._id) {
+      return;
+    }
+
+    setIsLoadingFollow(true);
+    const wasFollowing = isFollowing;
+
+    // Optimistic update
+    setIsFollowing(!wasFollowing);
+
+    try {
+      const method = wasFollowing ? "DELETE" : "POST";
+      const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/follow`,
+        {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${wasFollowing ? "unfollow" : "follow"} user`);
+      }
+
+      // Update followers count
+      if (response.ok) {
+        setProfileUser((prev: any) => ({
+          ...prev,
+          followers: wasFollowing ? (prev.followers || 0) - 1 : (prev.followers || 0) + 1,
+        }));
+      }
+    } catch (error) {
+      console.error("Follow error:", error);
+      // Revert on error
+      setIsFollowing(wasFollowing);
     } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+      setIsLoadingFollow(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchProfileData();
+    fetchUserProfile().finally(() => setRefreshing(false));
   };
 
   const renderVideoItem = ({ item }: { item: VideoPost }) => (
     <TouchableOpacity
       style={styles.videoItem}
-      onPress={() => router.push("/(tabs)/home")}
+      onPress={() => router.push({
+        pathname: "/(tabs)/home",
+        params: { videoId: item._id, scrollToVideo: "true" },
+      })}
       activeOpacity={0.8}
     >
       <Image
@@ -124,15 +185,23 @@ export default function Profile() {
     </TouchableOpacity>
   );
 
-  if (!isAuthenticated || !currentUser) {
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.notLoggedInContainer}>
+        <Loading message="Loading profile..." color={Colors.primary} fullScreen />
+      </SafeAreaView>
+    );
+  }
+
+  if (!profileUser) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
           <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
-          <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
+          <Text style={styles.errorText}>Không tìm thấy người dùng</Text>
           <Button
-            title="Đăng nhập"
-            onPress={() => router.push("/login")}
+            title="Quay lại"
+            onPress={() => router.back()}
             variant="primary"
             style={{ marginTop: Spacing.lg }}
           />
@@ -141,18 +210,10 @@ export default function Profile() {
     );
   }
 
-  if (isLoading && videos.length === 0) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Loading message="Loading profile..." color={Colors.primary} fullScreen />
-      </SafeAreaView>
-    );
-  }
-
   const currentVideos = activeTab === "video" ? videos : activeTab === "favorites" ? favorites : liked;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -166,6 +227,14 @@ export default function Profile() {
       >
         {/* Profile Info */}
         <View style={styles.profileSection}>
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+
           <Image
             source={getAvatarUri(profileUser?.avatar)}
             style={styles.avatar}
@@ -175,20 +244,25 @@ export default function Profile() {
           <Text style={styles.username}>{profileUser?.name || profileUser?.username || "User"}</Text>
           {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
 
-          <View style={styles.buttonContainer}>
-            <Button
-              title="Chỉnh sửa"
-              onPress={() => router.push("/(tabs)/settings")}
-              variant="outline"
-              size="sm"
-            />
-            <Button
-              title="Chia sẻ"
-              onPress={() => {}}
-              variant="ghost"
-              size="sm"
-            />
-          </View>
+          {/* Follow Button */}
+          {isAuthenticated && currentUser?._id !== userId && (
+            <View style={styles.buttonContainer}>
+              <Button
+                title={isFollowing ? "Đang follow" : "Follow"}
+                onPress={handleFollow}
+                variant={isFollowing ? "outline" : "primary"}
+                size="sm"
+                loading={isLoadingFollow}
+                disabled={isLoadingFollow}
+              />
+              <Button
+                title="Chia sẻ"
+                onPress={() => {}}
+                variant="ghost"
+                size="sm"
+              />
+            </View>
+          )}
 
           {/* Stats */}
           <View style={styles.statsContainer}>
@@ -211,9 +285,10 @@ export default function Profile() {
               <Text style={styles.statLabel}>Lượt thích</Text>
             </View>
           </View>
+        </View>
 
-          {/* Tab Bar */}
-          <View style={styles.tabContainer}>
+        {/* Tab Bar - Fixed at top */}
+        <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[styles.tab, activeTab === "video" && styles.activeTab]}
               onPress={() => setActiveTab("video")}
@@ -272,7 +347,6 @@ export default function Profile() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
         {/* Content based on active tab */}
         {currentVideos.length > 0 ? (
@@ -309,15 +383,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.light,
   },
+  backButton: {
+    position: "absolute",
+    top: Spacing.md,
+    left: Spacing.md,
+    zIndex: 10,
+    padding: Spacing.xs,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: BorderRadius.round,
+    ...Shadows.sm,
+  },
   scrollView: {
     flex: 1,
   },
   profileSection: {
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.xl,
     paddingBottom: Spacing.md,
     backgroundColor: Colors.white,
+    position: "relative",
   },
   avatar: {
     width: 100,
@@ -374,8 +459,15 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: "row",
     width: "100%",
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
+    marginTop: Spacing.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   tab: {
     flex: 1,
@@ -452,13 +544,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontFamily: Typography.fontFamily.regular,
   },
-  notLoggedInContainer: {
+  errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: Spacing.xl,
   },
-  notLoggedInText: {
+  errorText: {
     fontSize: Typography.fontSize.lg,
     color: Colors.text.secondary,
     marginTop: Spacing.md,
@@ -467,3 +559,4 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
 });
+

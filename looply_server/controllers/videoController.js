@@ -2,10 +2,11 @@ import Video from "../models/Video.js";
 import User from "../models/User.js";
 import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
-import cloudinary from "../config/cloudinary.js";
+import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
   try {
+    configureCloudinary();
     const { title, description, userId } = req.body;
     const file = req.file;
 

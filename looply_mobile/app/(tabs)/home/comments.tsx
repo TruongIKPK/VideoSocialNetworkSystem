@@ -216,7 +216,7 @@ export default function CommentsModal() {
         <TouchableOpacity
           onPress={() => {
             router.push({
-              pathname: "/(tabs)/profile",
+              pathname: "/user/[userId]",
               params: {
                 userId: commentUser._id,
                 username: commentUser.name,
@@ -236,7 +236,7 @@ export default function CommentsModal() {
             <TouchableOpacity
               onPress={() => {
                 router.push({
-                  pathname: "/(tabs)/profile",
+                  pathname: "/user/[userId]",
                   params: {
                     userId: commentUser._id,
                     username: commentUser.name,
