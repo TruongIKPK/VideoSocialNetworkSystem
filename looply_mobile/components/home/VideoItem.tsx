@@ -18,6 +18,10 @@ import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { VideoPost } from "@/types/video";
 import { Dimensions } from "react-native";
+import { useReport } from "@/hooks/useReport";
+import { ReportModal } from "@/components/report/ReportModal";
+import { useUser } from "@/contexts/UserContext";
+import { Alert } from "react-native";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -70,8 +74,12 @@ export const VideoItem = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionModalVisible, setIsDescriptionModalVisible] = useState(false);
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [reportType, setReportType] = useState<"video" | "user">("video");
   const heartScale = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { token } = useUser();
+  const { createReport, isSubmitting } = useReport({ token });
 
   // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
   const isDescriptionLong = item.description && item.description.length > 100;
@@ -86,6 +94,24 @@ export const VideoItem = ({
     }).start(() => {
       setIsDescriptionModalVisible(false);
     });
+  };
+
+  // Handle report
+  const handleReportPress = (type: "video" | "user") => {
+    setReportType(type);
+    setIsReportModalVisible(true);
+  };
+
+  const handleReportSubmit = async (reason: any) => {
+    const reportedId = reportType === "video" ? item._id : item.user._id;
+    const result = await createReport(reportType, reportedId, reason);
+    
+    if (result.success) {
+      Alert.alert("Thành công", result.message);
+      setIsReportModalVisible(false);
+    } else {
+      Alert.alert("Lỗi", result.message);
+    }
   };
 
   const player = useVideoPlayer(item.url, (player) => {
@@ -307,25 +333,27 @@ export const VideoItem = ({
             ) : null}
           </View>
         </View>
-        {currentUserId && item.user._id !== currentUserId && (
-          <TouchableOpacity
-            style={[
-              styles.followButton,
-              item.isFollowing && styles.followButtonFollowing,
-            ]}
-            activeOpacity={0.7}
-            onPress={() => onFollow(item.user._id)}
-          >
-            <Text
+        <View style={styles.userActions}>
+          {currentUserId && item.user._id !== currentUserId && (
+            <TouchableOpacity
               style={[
-                styles.followButtonText,
-                item.isFollowing && styles.followButtonTextFollowing,
+                styles.followButton,
+                item.isFollowing && styles.followButtonFollowing,
               ]}
+              activeOpacity={0.7}
+              onPress={() => onFollow(item.user._id)}
             >
-              {item.isFollowing ? "Đang follow" : "Follow"}
-            </Text>
-          </TouchableOpacity>
-        )}
+              <Text
+                style={[
+                  styles.followButtonText,
+                  item.isFollowing && styles.followButtonTextFollowing,
+                ]}
+              >
+                {item.isFollowing ? "Đang follow" : "Follow"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Action Buttons */}
@@ -362,6 +390,16 @@ export const VideoItem = ({
           <Ionicons name="share-outline" size={30} color="#FFF" />
           <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
         </TouchableOpacity>
+
+        {/* Report Video */}
+        {currentUserId && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleReportPress("video")}
+          >
+            <Ionicons name="flag-outline" size={28} color="#FFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Description Modal */}
@@ -421,6 +459,15 @@ export const VideoItem = ({
           </Animated.View>
         </Pressable>
       </Modal>
+
+      {/* Report Modal */}
+      <ReportModal
+        visible={isReportModalVisible}
+        onClose={() => setIsReportModalVisible(false)}
+        onSubmit={handleReportSubmit}
+        type={reportType}
+        isSubmitting={isSubmitting}
+      />
     </View>
   );
 };
@@ -604,6 +651,16 @@ const styles = StyleSheet.create({
   },
   followButtonTextFollowing: {
     color: Colors.text.secondary,
+  },
+  userActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  reportButton: {
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.gray[100],
   },
   actionButtons: {
     position: "absolute",
