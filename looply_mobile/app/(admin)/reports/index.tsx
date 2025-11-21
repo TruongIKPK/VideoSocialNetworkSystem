@@ -20,13 +20,24 @@ const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
 interface Report {
   _id: string;
-  reportId?: string;
-  type: string;
+  reporterId?: {
+    _id: string;
+    name?: string;
+    username?: string;
+    avatar?: string;
+  };
+  reportedType: string;
+  reportedId: string;
   reason: string;
-  targetType: string;
-  targetId: string;
+  status: string;
+  resolvedBy?: {
+    _id: string;
+    name?: string;
+    username?: string;
+  };
+  resolvedAt?: string;
   createdAt: string;
-  status?: string;
+  updatedAt?: string;
 }
 
 export default function AdminReportsScreen() {
@@ -60,34 +71,12 @@ export default function AdminReportsScreen() {
         const reportList = Array.isArray(data) ? data : (data.reports || []);
         setReports(reportList);
       } else {
-        console.error("Failed to fetch reports:", response.status);
-        // Fallback to mock data for now
-        setReports([
-          {
-            _id: "1",
-            reportId: "Báo cáo #101",
-            type: "video",
-            reason: "Nội dung bản quyền",
-            targetType: "video",
-            targetId: "video1",
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        console.error("Failed to fetch reports:", response.status, await response.text());
+        setReports([]);
       }
     } catch (error) {
       console.error("Error fetching reports:", error);
-      // Fallback to mock data
-      setReports([
-        {
-          _id: "1",
-          reportId: "Báo cáo #101",
-          type: "video",
-          reason: "Nội dung bản quyền",
-          targetType: "video",
-          targetId: "video1",
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      setReports([]);
     } finally {
       setIsLoading(false);
     }
@@ -104,34 +93,61 @@ export default function AdminReportsScreen() {
   };
 
   const formatReportMeta = (item: Report) => {
-    return `${item.targetType} - ${item.reason} - ${formatTimeAgo(item.createdAt)}`;
+    const reasonPreview = item.reason.length > 30 
+      ? item.reason.substring(0, 30) + "..." 
+      : item.reason;
+    return `${item.reportedType} - ${reasonPreview} - ${formatTimeAgo(item.createdAt)}`;
   };
 
   const handleViewReport = (reportId: string) => {
-    // TODO: Navigate to report detail
-    console.log("View report:", reportId);
+    router.push({
+      pathname: "/(admin)/reports/report-detail",
+      params: {
+        reportId: reportId,
+      },
+    });
   };
 
   const renderReportItem = ({ item }: { item: Report }) => (
-    <View style={styles.reportItem}>
-      <View style={styles.reportThumbnail}>
-        <Ionicons name="flag" size={24} color="#10B981" />
+      <View style={styles.reportItem}>
+        <View style={styles.reportThumbnail}>
+          <Ionicons 
+            name="flag" 
+            size={24} 
+            color={
+              item.status === "resolved" ? "#10B981" :
+              item.status === "rejected" ? "#EF4444" :
+              "#F59E0B"
+            } 
+          />
+        </View>
+        <View style={styles.reportInfo}>
+          <Text style={styles.reportId}>
+            {`Báo cáo #${item._id.slice(-6)}`}
+          </Text>
+          <Text style={styles.reportMeta}>
+            {formatReportMeta(item)}
+          </Text>
+          {item.status && (
+            <Text style={[
+              styles.reportStatus,
+              item.status === "resolved" && styles.reportStatusResolved,
+              item.status === "rejected" && styles.reportStatusRejected,
+            ]}>
+              {item.status === "pending" ? "Đang chờ" :
+               item.status === "resolved" ? "Đã xử lý" :
+               item.status === "rejected" ? "Đã từ chối" : item.status}
+            </Text>
+          )}
+        </View>
+        <TouchableOpacity 
+          style={styles.viewButton}
+          onPress={() => handleViewReport(item._id)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.viewButtonText}>Xem</Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.reportInfo}>
-        <Text style={styles.reportId}>
-          {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
-        </Text>
-        <Text style={styles.reportMeta}>
-          {formatReportMeta(item)}
-        </Text>
-      </View>
-      <TouchableOpacity 
-        style={styles.viewButton}
-        onPress={() => handleViewReport(item._id)}
-      >
-        <Text style={styles.viewButtonText}>Xem</Text>
-      </TouchableOpacity>
-    </View>
   );
 
   return (
@@ -169,15 +185,34 @@ export default function AdminReportsScreen() {
               {reports.map((item) => (
                 <View key={item._id} style={styles.reportItem}>
                   <View style={styles.reportThumbnail}>
-                    <Ionicons name="flag" size={24} color="#10B981" />
+                    <Ionicons 
+                      name="flag" 
+                      size={24} 
+                      color={
+                        item.status === "resolved" ? "#10B981" :
+                        item.status === "rejected" ? "#EF4444" :
+                        "#F59E0B"
+                      } 
+                    />
                   </View>
                   <View style={styles.reportInfo}>
                     <Text style={styles.reportId}>
-                      {item.reportId || `Báo cáo #${item._id.slice(-3)}`}
+                      {`Báo cáo #${item._id.slice(-6)}`}
                     </Text>
                     <Text style={styles.reportMeta}>
                       {formatReportMeta(item)}
                     </Text>
+                    {item.status && (
+                      <Text style={[
+                        styles.reportStatus,
+                        item.status === "resolved" && styles.reportStatusResolved,
+                        item.status === "rejected" && styles.reportStatusRejected,
+                      ]}>
+                        {item.status === "pending" ? "Đang chờ" :
+                         item.status === "resolved" ? "Đã xử lý" :
+                         item.status === "rejected" ? "Đã từ chối" : item.status}
+                      </Text>
+                    )}
                   </View>
                   <TouchableOpacity 
                     style={styles.viewButton}
@@ -303,6 +338,26 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  reportStatus: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 4,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.gray[100],
+    alignSelf: "flex-start",
+  },
+  reportStatusResolved: {
+    backgroundColor: "#D1FAE5",
+    color: "#065F46",
+  },
+  reportStatusRejected: {
+    backgroundColor: "#FEE2E2",
+    color: "#991B1B",
   },
   viewButton: {
     backgroundColor: "#D1D1D1",
