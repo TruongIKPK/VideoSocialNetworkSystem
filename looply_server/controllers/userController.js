@@ -389,3 +389,59 @@ export const checkFollow = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Lấy tổng số lượt like mà user nhận được từ các video của họ
+export const getUserTotalLikes = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Thiếu userId" });
+    }
+
+    // Import models
+    const Video = (await import("../models/Video.js")).default;
+    const Like = (await import("../models/Like.js")).default;
+
+    // Lấy tất cả video của user
+    const videos = await Video.find({ "user._id": userId }).select("_id");
+
+    if (videos.length === 0) {
+      return res.json({
+        totalLikes: 0,
+        videoCount: 0,
+        videos: [],
+      });
+    }
+
+    const videoIds = videos.map((video) => video._id);
+
+    // Đếm tổng số lượt like từ các video của user
+    const totalLikes = await Like.countDocuments({
+      targetType: "video",
+      targetId: { $in: videoIds },
+    });
+
+    // Lấy chi tiết từng video với số lượt like
+    const videosWithLikes = await Promise.all(
+      videos.map(async (video) => {
+        const likesCount = await Like.countDocuments({
+          targetType: "video",
+          targetId: video._id,
+        });
+        return {
+          videoId: video._id,
+          likesCount: likesCount,
+        };
+      })
+    );
+
+    res.json({
+      totalLikes: totalLikes,
+      videoCount: videos.length,
+      videos: videosWithLikes,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

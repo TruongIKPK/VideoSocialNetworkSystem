@@ -7,6 +7,7 @@ const videoSchema = new mongoose.Schema({
   thumbnail: String,
   likesCount: { type: Number, default: 0 },
   commentsCount: { type: Number, default: 0 },
+  savesCount: { type: Number, default: 0 },
 
   user: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
