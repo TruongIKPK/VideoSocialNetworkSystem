@@ -54,22 +54,37 @@ export default function AdminVideosScreen() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/videos`, {
+      const url = `${API_BASE_URL}/admin/videos`;
+      console.log(`[Admin Videos] Fetching from: ${url}`);
+      
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
       
+      console.log(`[Admin Videos] Response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log(`[Admin Videos] Data received:`, data);
         const videoList = Array.isArray(data) ? data : (data.videos || []);
+        console.log(`[Admin Videos] Video list length: ${videoList.length}`);
         setVideos(videoList);
       } else {
-        console.error("Failed to fetch videos:", response.status);
+        const errorText = await response.text();
+        console.error(`[Admin Videos] Failed to fetch videos: ${response.status}`, errorText);
+        // Try to parse error message if it's JSON
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error(`[Admin Videos] Error details:`, errorData);
+        } catch (e) {
+          // Not JSON, just log the text
+        }
       }
     } catch (error) {
-      console.error("Error fetching videos:", error);
+      console.error("[Admin Videos] Error fetching videos:", error);
     } finally {
       setIsLoading(false);
     }
