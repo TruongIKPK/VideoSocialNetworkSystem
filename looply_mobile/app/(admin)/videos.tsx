@@ -19,6 +19,7 @@ interface Video {
   _id: string;
   title: string;
   thumbnail: string;
+  url?: string;
   views: number;
   user: {
     name: string;
@@ -54,9 +55,17 @@ export default function AdminVideosScreen() {
     }
   };
 
-  const handleViewVideo = (videoId: string) => {
-    // TODO: Navigate to video detail or open in modal
-    console.log("View video:", videoId);
+  const handleViewVideo = (video: Video) => {
+    router.push({
+      pathname: "/(admin)/video-detail",
+      params: {
+        videoId: video._id,
+        videoUrl: video.url || video.thumbnail || "",
+        title: video.title || "Untitled Video",
+        author: video.user?.name || "Unknown",
+        views: String(video.views || 0),
+      },
+    });
   };
 
   const handleViolation = (videoId: string) => {
@@ -80,7 +89,7 @@ export default function AdminVideosScreen() {
       <View style={styles.videoActions}>
         <TouchableOpacity 
           style={styles.viewButton}
-          onPress={() => handleViewVideo(item._id)}
+          onPress={() => handleViewVideo(item)}
         >
           <Text style={styles.viewButtonText}>Xem</Text>
         </TouchableOpacity>
