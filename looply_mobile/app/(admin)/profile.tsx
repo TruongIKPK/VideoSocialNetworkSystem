@@ -199,7 +199,7 @@ export default function AdminProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    router.push("/(tabs)/settings/edit-profile");
+    router.push("/(admin)/edit-profile");
   };
 
   return (
@@ -367,6 +367,20 @@ export default function AdminProfileScreen() {
               <View style={styles.settingText}>
                 <Text style={styles.settingTitle}>Chỉnh sửa hồ sơ</Text>
                 <Text style={styles.settingSubtitle}>Cập nhật thông tin cá nhân</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: Colors.border.light }]}
+            onPress={() => router.push("/(admin)/settings")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="settings-outline" size={24} color={Colors.primary} />
+              <View style={styles.settingText}>
+                <Text style={styles.settingTitle}>Cài đặt</Text>
+                <Text style={styles.settingSubtitle}>Quản lý cài đặt tài khoản</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
