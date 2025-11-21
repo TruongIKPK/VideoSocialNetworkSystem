@@ -12,7 +12,6 @@ import {
     getFollowers,
     getFollowing,
     getMe,
-    getUserById,
     updateUserStatus,
     checkFollow,
     getUserTotalLikes,
@@ -28,17 +27,11 @@ const upload = multer({ dest: "uploads/" });
 router.post("/register", register);
 router.post("/login", login);
 router.get("/search", searchUsers);
-<<<<<<< HEAD
 // Routes cụ thể phải đặt trước route dynamic
+router.get("/:userId/total-likes", getUserTotalLikes); // Lấy tổng số lượt like từ video của user
 router.get("/:id/followers", getFollowers);
 router.get("/:id/following", getFollowing);
 router.get("/:id", getUserById); // Route dynamic đặt cuối cùng
-=======
-router.get("/:id", getUserById); // Lấy thông tin user theo ID (phải đặt trước các route /:id/...)
-router.get("/:id/followers", getFollowers);
-router.get("/:id/following", getFollowing);
-router.get("/:userId/total-likes", getUserTotalLikes); // Lấy tổng số lượt like từ video của user
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
 
 // Protected routes (cần authentication)
 router.get("/", authenticateToken, getAllUsers);

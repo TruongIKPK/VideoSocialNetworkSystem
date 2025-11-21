@@ -280,10 +280,11 @@ export default function SearchScreen() {
     
     // Dùng dynamic route profile/[userId] và pass user data qua params để fallback
     router.push({
-<<<<<<< HEAD
       pathname: `/(tabs)/profile/${userId}` as any,
       params: {
         // Pass user data để hiển thị tạm thời nếu API fail
+        userId: user._id,
+        username: user.username,
         userName: user.name || '',
         userUsername: user.username || '',
         userAvatar: user.avatar || '',
@@ -291,10 +292,6 @@ export default function SearchScreen() {
         userFollowers: String(user.followers || 0),
         userFollowing: String(user.following || 0),
       }
-=======
-      pathname: "/user/[userId]",
-      params: { userId: user._id, username: user.username }
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
     });
   };
 

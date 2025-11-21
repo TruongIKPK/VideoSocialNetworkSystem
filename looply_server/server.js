@@ -27,11 +27,8 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
-<<<<<<< HEAD
 import adminRoutes from "./routes/adminRoutes.js";
-=======
 import saveRoutes from "./routes/saveRoutes.js";
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
 
 
 const app = express();
@@ -113,12 +110,9 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
-<<<<<<< HEAD
 app.use("/api/admin", adminRoutes);
 console.log("✅ Admin routes registered at /api/admin");
-=======
 app.use("/api/saves", saveRoutes);
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
 
 // Health check endpoint for quick testing
 app.get("/api/health", (req, res) => {

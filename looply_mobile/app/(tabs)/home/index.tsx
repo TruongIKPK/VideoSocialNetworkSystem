@@ -89,29 +89,6 @@ export default function HomeScreen() {
     }, [])
   );
 
-<<<<<<< HEAD
-  // Animation cho loading icon
-  useEffect(() => {
-    if (isLoading) {
-      const animation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(loadingIconScale, {
-            toValue: 1.2,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(loadingIconScale, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      animation.start();
-      return () => animation.stop();
-    }
-  }, [isLoading]);
-
   useEffect(() => {
     fetchVideos();
   }, [isAuthenticated]);
@@ -119,6 +96,7 @@ export default function HomeScreen() {
   // Fetch video cụ thể theo ID (khi video không có trong list hiện tại)
   const fetchSpecificVideo = async (videoId: string) => {
     try {
+      const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
       console.log(`[Home] 🔍 Fetching specific video: ${videoId}`);
       const response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
       
@@ -135,50 +113,15 @@ export default function HomeScreen() {
           
           // Scroll đến video mới thêm
           setTimeout(() => {
-            if (flatListRef.current) {
-              try {
-                flatListRef.current.scrollToIndex({
-                  index: 0,
-                  animated: true,
-                  viewPosition: 0,
-                });
-                setCurrentIndex(0);
-                hasScrolledToVideoRef.current = true;
-              } catch (error) {
-                console.log(`[Home] ⚠️ Error scrolling to new video:`, error);
-                // Fallback: scroll to offset
-                flatListRef.current.scrollToOffset({
-                  offset: 0,
-                  animated: true,
-                });
-                setCurrentIndex(0);
-              }
-            }
+            scrollToIndex(0, true);
+            hasScrolledToVideoRef.current = true;
           }, 500);
         } else {
           // Video đã có, scroll đến nó
           console.log(`[Home] ✅ Video already in list at index ${existingIndex}, scrolling...`);
           setTimeout(() => {
-            if (flatListRef.current) {
-              try {
-                flatListRef.current.scrollToIndex({
-                  index: existingIndex,
-                  animated: true,
-                  viewPosition: 0,
-                });
-                setCurrentIndex(existingIndex);
-                hasScrolledToVideoRef.current = true;
-              } catch (error) {
-                console.log(`[Home] ⚠️ Error scrolling to existing video:`, error);
-                // Fallback: scroll to offset
-                const offset = existingIndex * SCREEN_HEIGHT;
-                flatListRef.current?.scrollToOffset({
-                  offset,
-                  animated: true,
-                });
-                setCurrentIndex(existingIndex);
-              }
-            }
+            scrollToIndex(existingIndex, true);
+            hasScrolledToVideoRef.current = true;
           }, 500);
         }
       } else {
@@ -188,9 +131,6 @@ export default function HomeScreen() {
       console.error(`[Home] ❌ Error fetching specific video:`, error);
     }
   };
-
-=======
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
   // Xử lý scroll đến video khi có videoId từ params
   useEffect(() => {
     const videoId = params.videoId as string | undefined;
@@ -207,16 +147,12 @@ export default function HomeScreen() {
           scrollToIndex(videoIndex, true);
         }, 500);
       } else if (videoIndex === -1) {
-<<<<<<< HEAD
         console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list`);
         console.log(`[Home] 📋 Current videos count: ${videos.length}`);
         console.log(`[Home] 🔍 Available video IDs:`, videos.slice(0, 5).map(v => v._id));
         
         // Nếu video không có trong danh sách, thử fetch video đó
         fetchSpecificVideo(videoId);
-=======
-        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
       }
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);

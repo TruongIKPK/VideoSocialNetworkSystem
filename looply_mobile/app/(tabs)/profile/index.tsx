@@ -35,7 +35,6 @@ interface VideoPost {
 export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
-<<<<<<< HEAD
   const params = useLocalSearchParams();
   
   // Log tất cả params để debug - params có thể là string hoặc string[]
@@ -71,8 +70,6 @@ export default function Profile() {
   
   // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
   const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
-=======
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
   const [profileUser, setProfileUser] = useState<any>(currentUser);
   
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
@@ -84,7 +81,6 @@ export default function Profile() {
   const [totalLikes, setTotalLikes] = useState(0);
 
   useEffect(() => {
-<<<<<<< HEAD
     console.log(`[Profile] 🔄 useEffect triggered:`, {
       targetUserId,
       isViewingOtherProfile,
@@ -103,9 +99,6 @@ export default function Profile() {
       fetchOtherUserProfile(targetUserId);
     } else if (isAuthenticated && currentUser) {
       console.log(`[Profile] 👤 Showing current user profile`);
-=======
-    if (isAuthenticated && currentUser) {
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
       // Hiển thị profile của user hiện tại
       setProfileUser(currentUser);
       fetchProfileData();
@@ -113,7 +106,6 @@ export default function Profile() {
       console.log(`[Profile] ⚠️ No user data available`);
       setIsLoading(false);
     }
-<<<<<<< HEAD
   }, [isAuthenticated, currentUser?._id, activeTab, targetUserId, isViewingOtherProfile]);
 
   const fetchOtherUserProfile = async (userId: string) => {
@@ -160,10 +152,6 @@ export default function Profile() {
       setIsLoading(false);
     }
   };
-=======
-  }, [isAuthenticated, currentUser, activeTab]);
-
->>>>>>> df4026aa05bbbe506caa98460e56412567405776
 
   const fetchProfileData = async () => {
     try {
