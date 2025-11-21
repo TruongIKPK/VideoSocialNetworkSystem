@@ -17,7 +17,7 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token" });
     }
 
-    // Ensure role and status are included
+    // Populate role and status into req.user
     req.user = {
       ...user.toObject(),
       role: user.role || "user",
