@@ -36,9 +36,6 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-// Connect to database
-connectDB();
-
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
   try {
@@ -56,19 +53,25 @@ const createDefaultAdmin = async () => {
         role: "admin",
         status: "active"
       });
-      console.log("Default admin user created successfully");
+      console.log("✅ Default admin user created successfully");
+      console.log(`   Email: ${adminEmail}`);
+      console.log(`   Password: ${adminPassword}`);
     } else {
-      console.log("Admin user already exists");
+      console.log("ℹ️  Admin user already exists");
     }
   } catch (error) {
-    console.error("Error creating default admin:", error);
+    console.error("❌ Error creating default admin:", error);
   }
 };
 
-// Wait for DB connection then create admin
-setTimeout(async () => {
+// Connect to database
+connectDB();
+
+// Create admin after DB connection is established
+mongoose.connection.once('connected', async () => {
+  console.log("📦 Database connected, initializing admin user...");
   await createDefaultAdmin();
-}, 2000);
+});
 
 // Security middleware
 app.use(helmet()); // Adds various HTTP headers for security
