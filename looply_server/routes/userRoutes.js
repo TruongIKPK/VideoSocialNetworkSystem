@@ -11,8 +11,10 @@ import {
     getFollowers,
     getFollowing,
     getMe,
+    getUserById,
     updateUserStatus,
     checkFollow,
+    getUserTotalLikes,
 } from "../controllers/userController.js";
 import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
 
@@ -25,8 +27,10 @@ const upload = multer({ dest: "uploads/" });
 router.post("/register", register);
 router.post("/login", login);
 router.get("/search", searchUsers);
+router.get("/:id", getUserById); // Lấy thông tin user theo ID (phải đặt trước các route /:id/...)
 router.get("/:id/followers", getFollowers);
 router.get("/:id/following", getFollowing);
+router.get("/:userId/total-likes", getUserTotalLikes); // Lấy tổng số lượt like từ video của user
 
 // Protected routes (cần authentication)
 router.get("/", authenticateToken, getAllUsers);

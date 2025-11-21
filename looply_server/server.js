@@ -27,6 +27,7 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import saveRoutes from "./routes/saveRoutes.js";
 
 
 const app = express();
@@ -105,6 +106,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
 app.get("/api/health", (req, res) => {
