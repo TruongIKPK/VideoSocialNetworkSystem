@@ -55,7 +55,7 @@ export default function HomeScreen() {
   });
 
   // Video view tracking
-  const { handleVideoProgress } = useVideoView({
+  const { handleVideoProgress, recordVideoStart } = useVideoView({
     isAuthenticated,
     token,
   });
@@ -128,25 +128,28 @@ export default function HomeScreen() {
     if (isLoading || isLoadingMore || videos.length === 0) return;
 
     const remainingVideos = videos.length - currentIndex - 1;
-    const isLastVideo = currentIndex === videos.length - 1;
     
-    // KHÔNG trigger fetch khi đang ở video cuối cùng để tránh lag
-    // Chỉ trigger khi còn ít nhất 1 video nữa (remainingVideos >= 1)
-    const shouldFetch = remainingVideos >= 1 && remainingVideos <= 3;
+    // Fetch khi còn 3 video hoặc ít hơn để đảm bảo có video mới trước khi hết
+    const shouldFetch = remainingVideos >= 0 && remainingVideos <= 3;
     
     // Chỉ fetch nếu:
-    // 1. Điều kiện trigger đúng (còn 1-3 video, KHÔNG phải video cuối)
+    // 1. Điều kiện trigger đúng (còn 0-3 video)
     // 2. Chưa fetch ở index này hoặc index gần đây (để tránh fetch nhiều lần)
+    // 3. Không đang fetch
     const hasFetchedRecently = lastFetchedIndexRef.current >= currentIndex - 1;
     
-    if (shouldFetch && !hasFetchedRecently && !isLastVideo) {
+    if (shouldFetch && !hasFetchedRecently) {
       console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`);
       lastFetchedIndexRef.current = currentIndex;
       
-      // Gọi fetchMoreVideos
+      // Gọi fetchMoreVideos ngay lập tức để có video mới sớm
       fetchMoreVideos().then((hasNewVideos) => {
         if (!hasNewVideos) {
-          console.log(`[Home] ⚠️ No new videos found. User can continue scrolling.`);
+          console.log(`[Home] ⚠️ No new videos found. Will retry later.`);
+          // Reset lastFetchedIndex để có thể thử lại sau khi scroll thêm
+          lastFetchedIndexRef.current = Math.max(-1, currentIndex - 3);
+        } else {
+          console.log(`[Home] ✅ Successfully loaded new videos`);
         }
       });
     }
@@ -193,6 +196,7 @@ export default function HomeScreen() {
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onLike={handleLike}
         onVideoProgress={handleVideoProgress}
+        onVideoStart={recordVideoStart}
         onComment={handleComment}
         onFollow={handleFollow}
         onSave={handleSave}

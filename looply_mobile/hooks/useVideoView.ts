@@ -10,16 +10,13 @@ interface UseVideoViewOptions {
 export const useVideoView = ({ isAuthenticated, token }: UseVideoViewOptions) => {
   const [viewedVideos, setViewedVideos] = useState<Set<string>>(new Set());
 
-  const recordVideoView = async (videoId: string, watchDuration: number) => {
+  const recordVideoView = async (videoId: string, watchDuration: number, forceUpdate: boolean = false) => {
     try {
       if (!isAuthenticated || !token) {
         return;
       }
 
-      if (viewedVideos.has(videoId)) {
-        return;
-      }
-
+      // Luôn gửi update để backend có thể cập nhật watchDuration
       const completed = watchDuration > 10;
 
       const response = await fetch(`${API_BASE_URL}/video-views/record`, {
@@ -36,11 +33,17 @@ export const useVideoView = ({ isAuthenticated, token }: UseVideoViewOptions) =>
       });
 
       if (response.ok) {
+        // Thêm vào set để đánh dấu đã record
         setViewedVideos((prev) => new Set(prev).add(videoId));
       }
     } catch (error) {
       console.error("Record video view error:", error);
     }
+  };
+
+  // Record video view ngay khi bắt đầu phát
+  const recordVideoStart = async (videoId: string) => {
+    await recordVideoView(videoId, 1, true);
   };
 
   const handleVideoProgress = (videoId: string, duration: number) => {
@@ -49,6 +52,7 @@ export const useVideoView = ({ isAuthenticated, token }: UseVideoViewOptions) =>
 
   return {
     handleVideoProgress,
+    recordVideoStart,
   };
 };
 

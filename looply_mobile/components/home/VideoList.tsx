@@ -18,6 +18,7 @@ interface VideoListProps {
   onMomentumScrollEnd: (event: any) => void;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  onVideoStart?: (videoId: string) => void;
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
   onSave?: (videoId: string) => void;
@@ -38,6 +39,7 @@ export const VideoList = ({
   onMomentumScrollEnd,
   onLike,
   onVideoProgress,
+  onVideoStart,
   onComment,
   onFollow,
   onSave,
@@ -59,6 +61,7 @@ export const VideoList = ({
         isCurrent={index === currentIndex}
         onLike={onLike}
         onVideoProgress={onVideoProgress}
+        onVideoStart={onVideoStart}
         onComment={onComment}
         onFollow={onFollow}
         onSave={onSave}

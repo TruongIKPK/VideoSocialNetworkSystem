@@ -40,6 +40,7 @@ interface VideoItemProps {
   isCurrent: boolean;
   onLike: (videoId: string) => void;
   onVideoProgress: (videoId: string, duration: number) => void;
+  onVideoStart?: (videoId: string) => void;
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
   onSave?: (videoId: string) => void;
@@ -53,6 +54,7 @@ export const VideoItem = ({
   isCurrent,
   onLike,
   onVideoProgress,
+  onVideoStart,
   onComment,
   onFollow,
   onSave,
@@ -149,6 +151,10 @@ export const VideoItem = ({
     // Chỉ phát video nếu: là video hiện tại, không bị pause bởi user, và screen đang được focus
     if (isCurrent && !isPaused && isScreenFocused) {
       player.play();
+      // Record video view ngay khi bắt đầu phát
+      if (onVideoStart) {
+        onVideoStart(item._id);
+      }
       // Bắt đầu đếm thời gian xem
       watchTimeRef.current = 0;
       intervalRef.current = setInterval(() => {
