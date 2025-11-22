@@ -1,5 +1,5 @@
 import { useLocalSearchParams, router } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,181 +8,337 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  Modal, // 1. Import Modal
-  SafeAreaView, // Để nút đóng không bị che bởi tai thỏ
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { AntDesign } from "@expo/vector-icons"; // Icon nút đóng
+import { AntDesign } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { getToken } from "@/utils/tokenStorage";
 
 export default function UploadScreen() {
   const { uri, type } = useLocalSearchParams();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
-  // State cho progress bar
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-
-  // 2. State để bật/tắt chế độ xem ảnh full màn hình
   const [modalVisible, setModalVisible] = useState(false);
+  const [error, setError] = useState("");
 
   const mediaUri = Array.isArray(uri) ? uri[0] : uri ?? "";
-  const isVideo = type === "video";
+  const isVideo = type === "video" || type === "video/mp4" || type === "video/quicktime";
 
-  const player = useVideoPlayer(isVideo ? mediaUri : null, (player) => {
+  // Video players
+  const previewPlayer = useVideoPlayer(isVideo ? mediaUri : null, (player) => {
     if (isVideo) {
+      player.loop = true;
+      player.pause();
+    }
+  });
+
+  const fullScreenPlayer = useVideoPlayer(modalVisible && isVideo ? mediaUri : null, (player) => {
+    if (isVideo && modalVisible) {
       player.loop = true;
       player.play();
     }
   });
 
-  const handleUpload = () => {
-    if (isUploading) return;
+  // Validate mediaUri on mount
+  useEffect(() => {
+    if (!mediaUri) {
+      Alert.alert("Lỗi", "Không tìm thấy file media. Vui lòng thử lại.");
+      router.back();
+      return;
+    }
+    
+    // Chỉ hỗ trợ video
+    if (!isVideo) {
+      Alert.alert(
+        "Thông báo",
+        "Hiện tại chỉ hỗ trợ upload video. Vui lòng chọn video từ thư viện.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    }
+  }, [mediaUri, isVideo]);
+
+  const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+
+  const handleUpload = async () => {
+    // Validation
+    if (isUploading || !mediaUri) return;
+    
+    if (!isVideo) {
+      setError("Chỉ hỗ trợ upload video");
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Vui lòng nhập tiêu đề");
+      return;
+    }
+
+    if (trimmedTitle.length > 100) {
+      setError("Tiêu đề không được quá 100 ký tự");
+      return;
+    }
+
+    if (desc.length > 500) {
+      setError("Mô tả không được quá 500 ký tự");
+      return;
+    }
+
     setIsUploading(true);
     setProgress(0);
+    setError("");
 
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const nextProgress = prev + Math.random() * 10;
-        if (nextProgress >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          Alert.alert("Thành công", "Đã đăng tải nội dung!", [
-            { text: "OK", onPress: () => router.back() },
-          ]);
-          return 100;
-        }
-        return nextProgress;
+    const formData = new FormData();
+    formData.append("title", trimmedTitle);
+    formData.append("description", desc.trim());
+
+    // Determine file type and name based on URI
+    const fileExtension = mediaUri.split('.').pop()?.toLowerCase() || 'mp4';
+    const mimeType = fileExtension === 'mov' ? 'video/quicktime' : 'video/mp4';
+    const fileName = `upload.${fileExtension}`;
+
+    formData.append("file", {
+      uri: mediaUri,
+      type: mimeType,
+      name: fileName,
+    } as any);
+
+    try {
+      const token = await getToken();
+      
+      if (!token) {
+        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
+        router.replace("/(tabs)/profile");
+        setIsUploading(false);
+        return;
+      }
+
+      // Simulate progress (since fetch doesn't support real progress)
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) return 90; // Don't go to 100 until upload completes
+          return prev + 2;
+        });
+      }, 300);
+
+      const response = await fetch(`${API_BASE_URL}/videos/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Accept": "application/json",
+        },
+        body: formData,
       });
-    }, 150);
+
+      clearInterval(interval);
+
+      if (response.ok) {
+        setProgress(100);
+        const data = await response.json();
+        Alert.alert("Thành công", "Video đã được đăng!", [
+          {
+            text: "OK",
+            onPress: () => {
+              router.replace({ 
+                pathname: "/(tabs)/profile", 
+                params: { uploaded: "true" }
+              });
+            },
+          },
+        ]);
+      } else {
+        const errorText = await response.text();
+        let errorMessage = "Lỗi khi upload video";
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+
+        setError(errorMessage);
+        setProgress(0);
+        Alert.alert("Lỗi Server", errorMessage);
+      }
+
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setError("Lỗi kết nối. Vui lòng kiểm tra internet và thử lại.");
+      setProgress(0);
+      Alert.alert("Lỗi Mạng", "Kiểm tra kết nối internet");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* --- 3. MODAL XEM ẢNH FULL MÀN HÌNH --- */}
-      <Modal
-        animationType="fade"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.fullScreenContainer}>
-          <SafeAreaView style={styles.fullScreenHeader}>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.closeButton}
-            >
-              <AntDesign name="close" size={30} color="#fff" />
-            </TouchableOpacity>
-          </SafeAreaView>
-
-          {/* Hiển thị ảnh full trong Modal */}
-          <Image
-            source={{ uri: mediaUri }}
-            style={styles.fullScreenImage}
-            resizeMode="contain" // Giữ tỉ lệ ảnh không bị méo
-          />
-        </View>
-      </Modal>
-      {/* -------------------------------------- */}
-
-      <View style={styles.topSection}>
-        <View style={styles.previewContainer}>
-          {mediaUri ? (
-            isVideo ? (
-              <VideoView
-                player={player}
-                style={styles.preview}
-                allowsFullscreen // Video thì dùng fullscreen có sẵn của player
-                allowsPictureInPicture
-              />
-            ) : (
-              // 4. Bọc ảnh bằng TouchableOpacity để bấm vào xem
-              <TouchableOpacity onPress={() => setModalVisible(true)}>
-                <Image
-                  source={{ uri: mediaUri }}
-                  style={styles.preview}
-                  resizeMode="cover"
-                />
-                {/* Thêm icon kính lúp nhỏ để người dùng biết là bấm vào được */}
-                <View style={styles.magnifyIcon}>
-                  <AntDesign name="enlarge" size={14} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            )
-          ) : (
-            <View style={styles.previewPlaceholder} />
-          )}
-        </View>
-
-        <Text style={styles.label}>Tiêu đề:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập tiêu đề..."
-          value={title}
-          onChangeText={setTitle}
-          editable={!isUploading}
-        />
-
-        <Text style={styles.label}>Mô tả:</Text>
-        <TextInput
-          style={styles.textarea}
-          placeholder="Viết mô tả..."
-          value={desc}
-          onChangeText={setDesc}
-          multiline
-          editable={!isUploading}
-        />
-      </View>
-
-      <View style={styles.bottomSection}>
-        {(isUploading || progress > 0) && (
-          <View style={styles.progressContainer}>
-            <Text style={styles.fileName}>
-              {isVideo ? "video_recording.mp4" : "photo_capture.jpg"}
-            </Text>
-            <View style={styles.progressBarBackground}>
-              <View
-                style={[styles.progressBarFill, { width: `${progress}%` }]}
-              />
-            </View>
-            <Text
-              style={{
-                alignSelf: "flex-end",
-                fontSize: 12,
-                color: "#666",
-                marginTop: 4,
-              }}
-            >
-              {Math.round(progress)}%
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.buttonRow}>
+  if (!mediaUri || !isVideo) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            {!mediaUri ? "Không tìm thấy file" : "Chỉ hỗ trợ upload video"}
+          </Text>
           <TouchableOpacity
-            style={[
-              styles.uploadBtn,
-              isUploading && { backgroundColor: "#ff99a0" },
-            ]}
-            onPress={handleUpload}
-            disabled={isUploading}
-          >
-            <Text style={styles.uploadText}>
-              {isUploading ? "Đang tải..." : "Đăng tải"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
+            style={styles.backButton}
             onPress={() => router.back()}
-            disabled={isUploading}
           >
-            <Text style={styles.cancelText}>Hủy bỏ</Text>
+            <Text style={styles.backButtonText}>Quay lại</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardView}
+      >
+        {/* MODAL XEM VIDEO FULL */}
+        <Modal
+          animationType="fade"
+          transparent={false}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.fullScreenContainer}>
+            <SafeAreaView style={styles.fullScreenHeader}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <AntDesign name="close" size={30} color="#fff" />
+              </TouchableOpacity>
+            </SafeAreaView>
+            {isVideo && (
+              <VideoView
+                player={fullScreenPlayer}
+                style={styles.fullScreenImage}
+                allowsFullscreen
+              />
+            )}
+          </View>
+        </Modal>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.topSection}>
+            <View style={styles.previewContainer}>
+              {mediaUri && isVideo ? (
+                <TouchableOpacity onPress={() => setModalVisible(true)}>
+                  <VideoView
+                    player={previewPlayer}
+                    style={styles.preview}
+                    allowsFullscreen
+                  />
+                  <View style={styles.magnifyIcon}>
+                    <AntDesign name="arrows-alt" size={14} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.previewPlaceholder} />
+              )}
+            </View>
+
+            <Text style={styles.label}>Tiêu đề: <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, error && !title.trim() && styles.inputError]}
+              placeholder="Nhập tiêu đề..."
+              value={title}
+              onChangeText={(text) => {
+                setTitle(text);
+                if (error) setError("");
+              }}
+              editable={!isUploading}
+              maxLength={100}
+            />
+            {title.length > 0 && (
+              <Text style={styles.charCount}>{title.length}/100</Text>
+            )}
+
+            <Text style={styles.label}>Mô tả:</Text>
+            <TextInput
+              style={[styles.textarea, error && desc.length > 500 && styles.inputError]}
+              placeholder="Viết mô tả (tùy chọn)..."
+              value={desc}
+              onChangeText={(text) => {
+                setDesc(text);
+                if (error) setError("");
+              }}
+              multiline
+              editable={!isUploading}
+              maxLength={500}
+            />
+            {desc.length > 0 && (
+              <Text style={styles.charCount}>{desc.length}/500</Text>
+            )}
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <AntDesign name="exclamation-circle" size={16} color="#ff4d5a" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.bottomSection}>
+            {(isUploading || progress > 0) && (
+              <View style={styles.progressContainer}>
+                <Text style={styles.fileName}>video_recording.mp4</Text>
+                <View style={styles.progressBarBackground}>
+                  <View
+                    style={[styles.progressBarFill, { width: `${progress}%` }]}
+                  />
+                </View>
+                <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+              </View>
+            )}
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.uploadBtn,
+                  (isUploading || !title.trim()) && styles.uploadBtnDisabled,
+                ]}
+                onPress={handleUpload}
+                disabled={isUploading || !title.trim()}
+              >
+                <Text style={styles.uploadText}>
+                  {isUploading ? "Đang tải..." : "Đăng tải"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.cancelBtn, isUploading && styles.cancelBtnDisabled]}
+                onPress={() => {
+                  if (!isUploading) router.back();
+                }}
+                disabled={isUploading}
+              >
+                <Text style={styles.cancelText}>Hủy bỏ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -190,11 +346,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingHorizontal: 30,
-    paddingTop: 30,
   },
-  topSection: { flex: 1 },
-
+  keyboardView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 30,
+    paddingBottom: 20,
+  },
+  topSection: { marginTop: 20 },
   previewContainer: { alignItems: "flex-start", marginBottom: 25 },
   preview: {
     width: 95,
@@ -210,8 +373,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#ccc",
   },
-
-  // Style cho icon kính lúp trên ảnh nhỏ
   magnifyIcon: {
     position: "absolute",
     bottom: 5,
@@ -220,23 +381,63 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 4,
   },
-
-  // --- STYLE CHO MODAL FULLSCREEN ---
   fullScreenContainer: {
     flex: 1,
     backgroundColor: "#000",
     justifyContent: "center",
   },
-  fullScreenHeader: { position: "absolute", top: 40, right: 20, zIndex: 1 },
+  fullScreenHeader: { position: "absolute", top: 20, right: 20, zIndex: 1 },
   closeButton: {
     padding: 10,
     backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 20,
   },
   fullScreenImage: { width: "100%", height: "100%" },
-  // ----------------------------------
-
   label: { fontWeight: "bold", fontSize: 15, color: "#555", marginBottom: 6 },
+  required: { color: "#ff4d5a" },
+  charCount: {
+    fontSize: 12,
+    color: "#999",
+    alignSelf: "flex-end",
+    marginTop: -15,
+    marginBottom: 10,
+  },
+  inputError: {
+    borderColor: "#ff4d5a",
+    borderWidth: 1,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffe6e6",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 8,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  errorText: {
+    color: "#ff4d5a",
+    fontSize: 14,
+    flex: 1,
+  },
+  backButton: {
+    backgroundColor: "#ff4d5a",
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 20,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
   input: {
     backgroundColor: "#f8f8f8",
     borderRadius: 12,
@@ -263,7 +464,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  bottomSection: { marginTop: 20, marginBottom: 50 },
+  bottomSection: { marginTop: 20, marginBottom: 20 },
   progressContainer: { marginBottom: 20 },
   fileName: { fontWeight: "600", marginBottom: 8, color: "#111" },
   progressBarBackground: {
@@ -278,6 +479,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#3b5557",
     borderRadius: 10,
   },
+  progressText: {
+    alignSelf: "flex-end",
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+  },
   buttonRow: { flexDirection: "row", justifyContent: "center", gap: 20 },
   uploadBtn: {
     backgroundColor: "#ff4d5a",
@@ -285,12 +492,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
   },
+  uploadBtnDisabled: {
+    backgroundColor: "#ff99a0",
+    opacity: 0.6,
+  },
   uploadText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   cancelBtn: {
     backgroundColor: "#e5e5e5",
     paddingHorizontal: 35,
     paddingVertical: 12,
     borderRadius: 25,
+  },
+  cancelBtnDisabled: {
+    opacity: 0.5,
   },
   cancelText: { fontWeight: "bold", fontSize: 16, color: "#000" },
 });

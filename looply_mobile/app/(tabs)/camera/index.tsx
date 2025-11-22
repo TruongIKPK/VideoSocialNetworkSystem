@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import {
   CameraView,
   useCameraPermissions,
@@ -8,36 +8,55 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Images } from "phosphor-react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 
 export default function CameraScreen() {
   // 1. Xin quyền Camera và Micro
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
 
-  const [facing, setFacing] = useState("back");
-  const [mode, setMode] = useState("picture");
+  const [facing, setFacing] = useState<"front" | "back">("back");
+  const [mode, setMode] = useState<"picture" | "video">("picture");
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [locking, setLocking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [imagePermission, setImagePermission] = useState<ImagePicker.PermissionStatus | null>(null);
 
-  const cameraRef = useRef(null);
+  const cameraRef = useRef<CameraView>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 2. Logic bộ đếm giờ
+  // Request image library permission on mount
   useEffect(() => {
-    let timer;
+    (async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      setImagePermission(status);
+    })();
+  }, []);
+
+  // 2. Logic bộ đếm giờ - Fixed cleanup
+  useEffect(() => {
     if (isRecording) {
       setDuration(0);
-      timer = setInterval(() => {
+      timerRef.current = setInterval(() => {
         setDuration((prev) => prev + 1);
       }, 1000);
     } else {
-      if (timer) clearInterval(timer);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
     return () => {
-      if (timer) clearInterval(timer);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [isRecording]);
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins < 10 ? "0" : ""}${mins}:${secs < 10 ? "0" : ""}${secs}`;
@@ -47,8 +66,8 @@ export default function CameraScreen() {
 
   if (!cameraPermission.granted || !micPermission.granted) {
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={{ textAlign: "center", marginBottom: 10 }}>
+      <SafeAreaView style={styles.permissionContainer}>
+        <Text style={{ textAlign: "center", marginBottom: 10, color: "#fff" }}>
           Ứng dụng cần quyền truy cập Camera và Microphone 🎥 🎙️
         </Text>
         <TouchableOpacity
@@ -60,11 +79,11 @@ export default function CameraScreen() {
         >
           <Text style={{ color: "#fff", fontWeight: "bold" }}>Cho phép</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  const switchMode = (newMode) => {
+  const switchMode = (newMode: "picture" | "video") => {
     if (isRecording) {
       Alert.alert("Thông báo", "Vui lòng dừng quay trước khi chuyển chế độ.");
       return;
@@ -72,133 +91,255 @@ export default function CameraScreen() {
     setMode(newMode);
   };
 
-  // --- SỬA ĐOẠN NÀY: Thêm type: 'image' ---
-  const handleTakePicture = async () => {
+  const pickImage = async () => {
     try {
-      if (cameraRef.current) {
-        const photo = await cameraRef.current.takePictureAsync();
-        if (photo?.uri) {
-          // Gửi thêm type='image' để bên kia biết mà hiển thị
-          router.push({
-            pathname: "/upload",
-            params: { uri: photo.uri, type: "image" },
-          });
+      // Check permission
+      if (imagePermission !== "granted") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        setImagePermission(status);
+        if (status !== "granted") {
+          Alert.alert(
+            "Quyền truy cập",
+            "Ứng dụng cần quyền truy cập thư viện ảnh để chọn video/ảnh."
+          );
+          return;
         }
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Lỗi", "Không thể chụp ảnh");
+
+      setIsProcessing(true);
+      
+      // Mở thư viện, chỉ cho phép chọn Video (vì server chỉ hỗ trợ video)
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos, // Chỉ video
+        allowsEditing: false,
+        quality: 1,
+        // Không dùng videoMaxDuration vì nó tính bằng seconds, 
+        // nhưng validation sẽ check thủ công để có thông báo lỗi rõ ràng hơn
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        // Validate video duration
+        // asset.duration is in milliseconds, convert to seconds
+        if (asset.duration) {
+          const durationInSeconds = asset.duration / 1000;
+          const maxDurationSeconds = 300; // 5 phút = 300 giây
+          
+          if (durationInSeconds > maxDurationSeconds) {
+            const minutes = Math.floor(durationInSeconds / 60);
+            const seconds = Math.floor(durationInSeconds % 60);
+            Alert.alert(
+              "Lỗi", 
+              `Video dài ${minutes} phút ${seconds} giây. Video không được dài hơn 5 phút.`
+            );
+            setIsProcessing(false);
+            return;
+          }
+        }
+
+        router.push({
+          pathname: "/upload",
+          params: {
+            uri: asset.uri,
+            type: "video",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi chọn video:", error);
+      Alert.alert("Lỗi", "Không thể mở thư viện video.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  // --- SỬA ĐOẠN NÀY: Thêm type: 'video' ---
+  const handleTakePicture = async () => {
+    if (locking || isProcessing) return;
+    setLocking(true);
+    setIsProcessing(true);
+    
+    try {
+      if (cameraRef.current) {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+        });
+        if (photo?.uri) {
+          // Server chỉ hỗ trợ video, nên thông báo user
+          Alert.alert(
+            "Thông báo",
+            "Hiện tại chỉ hỗ trợ upload video. Vui lòng chuyển sang chế độ Video để quay.",
+            [{ text: "OK" }]
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi chụp ảnh:", err);
+      Alert.alert("Lỗi", "Không thể chụp ảnh. Vui lòng thử lại.");
+    } finally {
+      setLocking(false);
+      setIsProcessing(false);
+    }
+  };
+
   const handleRecordVideo = async () => {
     try {
       if (!isRecording && cameraRef.current) {
+        // BẮT ĐẦU QUAY
         setIsRecording(true);
-        const video = await cameraRef.current.recordAsync();
-        if (video?.uri) {
-          // Gửi thêm type='video'
-          router.push({
-            pathname: "/upload",
-            params: { uri: video.uri, type: "video" },
+        setIsProcessing(true);
+
+        // Khóa nút trong 1.5 giây để đảm bảo video có độ dài tối thiểu
+        setLocking(true);
+        const lockTimeout = setTimeout(() => {
+          setLocking(false);
+        }, 1500);
+
+        try {
+          const video = await cameraRef.current.recordAsync({
+            maxDuration: 300, // Max 5 phút
           });
+          
+          clearTimeout(lockTimeout);
+          
+          if (video?.uri) {
+            setIsProcessing(false);
+            router.push({
+              pathname: "/upload",
+              params: { uri: video.uri, type: "video" },
+            });
+          } else {
+            setIsRecording(false);
+            setIsProcessing(false);
+            setLocking(false);
+          }
+        } catch (recordErr: any) {
+          clearTimeout(lockTimeout);
+          setIsRecording(false);
+          setIsProcessing(false);
+          setLocking(false);
+          
+          if (recordErr.message?.includes("duration") || recordErr.message?.includes("too short")) {
+            Alert.alert("Lỗi", "Video quá ngắn. Vui lòng quay ít nhất 1 giây.");
+          } else {
+            throw recordErr;
+          }
         }
-      } else if (cameraRef.current) {
+      } else if (cameraRef.current && !locking) {
+        // DỪNG QUAY
+        setIsProcessing(true);
         cameraRef.current.stopRecording();
         setIsRecording(false);
+        // setIsProcessing sẽ được set false khi video được tạo xong
       }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Lỗi", "Không thể quay video: " + err.message);
+    } catch (err: any) {
+      console.error("Lỗi quay video:", err);
+      Alert.alert("Lỗi", `Không thể quay video: ${err.message || "Vui lòng thử lại"}`);
       setIsRecording(false);
+      setIsProcessing(false);
+      setLocking(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={facing}
-        mode={mode}
-      />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={{ flex: 1, borderRadius: 20, overflow: "hidden" }}>
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing={facing}
+          mode={mode}
+        />
 
-      {isRecording && (
-        <View style={styles.timerContainer}>
-          <View style={styles.redDot} />
-          <Text style={styles.timerText}>{formatTime(duration)}</Text>
-        </View>
-      )}
-
-      {!isRecording && (
-        <View style={styles.topButton}>
-          <TouchableOpacity style={styles.soundBtn}>
-            <Text style={styles.soundText}>Thêm âm thanh</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {!isRecording && (
-        <View style={styles.modeSelector}>
-          <TouchableOpacity onPress={() => switchMode("video")}>
-            <Text
-              style={[
-                styles.modeText,
-                mode === "video" && styles.activeModeText,
-              ]}
-            >
-              Video
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => switchMode("picture")}>
-            <Text
-              style={[
-                styles.modeText,
-                mode === "picture" && styles.activeModeText,
-              ]}
-            >
-              Ảnh
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.bottomControls}>
-        <TouchableOpacity
-          style={{ opacity: isRecording ? 0 : 1 }}
-          disabled={isRecording}
-        >
-          <Images size={38} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={mode === "picture" ? handleTakePicture : handleRecordVideo}
-        >
-          <View
-            style={[
-              styles.captureBtn,
-              mode === "video" && styles.captureBtnVideo,
-              isRecording && styles.captureBtnRecording,
-            ]}
-          >
-            {isRecording && <View style={styles.stopIcon} />}
+        {isRecording && (
+          <View style={styles.timerContainer}>
+            <View style={styles.redDot} />
+            <Text style={styles.timerText}>{formatTime(duration)}</Text>
           </View>
-        </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          onPress={() => setFacing(facing === "back" ? "front" : "back")}
-          style={{ opacity: isRecording ? 0 : 1 }}
-          disabled={isRecording}
-        >
-          <MaterialCommunityIcons
-            name="camera-switch-outline"
-            size={38}
-            color="#fff"
-          />
-        </TouchableOpacity>
+        {isProcessing && !isRecording && (
+          <View style={styles.processingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.processingText}>Đang xử lý...</Text>
+          </View>
+        )}
+
+        {!isRecording && (
+          <View style={styles.topButton}>
+            <TouchableOpacity style={styles.soundBtn}>
+              <Text style={styles.soundText}>Thêm âm thanh</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!isRecording && (
+          <View style={styles.modeSelector}>
+            <TouchableOpacity onPress={() => switchMode("video")}>
+              <Text
+                style={[
+                  styles.modeText,
+                  mode === "video" && styles.activeModeText,
+                ]}
+              >
+                Video
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => switchMode("picture")}>
+              <Text
+                style={[
+                  styles.modeText,
+                  mode === "picture" && styles.activeModeText,
+                ]}
+              >
+                Ảnh
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.bottomControls}>
+          <TouchableOpacity
+            style={{ opacity: isRecording || isProcessing ? 0.5 : 1 }}
+            disabled={isRecording || isProcessing}
+            onPress={pickImage}
+          >
+            <Images size={38} color="#fff" />
+          </TouchableOpacity>
+
+          {/* NÚT QUAY/CHỤP */}
+          <TouchableOpacity
+            onPress={mode === "picture" ? handleTakePicture : handleRecordVideo}
+            activeOpacity={0.7}
+            disabled={locking} // Disable nút khi đang khóa
+          >
+            <View
+              style={[
+                styles.captureBtn,
+                mode === "video" && styles.captureBtnVideo,
+                isRecording && styles.captureBtnRecording,
+                // Làm mờ nút nếu đang bị khóa để bạn biết
+                locking && { opacity: 0.5, borderColor: "#999" },
+              ]}
+            >
+              {isRecording && <View style={styles.stopIcon} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setFacing(facing === "back" ? "front" : "back")}
+            style={{ opacity: isRecording ? 0 : 1 }}
+            disabled={isRecording}
+          >
+            <MaterialCommunityIcons
+              name="camera-switch-outline"
+              size={38}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -207,7 +348,7 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   timerContainer: {
     position: "absolute",
-    top: 60,
+    top: 20,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
@@ -229,7 +370,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontVariant: ["tabular-nums"],
   },
-  topButton: { position: "absolute", top: 60, alignSelf: "center" },
+  topButton: { position: "absolute", top: 20, alignSelf: "center" },
   soundBtn: {
     backgroundColor: "rgba(0,0,0,0.4)",
     paddingHorizontal: 20,
@@ -296,5 +437,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
+    marginTop: 20,
+  },
+  processingContainer: {
+    position: "absolute",
+    top: "50%",
+    alignSelf: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    borderRadius: 15,
+  },
+  processingText: {
+    color: "#fff",
+    marginTop: 10,
+    fontSize: 16,
   },
 });

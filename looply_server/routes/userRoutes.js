@@ -41,5 +41,5 @@ router.put("/profile/:id", authenticateToken, checkOwnership, upload.single("ava
 router.put("/:id/status", authenticateToken, requireAdmin, updateUserStatus);
 router.post("/:id/follow", authenticateToken, followUser);
 router.delete("/:id/follow", authenticateToken, unfollowUser);
-
+router.get("/:id", getUserById);
 export default router;

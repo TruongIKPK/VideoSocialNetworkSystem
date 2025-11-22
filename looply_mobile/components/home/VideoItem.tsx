@@ -444,7 +444,7 @@ export const VideoItem = ({
                   item.isFollowing && styles.followButtonTextFollowing,
                 ]}
               >
-                {item.isFollowing ? "Đang follow" : "Follow"}
+                {item.isFollowing ? "Đã follow" : "Follow"}
               </Text>
             </TouchableOpacity>
           )}

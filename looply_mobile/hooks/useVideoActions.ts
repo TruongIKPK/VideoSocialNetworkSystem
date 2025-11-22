@@ -129,10 +129,25 @@ export const useVideoActions = ({
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to ${isCurrentlyFollowing ? "unfollow" : "follow"} user`);
+        const errorData = await response.json().catch(() => ({}));
+        // Log error nhưng không hiển thị alert
+        console.warn("Follow/unfollow error:", errorData.message || "Failed to follow/unfollow user");
+        // Revert on error
+        setVideos((prev) =>
+          prev.map((v) => {
+            if (v.user._id === targetUserId) {
+              return {
+                ...v,
+                isFollowing: isCurrentlyFollowing,
+              };
+            }
+            return v;
+          })
+        );
       }
     } catch (error) {
-      console.error("Follow error:", error);
+      // Log error nhưng không hiển thị alert
+      console.warn("Follow/unfollow error:", error);
       // Revert on error
       setVideos((prev) =>
         prev.map((v) => {
