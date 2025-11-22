@@ -140,6 +140,51 @@ export const updateUserStatus = async (req, res) => {
   }
 };
 
+// Get video by ID (admin only - includes violation videos)
+export const getVideoById = async (req, res) => {
+  try {
+    console.log("📹 getVideoById controller called");
+    console.log("📹 Video ID:", req.params.videoId);
+    const { videoId } = req.params;
+
+    const video = await Video.findById(videoId).lean();
+    
+    if (!video) {
+      console.log("❌ Video not found:", videoId);
+      return res.status(404).json({ message: "Không tìm thấy video" });
+    }
+
+    // Add views count
+    const viewsCount = await VideoView.countDocuments({ videoId: video._id });
+    
+    // Ensure user data is populated
+    let userData = video.user;
+    if (video.user?._id && (!video.user.name || !video.user.avatar)) {
+      const fullUser = await User.findById(video.user._id).select("name username avatar").lean();
+      if (fullUser) {
+        userData = {
+          _id: fullUser._id,
+          name: fullUser.name || video.user.name,
+          username: fullUser.username,
+          avatar: fullUser.avatar || video.user.avatar,
+        };
+      }
+    }
+
+    const videoWithStats = {
+      ...video,
+      views: viewsCount,
+      user: userData,
+    };
+
+    console.log("✅ Video found:", videoWithStats._id);
+    res.json(videoWithStats);
+  } catch (error) {
+    console.error("❌ Error fetching video:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get all videos (admin only - includes violation videos)
 export const getAllVideos = async (req, res) => {
   try {
@@ -209,6 +254,9 @@ export const getAllVideos = async (req, res) => {
 // Update video status (mark as violation)
 export const updateVideoStatus = async (req, res) => {
   try {
+    console.log("🎬 updateVideoStatus controller called");
+    console.log("🎬 Video ID:", req.params.videoId);
+    console.log("🎬 Request body:", req.body);
     const { videoId } = req.params;
     const { status } = req.body;
 
@@ -228,11 +276,13 @@ export const updateVideoStatus = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy video" });
     }
 
+    console.log("✅ Video status updated successfully:", video._id, "->", status);
     res.json({
       message: `Video đã được đánh dấu là ${status === "violation" ? "vi phạm" : "hoạt động"}`,
       video,
     });
   } catch (error) {
+    console.error("❌ Error updating video status:", error);
     res.status(500).json({ message: error.message });
   }
 };

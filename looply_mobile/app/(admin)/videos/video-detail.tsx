@@ -100,7 +100,11 @@ export default function AdminVideoDetailScreen() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/videos/${videoId}`, {
+      const videoUrl = `${API_BASE_URL}/admin/videos/${videoId}`;
+      console.log("[Video Detail] 📹 Fetching video from:", videoUrl);
+      console.log("[Video Detail] Video ID:", videoId);
+      
+      const response = await fetch(videoUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -109,23 +113,31 @@ export default function AdminVideoDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Video Detail] Video data fetched:", data);
+        console.log("[Video Detail] ✅ Video data fetched:", data);
         setVideoData(data);
       } else {
         const contentType = response.headers.get("content-type");
         let errorMessage = "Không thể tải video";
+        let errorText = "";
         
         try {
-          const responseText = await response.text();
+          errorText = await response.text();
+          console.error(`[Video Detail] ❌ Error response (${response.status}):`, errorText);
           if (contentType && contentType.includes("application/json")) {
-            const errorData = JSON.parse(responseText);
+            const errorData = JSON.parse(errorText);
             errorMessage = errorData.message || errorMessage;
+          } else {
+            errorMessage = `Lỗi ${response.status}: ${errorText.substring(0, 100)}`;
           }
         } catch (e) {
-          // Ignore parse error
+          console.error("[Video Detail] ❌ Failed to parse error response:", e);
+          errorMessage = `Lỗi ${response.status}: Không thể tải video`;
         }
         
-        console.error("[Video Detail] Failed to fetch video:", response.status, errorMessage);
+        console.error(`[Video Detail] ❌ Failed to fetch video: ${response.status} ${response.statusText}`);
+        console.error(`[Video Detail] Request URL: ${videoUrl}`);
+        console.error(`[Video Detail] Error message: ${errorMessage}`);
+        
         // Fallback to params if API fails
         setVideoData({
           _id: videoId,
@@ -139,8 +151,11 @@ export default function AdminVideoDetailScreen() {
           views: parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "0"),
         });
       }
-    } catch (error) {
-      console.error("[Video Detail] Error fetching video:", error);
+    } catch (error: any) {
+      console.error("[Video Detail] ❌ Error fetching video:", error);
+      console.error("[Video Detail] Error message:", error.message);
+      console.error("[Video Detail] Error stack:", error.stack);
+      
       // Fallback to params
       setVideoData({
         _id: videoId,
@@ -215,108 +230,144 @@ export default function AdminVideoDetailScreen() {
 
       // 1. Tạo report
       const reportReason = `${selectedReason}\n\nChi tiết: ${violationDetails}`;
-      const reportResponse = await fetch(`${API_BASE_URL}/reports`, {
+      const reportUrl = `${API_BASE_URL}/reports`;
+      const reportBody = {
+        reportedType: "video",
+        reportedId: videoId,
+        reason: reportReason,
+      };
+      
+      console.log("[Violation] 📝 Creating report...");
+      console.log("[Violation] URL:", reportUrl);
+      console.log("[Violation] Body:", reportBody);
+      
+      const reportResponse = await fetch(reportUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          reportedType: "video",
-          reportedId: videoId,
-          reason: reportReason,
-        }),
+        body: JSON.stringify(reportBody),
       });
+
+      console.log("[Violation] Report response status:", reportResponse.status);
+      console.log("[Violation] Report response ok:", reportResponse.ok);
 
       if (!reportResponse.ok) {
         const contentType = reportResponse.headers.get("content-type");
         let errorMessage = "Không thể tạo báo cáo";
+        let responseText = "";
         
         // Response body chỉ có thể đọc một lần, nên cần clone hoặc đọc text trước
         try {
-          const responseText = await reportResponse.text();
+          responseText = await reportResponse.text();
+          console.error(`[Violation] ❌ Error response (${reportResponse.status}):`, responseText);
           
           if (contentType && contentType.includes("application/json")) {
             try {
               const errorData = JSON.parse(responseText);
               errorMessage = errorData.message || errorMessage;
+              console.error("[Violation] ❌ Error data:", errorData);
             } catch (e) {
               // Nếu không parse được JSON, dùng text hoặc status code
+              console.error("[Violation] ❌ Failed to parse JSON error:", e);
               if (reportResponse.status === 404) {
-                errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+                errorMessage = `API không tìm thấy (404). URL: ${reportUrl}`;
               } else {
-                errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
+                errorMessage = `Lỗi ${reportResponse.status}: ${responseText.substring(0, 100)}`;
               }
             }
           } else {
-            // Server trả về HTML (404 page)
+            // Server trả về HTML (404 page) hoặc text
+            console.error("[Violation] ❌ Non-JSON response:", responseText.substring(0, 200));
             if (reportResponse.status === 404) {
-              errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+              errorMessage = `API không tìm thấy (404). URL: ${reportUrl}. Response: ${responseText.substring(0, 100)}`;
             } else {
-              errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
+              errorMessage = `Lỗi ${reportResponse.status}: ${responseText.substring(0, 100)}`;
             }
           }
         } catch (e) {
           // Nếu không đọc được response, dùng status code
+          console.error("[Violation] ❌ Failed to read response:", e);
           if (reportResponse.status === 404) {
-            errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+            errorMessage = `API không tìm thấy (404). URL: ${reportUrl}`;
           } else {
             errorMessage = `Lỗi ${reportResponse.status}: Không thể tạo báo cáo`;
           }
         }
         throw new Error(errorMessage);
       }
+      
+      const reportData = await reportResponse.json();
+      console.log("[Violation] ✅ Report created:", reportData);
 
       // 2. Cập nhật video status thành "violation"
-      const statusResponse = await fetch(`${API_BASE_URL}/admin/videos/${videoId}/status`, {
+      const statusUrl = `${API_BASE_URL}/admin/videos/${videoId}/status`;
+      const statusBody = { status: "violation" };
+      
+      console.log("[Violation] 🎬 Updating video status...");
+      console.log("[Violation] URL:", statusUrl);
+      console.log("[Violation] Body:", statusBody);
+      
+      const statusResponse = await fetch(statusUrl, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          status: "violation",
-        }),
+        body: JSON.stringify(statusBody),
       });
+
+      console.log("[Violation] Status response:", statusResponse.status);
+      console.log("[Violation] Status response ok:", statusResponse.ok);
 
       if (!statusResponse.ok) {
         const contentType = statusResponse.headers.get("content-type");
         let errorMessage = "Không thể cập nhật trạng thái video";
+        let responseText = "";
         
         // Response body chỉ có thể đọc một lần, nên cần clone hoặc đọc text trước
         try {
-          const responseText = await statusResponse.text();
+          responseText = await statusResponse.text();
+          console.error(`[Violation] ❌ Status error response (${statusResponse.status}):`, responseText);
           
           if (contentType && contentType.includes("application/json")) {
             try {
               const errorData = JSON.parse(responseText);
               errorMessage = errorData.message || errorMessage;
+              console.error("[Violation] ❌ Status error data:", errorData);
             } catch (e) {
               // Nếu không parse được JSON, dùng text hoặc status code
+              console.error("[Violation] ❌ Failed to parse JSON error:", e);
               if (statusResponse.status === 404) {
-                errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+                errorMessage = `API không tìm thấy (404). URL: ${statusUrl}`;
               } else {
-                errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
+                errorMessage = `Lỗi ${statusResponse.status}: ${responseText.substring(0, 100)}`;
               }
             }
           } else {
-            // Server trả về HTML (404 page)
+            // Server trả về HTML (404 page) hoặc text
+            console.error("[Violation] ❌ Non-JSON response:", responseText.substring(0, 200));
             if (statusResponse.status === 404) {
-              errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+              errorMessage = `API không tìm thấy (404). URL: ${statusUrl}. Response: ${responseText.substring(0, 100)}`;
             } else {
-              errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
+              errorMessage = `Lỗi ${statusResponse.status}: ${responseText.substring(0, 100)}`;
             }
           }
         } catch (e) {
           // Nếu không đọc được response, dùng status code
+          console.error("[Violation] ❌ Failed to read response:", e);
           if (statusResponse.status === 404) {
-            errorMessage = "API không tìm thấy. Vui lòng kiểm tra server.";
+            errorMessage = `API không tìm thấy (404). URL: ${statusUrl}`;
           } else {
             errorMessage = `Lỗi ${statusResponse.status}: Không thể cập nhật trạng thái video`;
           }
         }
         throw new Error(errorMessage);
       }
+      
+      const statusData = await statusResponse.json();
+      console.log("[Violation] ✅ Video status updated:", statusData);
 
       // Refresh video data after update để hiển thị status mới
       await fetchVideoData();

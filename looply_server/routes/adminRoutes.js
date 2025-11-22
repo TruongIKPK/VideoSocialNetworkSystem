@@ -3,6 +3,7 @@ import {
   getDashboardStats,
   getAllUsers,
   updateUserStatus,
+  getVideoById,
   getAllVideos,
   updateVideoStatus,
   getAllComments,
@@ -83,11 +84,20 @@ router.get("/videos", (req, res, next) => {
   console.log("📹 Admin videos route hit - GET /api/admin/videos");
   next();
 }, getAllVideos);
+// IMPORTANT: Put more specific routes BEFORE generic routes to avoid route conflicts
+// Route /videos/:videoId/status must come BEFORE /videos/:videoId
 router.put("/videos/:videoId/status", (req, res, next) => {
-  console.log(`🎬 Update video status route hit - PUT /api/admin/videos/${req.params.videoId}/status`);
+  console.log(`🎬 Update video status route MATCHED - PUT /api/admin/videos/${req.params.videoId}/status`);
+  console.log(`   Video ID param:`, req.params.videoId);
   console.log(`   Request body:`, req.body);
+  console.log(`   Request path:`, req.path);
+  console.log(`   Request originalUrl:`, req.originalUrl);
   next();
 }, updateVideoStatus);
+router.get("/videos/:videoId", (req, res, next) => {
+  console.log(`📹 Get video by ID route hit - GET /api/admin/videos/${req.params.videoId}`);
+  next();
+}, getVideoById);
 
 // Comment Management
 router.get("/comments", getAllComments);
@@ -108,6 +118,8 @@ router.use((req, res) => {
       "GET /api/admin/dashboard/recent-reports",
       "GET /api/admin/users",
       "GET /api/admin/videos",
+      "GET /api/admin/videos/:videoId",
+      "PUT /api/admin/videos/:videoId/status",
       "GET /api/admin/comments"
     ]
   });

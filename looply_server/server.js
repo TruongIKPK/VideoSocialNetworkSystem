@@ -119,6 +119,8 @@ console.log("   - GET  /api/admin/dashboard/recent-videos");
 console.log("   - GET  /api/admin/dashboard/recent-reports");
 console.log("   - GET  /api/admin/users");
 console.log("   - GET  /api/admin/videos");
+console.log("   - GET  /api/admin/videos/:videoId");
+console.log("   - PUT  /api/admin/videos/:videoId/status");
 console.log("   - GET  /api/admin/comments");
 app.use("/api/saves", saveRoutes);
 
@@ -346,4 +348,5 @@ server.listen(PORT, () => {
   console.log(`   Test route: GET http://localhost:${PORT}/api/admin/ping (no auth required)`);
   console.log(`   Dashboard: GET http://localhost:${PORT}/api/admin/dashboard/stats`);
   console.log(`   Videos: GET http://localhost:${PORT}/api/admin/videos`);
+  console.log(`   Video Detail: GET http://localhost:${PORT}/api/admin/videos/:videoId`);
 });
