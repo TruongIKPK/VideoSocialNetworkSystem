@@ -186,7 +186,7 @@ export default function AdminVideosScreen() {
               {videos.map((item) => (
                 <View key={item._id} style={styles.videoItem}>
                   <View style={styles.videoThumbnail}>
-                    <Ionicons name="videocam" size={24} color="#10B981" />
+                    <Image source={{ uri: item.thumbnail }} style={styles.videoThumbnailImage} />
                   </View>
                   <View style={styles.videoInfo}>
                     <View style={styles.videoTitleRow}>
@@ -403,6 +403,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.md,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
+  },
+  videoThumbnailImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BorderRadius.md,
   },
 });
 
