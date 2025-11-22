@@ -73,7 +73,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-<<<<<<< HEAD
         name="profile"
         options={{
           href: null, 
@@ -87,8 +86,6 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-=======
->>>>>>> f2c086c380d6b7183e6ca7ee8ec466009cde858f
         name="settings/index"
         options={{
           href: null, 

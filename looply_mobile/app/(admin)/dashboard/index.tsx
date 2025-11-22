@@ -100,7 +100,9 @@ export default function AdminDashboardScreen() {
       }
       
       // Fetch stats
-      const statsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/stats`, {
+      const statsUrl = `${API_BASE_URL}/admin/dashboard/stats`;
+      console.log("📊 Fetching stats from:", statsUrl);
+      const statsResponse = await fetch(statsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -108,10 +110,14 @@ export default function AdminDashboardScreen() {
       
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        console.log("Dashboard stats:", statsData);
+        console.log("✅ Dashboard stats:", statsData);
         setStats(statsData);
       } else {
-        console.error("Failed to fetch stats:", statsResponse.status);
+        const errorText = await statsResponse.text();
+        console.error(`❌ Failed to fetch stats: ${statsResponse.status} ${statsResponse.statusText}`);
+        console.error(`❌ Error response:`, errorText);
+        console.error(`❌ Request URL:`, statsUrl);
+        
         // Set fallback stats
         setStats({
           total: { users: 0, videos: 0, reports: 0 },
@@ -124,7 +130,9 @@ export default function AdminDashboardScreen() {
 
       // Fetch recent videos - mặc định hiển thị 3 video mới nhất
       // Thử route admin trước, nếu fail thì dùng route videos/latest làm fallback
-      let videosResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`, {
+      const videosUrl = `${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`;
+      console.log("📹 Fetching recent videos from:", videosUrl);
+      let videosResponse = await fetch(videosUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -132,7 +140,9 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route videos/latest
       if (videosResponse.status === 404) {
-        console.warn("⚠️ Admin route not found, using fallback: /api/videos/latest");
+        const errorText = await videosResponse.text();
+        console.warn("⚠️ Admin route not found (404), using fallback: /api/videos/latest");
+        console.warn("⚠️ Error response:", errorText);
         videosResponse = await fetch(`${API_BASE_URL}/videos/latest`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -162,7 +172,9 @@ export default function AdminDashboardScreen() {
       }
 
       // Fetch recent VIDEO reports - mặc định hiển thị 3 video reports mới nhất
-      let videoReportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`, {
+      const videoReportsUrl = `${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`;
+      console.log("🚩 Fetching video reports from:", videoReportsUrl);
+      let videoReportsResponse = await fetch(videoReportsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -170,7 +182,9 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (videoReportsResponse.status === 404) {
-        console.warn("⚠️ Admin route not found, using fallback: /api/reports");
+        const errorText = await videoReportsResponse.text();
+        console.warn("⚠️ Admin route not found (404), using fallback: /api/reports");
+        console.warn("⚠️ Error response:", errorText);
         videoReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -197,7 +211,9 @@ export default function AdminDashboardScreen() {
       }
 
       // Fetch recent COMMENT reports - mặc định hiển thị 3 comment reports mới nhất
-      let commentReportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=comment`, {
+      const commentReportsUrl = `${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=comment`;
+      console.log("🚩 Fetching comment reports from:", commentReportsUrl);
+      let commentReportsResponse = await fetch(commentReportsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -205,7 +221,9 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (commentReportsResponse.status === 404) {
-        console.warn("⚠️ Admin route not found, using fallback: /api/reports");
+        const errorText = await commentReportsResponse.text();
+        console.warn("⚠️ Admin route not found (404), using fallback: /api/reports");
+        console.warn("⚠️ Error response:", errorText);
         commentReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,

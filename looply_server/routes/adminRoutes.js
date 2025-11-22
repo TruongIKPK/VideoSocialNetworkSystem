@@ -35,7 +35,7 @@ router.get("/test-recent-reports-route", (req, res) => {
 
 // Log all requests to admin routes
 router.use((req, res, next) => {
-  console.log(`[AdminRoutes] ${req.method} ${req.path}`);
+  console.log(`[AdminRoutes] ${req.method} ${req.path} - Original URL: ${req.originalUrl}`);
   next();
 });
 
@@ -92,6 +92,26 @@ router.put("/videos/:videoId/status", (req, res, next) => {
 // Comment Management
 router.get("/comments", getAllComments);
 router.put("/comments/:commentId/status", updateCommentStatus);
+
+// Catch-all route handler for debugging - should be last
+router.use((req, res) => {
+  console.error(`[AdminRoutes] ❌ Route not found: ${req.method} ${req.path}`);
+  console.error(`[AdminRoutes] Original URL: ${req.originalUrl}`);
+  console.error(`[AdminRoutes] Available routes: /dashboard/stats, /dashboard/recent-videos, /dashboard/recent-reports, /users, /videos, /comments`);
+  res.status(404).json({ 
+    message: "Admin route not found",
+    path: req.path,
+    method: req.method,
+    availableRoutes: [
+      "GET /api/admin/dashboard/stats",
+      "GET /api/admin/dashboard/recent-videos",
+      "GET /api/admin/dashboard/recent-reports",
+      "GET /api/admin/users",
+      "GET /api/admin/videos",
+      "GET /api/admin/comments"
+    ]
+  });
+});
 
 export default router;
 

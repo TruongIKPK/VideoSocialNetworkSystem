@@ -43,7 +43,6 @@ export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
-<<<<<<< HEAD
   
   // Log tất cả params để debug - params có thể là string hoặc string[]
   useEffect(() => {
@@ -78,15 +77,6 @@ export default function Profile() {
   
   // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
   const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
-=======
-  const targetUserId = params.userId as string | undefined;
-  const targetUsername = params.username as string | undefined;
-  const uploaded = params.uploaded as string | undefined;
-
-  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
-  const isViewingOtherProfile =
-    targetUserId && targetUserId !== currentUser?._id;
->>>>>>> f2c086c380d6b7183e6ca7ee8ec466009cde858f
   const [profileUser, setProfileUser] = useState<any>(currentUser);
 
   const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
@@ -121,7 +111,6 @@ export default function Profile() {
       // Hiển thị profile của user hiện tại
       setProfileUser(currentUser);
       fetchProfileData();
-<<<<<<< HEAD
     } else {
       console.log(`[Profile] ⚠️ No user data available`);
       setIsLoading(false);
@@ -171,49 +160,6 @@ export default function Profile() {
     } finally {
       setIsLoading(false);
     }
-=======
-      if (uploaded === "true") {
-        // Xóa tham số khỏi URL để lần sau không tải lại
-        router.setParams({ uploaded: undefined });
-      } else {
-        setIsLoading(false);
-      }
-    }
-  }, [
-    isAuthenticated,
-    currentUser,
-    activeTab,
-    targetUserId,
-    isViewingOtherProfile,
-    uploaded,
-  ]);
-
-  const fetchOtherUserProfile = async (userId: string) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-      if (response.ok) {
-        const userData = await response.json();
-        setProfileUser(userData);
-        // Fetch videos của user đó
-        const videosResponse = await fetch(
-          `${API_BASE_URL}/videos/user/${userId}`
-        );
-        if (videosResponse.ok) {
-          const videosData = await videosResponse.json();
-          setVideos(
-            Array.isArray(videosData.videos || videosData)
-              ? videosData.videos || videosData
-              : []
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching other user profile:", error);
-    } finally {
-      setIsLoading(false);
-    }
->>>>>>> f2c086c380d6b7183e6ca7ee8ec466009cde858f
   };
 
   const fetchProfileData = async () => {
@@ -332,7 +278,6 @@ export default function Profile() {
     );
   }
 
-<<<<<<< HEAD
   // Hiển thị thông báo khi không tìm thấy user (khi đang xem profile người khác)
   if (isViewingOtherProfile && !isLoading && !profileUser) {
     return (
@@ -352,14 +297,6 @@ export default function Profile() {
   }
 
   const currentVideos = activeTab === "video" ? videos : activeTab === "favorites" ? favorites : liked;
-=======
-  const currentVideos =
-    activeTab === "video"
-      ? videos
-      : activeTab === "favorites"
-      ? favorites
-      : liked;
->>>>>>> f2c086c380d6b7183e6ca7ee8ec466009cde858f
 
   return (
     <SafeAreaView style={styles.container}>

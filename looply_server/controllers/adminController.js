@@ -8,6 +8,8 @@ import VideoView from "../models/VideoView.js";
 export const getDashboardStats = async (req, res) => {
   try {
     console.log("📊 getDashboardStats called");
+    console.log("📊 Request path:", req.path);
+    console.log("📊 Request originalUrl:", req.originalUrl);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
