@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
@@ -46,6 +46,15 @@ export default function AdminVideosScreen() {
     }
   }, [token]);
 
+  // Refresh khi quay lại từ video-detail
+  useFocusEffect(
+    React.useCallback(() => {
+      if (token) {
+        fetchVideos();
+      }
+    }, [token])
+  );
+
   const fetchVideos = async () => {
     try {
       setIsLoading(true);
@@ -54,10 +63,11 @@ export default function AdminVideosScreen() {
         return;
       }
 
-      const url = `${API_BASE_URL}/admin/videos`;
+      // Thử fetch từ admin route trước
+      let url = `${API_BASE_URL}/admin/videos`;
       console.log(`[Admin Videos] Fetching from: ${url}`);
       
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -66,35 +76,65 @@ export default function AdminVideosScreen() {
       
       console.log(`[Admin Videos] Response status: ${response.status}`);
       
+      // Fallback: Nếu admin route trả về 404, dùng route videos thông thường
+      if (response.status === 404) {
+        console.warn("⚠️ Admin videos route not found, using fallback: /api/videos");
+        url = `${API_BASE_URL}/videos`;
+        response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        console.log(`[Admin Videos] Fallback response status: ${response.status}`);
+      }
+      
       if (response.ok) {
         const data = await response.json();
         console.log(`[Admin Videos] Data received:`, data);
+        // API trả về { total, page, limit, videos: [...] } hoặc array trực tiếp
         const videoList = Array.isArray(data) ? data : (data.videos || []);
         console.log(`[Admin Videos] Video list length: ${videoList.length}`);
         setVideos(videoList);
       } else {
-        const errorText = await response.text();
-        console.error(`[Admin Videos] Failed to fetch videos: ${response.status}`, errorText);
-        // Try to parse error message if it's JSON
+        const contentType = response.headers.get("content-type");
+        let errorText = "";
+        
         try {
-          const errorData = JSON.parse(errorText);
-          console.error(`[Admin Videos] Error details:`, errorData);
+          errorText = await response.text();
+          console.error(`[Admin Videos] Failed to fetch videos: ${response.status}`, errorText);
+          
+          // Try to parse error message if it's JSON
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              const errorData = JSON.parse(errorText);
+              console.error(`[Admin Videos] Error details:`, errorData);
+            } catch (e) {
+              // Not JSON, just log the text
+            }
+          }
         } catch (e) {
-          // Not JSON, just log the text
+          console.error("[Admin Videos] Error reading response:", e);
         }
+        
+        // Set empty array nếu không fetch được
+        setVideos([]);
       }
     } catch (error) {
       console.error("[Admin Videos] Error fetching videos:", error);
+      setVideos([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleViewVideo = (video: Video) => {
+    // Chỉ pass videoId, để video-detail tự fetch data từ API để đảm bảo data mới nhất
     router.push({
       pathname: "/(admin)/videos/video-detail",
       params: {
         videoId: video._id,
+        // Pass thêm params để fallback nếu API fail
         videoUrl: video.url || video.thumbnail || "",
         title: video.title || "Untitled Video",
         author: video.user?.name || "Unknown",
@@ -106,6 +146,7 @@ export default function AdminVideosScreen() {
 
   const handleViolation = (video: Video) => {
     // Navigate to video detail for violation reporting
+    // Video detail sẽ có button "Vi phạm" để báo cáo
     handleViewVideo(video);
   };
 
@@ -148,9 +189,16 @@ export default function AdminVideosScreen() {
                     <Ionicons name="videocam" size={24} color="#10B981" />
                   </View>
                   <View style={styles.videoInfo}>
-                    <Text style={styles.videoTitle} numberOfLines={2}>
-                      {item.title || "Untitled Video"}
-                    </Text>
+                    <View style={styles.videoTitleRow}>
+                      <Text style={styles.videoTitle} numberOfLines={2}>
+                        {item.title || "Untitled Video"}
+                      </Text>
+                      {item.status === "violation" && (
+                        <View style={styles.violationBadge}>
+                          <Text style={styles.violationBadgeText}>Vi phạm</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.videoMeta}>
                       {item.user?.name || "Unknown"} • {formatNumber(item.views || 0)} lượt xem
                     </Text>
@@ -162,12 +210,14 @@ export default function AdminVideosScreen() {
                     >
                       <Text style={styles.viewButtonText}>Xem</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.violationButton}
-                      onPress={() => handleViolation(item)}
-                    >
-                      <Text style={styles.violationButtonText}>Vi phạm</Text>
-                    </TouchableOpacity>
+                    {item.status !== "violation" && (
+                      <TouchableOpacity 
+                        style={styles.violationButton}
+                        onPress={() => handleViolation(item)}
+                      >
+                        <Text style={styles.violationButtonText}>Vi phạm</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))}
@@ -275,12 +325,32 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: Spacing.sm,
   },
+  videoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: 2,
+  },
   videoTitle: {
+    flex: 1,
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
-    marginBottom: 2,
+  },
+  violationBadge: {
+    backgroundColor: "#EF444420",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "#EF4444",
+  },
+  violationBadgeText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    color: "#EF4444",
+    fontFamily: Typography.fontFamily.medium,
   },
   videoMeta: {
     fontSize: Typography.fontSize.sm,

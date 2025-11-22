@@ -121,11 +121,12 @@ export default function AdminReportsScreen() {
     return `#${displayNum.toString()}`;
   };
 
-  const handleViewReport = (reportId: string) => {
+  const handleViewReport = (report: Report) => {
+    // Navigate đến report detail để xem chi tiết và nội dung (comment/video)
     router.push({
       pathname: "/(admin)/reports/report-detail",
       params: {
-        reportId: reportId,
+        reportId: report._id,
       },
     });
   };
@@ -238,7 +239,7 @@ export default function AdminReportsScreen() {
                   </View>
                   <TouchableOpacity 
                     style={styles.viewButton}
-                    onPress={() => handleViewReport(item._id)}
+                    onPress={() => handleViewReport(item)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.viewButtonText}>Xem</Text>

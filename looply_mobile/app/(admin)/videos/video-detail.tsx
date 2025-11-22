@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,23 +44,143 @@ export default function AdminVideoDetailScreen() {
   const [violationDetails, setViolationDetails] = useState<string>("");
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [videoData, setVideoData] = useState<any>(null);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
 
-  // Get video data from params or use defaults
-  const videoId = (Array.isArray(params.videoId) ? params.videoId[0] : params.videoId) || "1";
-  const videoUrl = (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-  const title = (Array.isArray(params.title) ? params.title[0] : params.title) || "Hướng dẫn nấu phở";
-  const author = (Array.isArray(params.author) ? params.author[0] : params.author) || "anhHai";
-  const views = parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "1245");
+  // Get video ID and comment ID from params
+  const videoId = (Array.isArray(params.videoId) ? params.videoId[0] : params.videoId) || "";
+  const commentId = (Array.isArray(params.commentId) ? params.commentId[0] : params.commentId) || "";
+  const highlightComment = (Array.isArray(params.highlightComment) ? params.highlightComment[0] : params.highlightComment) === "true";
+  const [commentData, setCommentData] = useState<any>(null);
 
+  // Fetch video data from API
+  useEffect(() => {
+    if (videoId && token) {
+      fetchVideoData();
+    }
+  }, [videoId, token]);
+
+  // Fetch comment data if commentId exists
+  useEffect(() => {
+    if (commentId && token && highlightComment) {
+      fetchCommentData();
+    }
+  }, [commentId, token, highlightComment]);
+
+  const fetchCommentData = async () => {
+    try {
+      if (!token || !commentId) {
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/comments/id/${commentId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[Video Detail] Comment data fetched:", data);
+        setCommentData(data);
+      } else {
+        console.error("[Video Detail] Failed to fetch comment:", response.status);
+      }
+    } catch (error) {
+      console.error("[Video Detail] Error fetching comment:", error);
+    }
+  };
+
+  const fetchVideoData = async () => {
+    try {
+      setIsLoadingVideo(true);
+      if (!token || !videoId) {
+        console.warn("[Video Detail] Missing token or videoId");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/videos/${videoId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[Video Detail] Video data fetched:", data);
+        setVideoData(data);
+      } else {
+        const contentType = response.headers.get("content-type");
+        let errorMessage = "Không thể tải video";
+        
+        try {
+          const responseText = await response.text();
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.message || errorMessage;
+          }
+        } catch (e) {
+          // Ignore parse error
+        }
+        
+        console.error("[Video Detail] Failed to fetch video:", response.status, errorMessage);
+        // Fallback to params if API fails
+        setVideoData({
+          _id: videoId,
+          url: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
+          thumbnail: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
+          title: (Array.isArray(params.title) ? params.title[0] : params.title) || "Untitled Video",
+          user: {
+            name: (Array.isArray(params.author) ? params.author[0] : params.author) || "Unknown",
+            _id: (Array.isArray(params.authorId) ? params.authorId[0] : params.authorId) || "",
+          },
+          views: parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "0"),
+        });
+      }
+    } catch (error) {
+      console.error("[Video Detail] Error fetching video:", error);
+      // Fallback to params
+      setVideoData({
+        _id: videoId,
+        url: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
+        thumbnail: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
+        title: (Array.isArray(params.title) ? params.title[0] : params.title) || "Untitled Video",
+        user: {
+          name: (Array.isArray(params.author) ? params.author[0] : params.author) || "Unknown",
+          _id: (Array.isArray(params.authorId) ? params.authorId[0] : params.authorId) || "",
+        },
+        views: parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "0"),
+      });
+    } finally {
+      setIsLoadingVideo(false);
+    }
+  };
+
+  // Get video data from state or params (fallback)
+  const videoUrl = videoData?.url || videoData?.thumbnail || (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  const title = videoData?.title || (Array.isArray(params.title) ? params.title[0] : params.title) || "Hướng dẫn nấu phở";
+  const author = videoData?.user?.name || (Array.isArray(params.author) ? params.author[0] : params.author) || "anhHai";
+  const views = videoData?.views || parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "1245");
+
+  // Update player when videoUrl changes
   const player = useVideoPlayer(videoUrl, (player) => {
     player.loop = true;
     player.play();
   });
 
+  // Update player source when videoData changes
+  useEffect(() => {
+    if (videoData?.url && player) {
+      player.replace(videoData.url);
+    }
+  }, [videoData?.url]);
+
   const handleSkip = () => {
-    // TODO: Implement skip logic - move to next video
-    Alert.alert("Thông báo", "Đã bỏ qua video này");
-    router.replace("/(admin)/videos");
+    // Bỏ qua video này, quay lại danh sách
+    // Danh sách sẽ tự refresh khi quay lại (useFocusEffect)
+    router.back();
   };
 
   const handleViolation = () => {
@@ -197,12 +318,16 @@ export default function AdminVideoDetailScreen() {
         throw new Error(errorMessage);
       }
 
+      // Refresh video data after update để hiển thị status mới
+      await fetchVideoData();
+      
       Alert.alert("Thành công", "Đã báo cáo vi phạm và cập nhật trạng thái video thành công", [
         {
           text: "OK",
           onPress: () => {
             handleCloseModal();
-            router.replace("/(admin)/videos");
+            // Quay lại danh sách videos, danh sách sẽ tự refresh (useFocusEffect)
+            router.back();
           },
         },
       ]);
@@ -213,6 +338,17 @@ export default function AdminVideoDetailScreen() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoadingVideo) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Đang tải video...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -232,7 +368,7 @@ export default function AdminVideoDetailScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.replace("/(admin)/videos")}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
@@ -248,12 +384,55 @@ export default function AdminVideoDetailScreen() {
         </View>
       </View>
 
+      {/* Comment Report Alert - Hiển thị nếu có comment được báo cáo */}
+      {commentData && highlightComment && (
+        <View style={styles.commentAlertCard}>
+          <View style={styles.commentAlertHeader}>
+            <Ionicons name="chatbubble-ellipses" size={20} color="#F59E0B" />
+            <Text style={styles.commentAlertTitle}>Comment được báo cáo</Text>
+          </View>
+          <Text style={styles.commentAlertText} numberOfLines={3}>
+            {commentData.text}
+          </Text>
+          {commentData.userId && (
+            <Text style={styles.commentAlertUser}>
+              - {commentData.userId.name || commentData.userId.username || "Unknown"}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={styles.viewCommentButton}
+            onPress={() => {
+              // Navigate đến comments screen với commentId để highlight
+              router.push({
+                pathname: "/(tabs)/home/comments",
+                params: {
+                  videoId: videoId,
+                  commentId: commentId,
+                  highlightComment: "true",
+                },
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewCommentButtonText}>Xem comment</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Video Info Card */}
       <View style={styles.videoCard}>
         <View style={styles.videoInfo}>
-          <Text style={styles.videoTitle} numberOfLines={2}>
-            {title}
-          </Text>
+          <View style={styles.videoTitleRow}>
+            <Text style={styles.videoTitle} numberOfLines={2}>
+              {title}
+            </Text>
+            {videoData?.status === "violation" && (
+              <View style={styles.violationBadge}>
+                <Ionicons name="warning" size={16} color="#EF4444" />
+                <Text style={styles.violationBadgeText}>Vi phạm</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.videoMeta}>
             {author} • {formatNumber(views)} lượt xem
           </Text>
@@ -266,13 +445,15 @@ export default function AdminVideoDetailScreen() {
           >
             <Text style={styles.skipButtonText}>Bỏ qua</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.violationButton}
-            onPress={handleViolation}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.violationButtonText}>Vi phạm</Text>
-          </TouchableOpacity>
+          {videoData?.status !== "violation" && (
+            <TouchableOpacity
+              style={styles.violationButton}
+              onPress={handleViolation}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.violationButtonText}>Vi phạm</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -466,12 +647,35 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: Spacing.md,
   },
+  videoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs / 2,
+  },
   videoTitle: {
+    flex: 1,
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
     fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.xs / 2,
+  },
+  violationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EF444420",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "#EF4444",
+  },
+  violationBadgeText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    color: "#EF4444",
+    fontFamily: Typography.fontFamily.medium,
   },
   videoMeta: {
     fontSize: Typography.fontSize.sm,
@@ -642,6 +846,75 @@ const styles = StyleSheet.create({
   },
   confirmButtonDisabled: {
     opacity: 0.6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.black,
+    gap: Spacing.md,
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  commentAlertCard: {
+    position: "absolute",
+    bottom: 200,
+    left: Spacing.md,
+    right: Spacing.md,
+    backgroundColor: "#FEF3C7",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    zIndex: 10,
+    borderWidth: 2,
+    borderColor: "#F59E0B",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  commentAlertHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  commentAlertTitle: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.bold,
+    color: "#92400E",
+    fontFamily: Typography.fontFamily.bold,
+  },
+  commentAlertText: {
+    fontSize: Typography.fontSize.sm,
+    color: "#78350F",
+    fontFamily: Typography.fontFamily.regular,
+    marginBottom: Spacing.xs,
+  },
+  commentAlertUser: {
+    fontSize: Typography.fontSize.xs,
+    color: "#92400E",
+    fontFamily: Typography.fontFamily.medium,
+    marginBottom: Spacing.sm,
+  },
+  viewCommentButton: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  viewCommentButtonText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.medium,
   },
 });
 

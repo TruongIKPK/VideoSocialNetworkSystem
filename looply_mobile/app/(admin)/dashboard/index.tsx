@@ -72,7 +72,8 @@ export default function AdminDashboardScreen() {
   const { user } = useCurrentUser();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
-  const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
+  const [recentVideoReports, setRecentVideoReports] = useState<RecentReport[]>([]);
+  const [recentCommentReports, setRecentCommentReports] = useState<RecentReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -160,27 +161,25 @@ export default function AdminDashboardScreen() {
         setRecentVideos([]);
       }
 
-      // Fetch recent video reports only - mặc định hiển thị 3 video reports mới nhất
-      // Thử route admin trước, nếu fail thì dùng route reports làm fallback
-      let reportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`, {
+      // Fetch recent VIDEO reports - mặc định hiển thị 3 video reports mới nhất
+      let videoReportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
-      if (reportsResponse.status === 404) {
+      if (videoReportsResponse.status === 404) {
         console.warn("⚠️ Admin route not found, using fallback: /api/reports");
-        reportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
+        videoReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
       }
       
-      if (reportsResponse.ok) {
-        const reportsData = await reportsResponse.json();
-        console.log("✅ Recent reports response:", reportsData);
+      if (videoReportsResponse.ok) {
+        const reportsData = await videoReportsResponse.json();
         let reportsList = reportsData.reports || reportsData || [];
         
         // Nếu dùng fallback route, filter video reports và limit 3
@@ -190,18 +189,46 @@ export default function AdminDashboardScreen() {
             .slice(0, 3);
         }
         
-        console.log("✅ Recent video reports list:", reportsList);
-        console.log("✅ Recent video reports count:", reportsList.length);
-        
-        // Sẽ hiển thị tối đa 3 video reports mới nhất trong Dashboard
-        setRecentReports(Array.isArray(reportsList) ? reportsList : []);
+        console.log("✅ Recent video reports:", reportsList.length);
+        setRecentVideoReports(Array.isArray(reportsList) ? reportsList : []);
       } else {
-        const errorText = await reportsResponse.text();
-        console.error("❌ Failed to fetch reports:", reportsResponse.status);
-        console.error("❌ Error details:", errorText);
+        console.error("❌ Failed to fetch video reports:", videoReportsResponse.status);
+        setRecentVideoReports([]);
+      }
+
+      // Fetch recent COMMENT reports - mặc định hiển thị 3 comment reports mới nhất
+      let commentReportsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=comment`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      // Fallback: Nếu admin route không hoạt động (404), dùng route reports
+      if (commentReportsResponse.status === 404) {
+        console.warn("⚠️ Admin route not found, using fallback: /api/reports");
+        commentReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+      
+      if (commentReportsResponse.ok) {
+        const reportsData = await commentReportsResponse.json();
+        let reportsList = reportsData.reports || reportsData || [];
         
-        // Keep empty array, will show "Chưa có báo cáo nào"
-        setRecentReports([]);
+        // Nếu dùng fallback route, filter comment reports và limit 3
+        if (Array.isArray(reportsList)) {
+          reportsList = reportsList
+            .filter((report: RecentReport) => report.reportedType === "comment")
+            .slice(0, 3);
+        }
+        
+        console.log("✅ Recent comment reports:", reportsList.length);
+        setRecentCommentReports(Array.isArray(reportsList) ? reportsList : []);
+      } else {
+        console.error("❌ Failed to fetch comment reports:", commentReportsResponse.status);
+        setRecentCommentReports([]);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -341,7 +368,8 @@ export default function AdminDashboardScreen() {
               recentVideos.slice(0, 3).map((video) => (
                 <View key={video._id} style={styles.videoItem}>
                   <View style={styles.videoThumbnail}>
-                    <Ionicons name="videocam" size={24} color="#10B981" />
+                    {/* <Ionicons name="videocam" size={24} color="#fff" /> */}
+                    <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnailImage} />
                   </View>
                   <View style={styles.videoInfo}>
                     <Text style={styles.videoTitle}>{video.title}</Text>
@@ -399,9 +427,8 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.viewAllLink}>Xem tất cả</Text>
               </TouchableOpacity>
             </View>
-            {recentReports.length > 0 ? (
-              // Hiển thị tối đa 3 video reports mới nhất (đã được limit ở API)
-              recentReports.map((report) => (
+            {recentVideoReports.length > 0 ? (
+              recentVideoReports.map((report) => (
                 <TouchableOpacity
                   key={report._id}
                   style={styles.reportItem}
@@ -627,6 +654,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#10B981",
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+  },
+  videoThumbnailImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BorderRadius.md,
   },
   videoInfo: {
     flex: 1,
