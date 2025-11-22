@@ -66,6 +66,18 @@ export const saveMessageToDB = (arg1: any, arg2?: string, arg3?: string) => {
   }
 };
 
+export const updateMessageStatus = (messageId: string, status: string) => {
+  try {
+    db.runSync(
+      'UPDATE messages SET status = ? WHERE messageId = ?',
+      [status, messageId]
+    );
+    // console.log(`Updated msg ${messageId} to ${status}`);
+  } catch (error) {
+    console.error("Lỗi update status:", error);
+  }
+};
+
 // 3. Lấy danh sách tin nhắn chi tiết
 export const getMessagesFromDB = (chatId: string) => {
   try {

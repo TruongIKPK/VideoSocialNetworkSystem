@@ -13,55 +13,168 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useRef } from "react";
-import { initDB, saveMessageToDB, getMessagesFromDB } from "@/utils/database";
+// Import thêm updateMessageStatus
+import {
+  initDB,
+  saveMessageToDB,
+  getMessagesFromDB,
+  updateMessageStatus,
+} from "@/utils/database";
+import { socketService } from "../../../service/socketService";
+import { useUser } from "@/contexts/UserContext";
+
+const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
 export default function ChatDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const chatId = typeof id === "string" ? id : "unknown";
+  const { user, token } = useUser();
 
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
+  const [partner, setPartner] = useState({ name: "Người dùng", avatar: null });
+  // State cho typing indicator
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+
   const flatListRef = useRef<FlatList>(null);
 
+  // 1. Lấy thông tin người chat
+  useEffect(() => {
+    const fetchPartnerInfo = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/users/${chatId}`);
+        if (res.ok) setPartner(await res.json());
+      } catch (e) {}
+    };
+    if (chatId.length > 10) fetchPartnerInfo();
+  }, [chatId]);
+
+  // 2. Logic Socket & Database
   useEffect(() => {
     initDB();
     loadMessages();
+
+    if (token) socketService.connect(token);
+
+    // --- LẮNG NGHE TIN NHẮN ĐẾN ---
+    const handleReceiveMessage = (msg: any) => {
+      if (msg.from === chatId) {
+        const incomingMsg = {
+          messageId: msg.messageId,
+          chatId: msg.from,
+          content: msg.text,
+          sender: "other",
+          type: msg.type || "text",
+          timestamp: msg.timestamp,
+          status: "received", // Mới nhận
+        };
+        saveMessageToDB(incomingMsg);
+        loadMessages();
+
+        // Tự động gửi lại "Đã xem" (Seen)
+        socketService.markAsSeen(chatId, msg.messageId);
+      }
+    };
+
+    // --- LẮNG NGHE NGƯỜI KIA ĐANG NHẬP ---
+    const handleTyping = (data: any) => {
+      if (data.from === chatId) setIsPartnerTyping(true);
+    };
+
+    const handleStopTyping = (data: any) => {
+      if (data.from === chatId) setIsPartnerTyping(false);
+    };
+
+    // --- LẮNG NGHE NGƯỜI KIA ĐÃ XEM TIN MÌNH ---
+    const handleMessageSeen = (data: any) => {
+      // Cập nhật DB local: tin nhắn đó chuyển thành "seen"
+      updateMessageStatus(data.messageId, "seen");
+      loadMessages(); // Reload UI để hiện dấu tick xanh
+    };
+
+    socketService.on("receive-message", handleReceiveMessage);
+    socketService.on("typing", handleTyping);
+    socketService.on("stop-typing", handleStopTyping);
+    socketService.on("message-seen", handleMessageSeen);
+
+    return () => {
+      socketService.off("receive-message");
+      socketService.off("typing");
+      socketService.off("stop-typing");
+      socketService.off("message-seen");
+    };
   }, [chatId]);
 
   const loadMessages = () => {
     const data = getMessagesFromDB(chatId);
     setMessages(data);
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  // 3. Xử lý Gửi Tin & Typing
+  const handleTextChange = (val: string) => {
+    setText(val);
+
+    // Gửi sự kiện "Đang nhập" (Debounce đơn giản)
+    if (val.length > 0) {
+      socketService.sendTyping(chatId);
+
+      // Clear timeout cũ nếu có
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+      // Sau 2s không gõ nữa thì tự gửi stop-typing
+      typingTimeoutRef.current = setTimeout(() => {
+        socketService.sendStopTyping(chatId);
+      }, 2000);
+    } else {
+      socketService.sendStopTyping(chatId);
+    }
   };
 
   const handleSend = () => {
     if (!text.trim()) return;
 
-    saveMessageToDB(chatId, text.trim(), "me");
+    const messageId = Date.now().toString();
+    const timestamp = Date.now();
+
+    // Lưu DB (status: sent)
+    const myMsg = {
+      messageId,
+      chatId,
+      content: text.trim(),
+      sender: "me",
+      type: "text",
+      timestamp,
+      status: "sent",
+    };
+    saveMessageToDB(myMsg);
     loadMessages();
     setText("");
+    socketService.sendStopTyping(chatId); // Gửi xong thì tắt typing
 
-    setTimeout(() => {
-      saveMessageToDB(
-        chatId,
-        "Ok, tôi đã nhận được tin nhắn: " + text,
-        "other"
-      );
-      loadMessages();
-    }, 500);
+    socketService.sendMessage({
+      to: chatId,
+      text: text.trim(),
+      type: "text",
+      timestamp,
+      messageId,
+    });
   };
 
+  // 4. UI Tin nhắn
   const renderItem = ({ item }: { item: any }) => {
     const isMe = item.sender === "me";
     return (
       <View style={isMe ? styles.rightBubble : styles.leftBubble}>
-        {/* Avatar bên trái (Người khác) */}
         {!isMe && (
           <Image
-            source={require("../../../assets/images/avatar/example.png")}
+            source={
+              partner.avatar
+                ? { uri: partner.avatar }
+                : require("../../../assets/images/avatar/example.png")
+            }
             style={styles.smallAvatar}
           />
         )}
@@ -71,14 +184,29 @@ export default function ChatDetail() {
           <Text style={isMe ? styles.rightText : styles.leftText}>
             {item.content}
           </Text>
+
+          {/* Hiển thị trạng thái tin nhắn (Chỉ tin của mình) */}
+          {isMe && (
+            <View style={styles.statusContainer}>
+              {item.status === "sending" && (
+                <Ionicons name="time-outline" size={12} color="white" />
+              )}
+              {item.status === "sent" && (
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={12}
+                  color="white"
+                />
+              )}
+              {/* Đã xem: 2 dấu tick hoặc màu xanh */}
+              {item.status === "seen" && (
+                <View style={{ flexDirection: "row" }}>
+                  <Ionicons name="checkmark-done" size={14} color="#90EE90" />
+                </View>
+              )}
+            </View>
+          )}
         </View>
-        {/* Avatar bên phải (Của mình) */}
-        {isMe && (
-          <Image
-            source={require("../../../assets/images/avatar/example1.png")}
-            style={styles.smallAvatar}
-          />
-        )}
       </View>
     );
   };
@@ -92,24 +220,31 @@ export default function ChatDetail() {
         >
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
-
         <Image
-          source={require("../../../assets/images/avatar/example.png")}
+          source={
+            partner.avatar
+              ? { uri: partner.avatar }
+              : require("../../../assets/images/avatar/example.png")
+          }
           style={styles.avatar}
         />
-        <Text style={styles.name}>User ID: {chatId}</Text>
+        <View>
+          <Text style={styles.name} numberOfLines={1}>
+            {partner.name}
+          </Text>
+          {/* Hiển thị Typing Indicator */}
+          {isPartnerTyping && (
+            <Text style={styles.typingText}>Đang nhập...</Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.divider} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "padding"}
-        keyboardVerticalOffset={Platform.select({
-          ios: 0, 
-          android: 0, 
-          default: 0,
-        })}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 60}
       >
         <FlatList
           ref={flatListRef}
@@ -124,13 +259,13 @@ export default function ChatDetail() {
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Ô nhập tin nhắn */}
         <View style={styles.inputArea}>
           <TextInput
             style={styles.input}
             placeholder="Nhắn tin..."
             value={text}
-            onChangeText={setText}
+            // Dùng hàm mới để bắt typing
+            onChangeText={handleTextChange}
             returnKeyType="send"
             onSubmitEditing={handleSend}
           />
@@ -149,15 +284,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
-    height: 60, // Cố định chiều cao header
+    height: 60,
   },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    backgroundColor: "#eee",
+  },
   name: { fontWeight: "bold", fontSize: 16 },
+  typingText: { fontSize: 12, color: "#007AFF", fontStyle: "italic" }, // Style cho chữ Đang nhập...
   divider: { height: 1, backgroundColor: "#ddd" },
-
   messagesList: { padding: 10, paddingBottom: 20 },
-
-  // Bên trái
   leftBubble: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -165,7 +304,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     maxWidth: "80%",
   },
-  // Bên phải
   rightBubble: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -174,10 +312,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     maxWidth: "80%",
   },
-
-  // Avatar nhỏ (Sửa lại để khớp với renderItem)
-  smallAvatar: { width: 28, height: 28, borderRadius: 14, marginHorizontal: 8 },
-
+  smallAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginHorizontal: 8,
+    backgroundColor: "#eee",
+  },
   leftTextContainer: {
     backgroundColor: "#E5E5EA",
     padding: 12,
@@ -189,11 +330,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 15,
     borderBottomRightRadius: 5,
+    minWidth: 60,
   },
   leftText: { color: "#000", fontSize: 16 },
   rightText: { color: "#fff", fontSize: 16 },
-
-  // Input
+  statusContainer: { alignSelf: "flex-end", marginTop: 2 }, 
   inputArea: {
     flexDirection: "row",
     alignItems: "center",
@@ -201,7 +342,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: "#ddd",
     backgroundColor: "#fff",
-    // Giữ nguyên marginBottom để tránh lỗi trên các dòng máy cũ
     marginBottom: Platform.OS === "android" ? 10 : 0,
   },
   input: {
