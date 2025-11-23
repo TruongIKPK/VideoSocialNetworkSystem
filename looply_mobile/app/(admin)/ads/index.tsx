@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,7 @@ import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function AdminAdsScreen() {
   const { user } = useCurrentUser();
@@ -96,21 +98,24 @@ export default function AdminAdsScreen() {
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Ad Creation Card */}
         <View style={styles.card}>
+          <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>Quản lý quảng cáo</Text>
           
           {/* Upload Area */}
@@ -127,12 +132,16 @@ export default function AdminAdsScreen() {
               />
             ) : (
               <View style={styles.uploadPlaceholder}>
+                <Ionicons name="image-outline" size={64} color={Colors.text.secondary} />
+                <Text style={styles.uploadHint}>Nhấn để chọn ảnh quảng cáo</Text>
+                <Text style={styles.uploadSubHint}>Tỷ lệ khuyến nghị: 16:9</Text>
                 <TouchableOpacity
                   style={styles.uploadButton}
                   onPress={handlePickImage}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.uploadButtonText}>Upload</Text>
+                  <Ionicons name="cloud-upload-outline" size={20} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                  <Text style={styles.uploadButtonText}>Chọn ảnh</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -150,6 +159,7 @@ export default function AdminAdsScreen() {
               style={styles.uploadActionButton}
             />
           </View>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -159,47 +169,54 @@ export default function AdminAdsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: Colors.background.gray,
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    paddingBottom: 120, // Đủ space cho tab bar
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   adminCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginHorizontal: 0,
+    marginTop: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  adminCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingHorizontal: Spacing.lg,
+    flex: 1,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.gray[200],
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   adminName: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
   },
   adminRole: {
     fontSize: Typography.fontSize.sm,
@@ -214,11 +231,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   card: {
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  cardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   cardTitle: {
     fontSize: Typography.fontSize.xxl,
@@ -226,28 +250,57 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
     marginBottom: Spacing.md,
+    letterSpacing: -0.5,
   },
   uploadArea: {
     width: "100%",
     height: 400,
-    backgroundColor: "#E5E5E5",
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.border.light,
+    borderStyle: "dashed",
   },
   uploadPlaceholder: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
+    gap: Spacing.md,
+  },
+  uploadHint: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.medium,
+    marginTop: Spacing.sm,
+  },
+  uploadSubHint: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginBottom: Spacing.md,
   },
   uploadButton: {
-    backgroundColor: "#A0A0A0",
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   uploadButtonText: {
     fontSize: Typography.fontSize.md,
@@ -258,6 +311,7 @@ const styles = StyleSheet.create({
   uploadedImage: {
     width: "100%",
     height: "100%",
+    borderRadius: BorderRadius.lg,
   },
   actionContainer: {
     alignItems: "flex-end",
