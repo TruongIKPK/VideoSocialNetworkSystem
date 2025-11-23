@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,6 +23,7 @@ import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const VIOLATION_REASONS = [
   "Nội dung bản quyền",
@@ -464,20 +466,22 @@ export default function AdminVideoDetailScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <View style={styles.adminInfo}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <View style={styles.adminInfo}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -519,6 +523,7 @@ export default function AdminVideoDetailScreen() {
 
       {/* Video Info Card */}
       <View style={styles.videoCard}>
+        <View style={styles.videoCardContent}>
         <View style={styles.videoInfo}>
           <View style={styles.videoTitleRow}>
             <Text style={styles.videoTitle} numberOfLines={2}>
@@ -552,6 +557,7 @@ export default function AdminVideoDetailScreen() {
               <Text style={styles.violationButtonText}>Vi phạm</Text>
             </TouchableOpacity>
           )}
+        </View>
         </View>
       </View>
 
@@ -676,12 +682,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+    paddingHorizontal: 0,
     zIndex: 10,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
   },
   backButton: {
     marginRight: Spacing.md,
@@ -702,6 +711,7 @@ const styles = StyleSheet.create({
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   adminName: {
     fontSize: Typography.fontSize.lg,
@@ -711,6 +721,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+    flexShrink: 1,
   },
   adminRole: {
     fontSize: Typography.fontSize.xs,
@@ -723,11 +734,12 @@ const styles = StyleSheet.create({
   videoCard: {
     position: "absolute",
     bottom: 100,
-    left: Spacing.md,
-    right: Spacing.md,
+    left: 0,
+    right: 0,
     backgroundColor: "#1E3A5F",
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -741,9 +753,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
+  videoCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    width: "100%",
+  },
   videoInfo: {
     flex: 1,
     marginRight: Spacing.md,
+    minWidth: 0,
   },
   videoTitleRow: {
     flexDirection: "row",
@@ -757,6 +777,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
   },
   violationBadge: {
     flexDirection: "row",
