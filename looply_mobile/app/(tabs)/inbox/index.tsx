@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect } from "react";
 import { getInboxConversations } from "@/utils/database"; 
 import { Ionicons } from "@expo/vector-icons";
+import { NotificationModal } from "@/components/NotificationModal";
+import { getUnreadCount } from "@/utils/notificationStorage";
 
 // URL API Backend
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -71,10 +73,13 @@ const ConversationItem = ({ item }) => {
 export default function InboxList() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       loadInbox();
+      loadUnreadCount();
     }, [])
   );
 
@@ -89,16 +94,43 @@ export default function InboxList() {
     }
   };
 
+  const loadUnreadCount = async () => {
+    const count = await getUnreadCount();
+    setUnreadCount(count);
+  };
+
+  // Reload unread count khi modal đóng
+  const handleNotificationModalClose = () => {
+    setNotificationModalVisible(false);
+    loadUnreadCount();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Hộp thư</Text>
-        {/* Nút bấm chuyển sang trang Search */}
-        <TouchableOpacity onPress={() => router.push("/search")}>
-            <Ionicons name="create-outline" size={28} color="black" />
+        {/* Icon thông báo */}
+        <TouchableOpacity 
+          onPress={() => setNotificationModalVisible(true)}
+          style={styles.notificationButton}
+        >
+          <Ionicons name="notifications-outline" size={28} color="black" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        visible={notificationModalVisible}
+        onClose={handleNotificationModalClose}
+      />
 
       {loading ? (
         <ActivityIndicator size="large" color="gray" style={{ marginTop: 20 }} />
@@ -128,6 +160,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingHorizontal: 5
   },
   headerTitle: { fontSize: 24, fontWeight: "bold" },
+  notificationButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   emptyContainer: { alignItems: 'center', marginTop: 100, opacity: 0.7 },
   emptyText: { color: '#999', fontSize: 18, marginTop: 10, fontWeight: 'bold' },
   emptySubText: { color: '#aaa', fontSize: 14, marginTop: 5 },

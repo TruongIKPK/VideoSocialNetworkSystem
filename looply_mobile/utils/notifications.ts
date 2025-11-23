@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { saveNotification } from './notificationStorage';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -59,11 +60,20 @@ export async function scheduleNotification(
   data?: Record<string, any>
 ): Promise<string> {
   try {
+    console.log("=".repeat(60));
+    console.log("[Notifications] 📤 Scheduling notification...");
+    console.log(`[Notifications] Title: "${title}"`);
+    console.log(`[Notifications] Body: "${body}"`);
+    console.log(`[Notifications] Data:`, JSON.stringify(data || {}, null, 2));
+
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) {
-      console.warn('Cannot send notification: permissions not granted');
+      console.warn('[Notifications] ⚠️ Cannot send notification: permissions not granted');
+      console.log("=".repeat(60));
       return '';
     }
+
+    console.log('[Notifications] ✅ Notification permissions granted');
 
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
@@ -76,9 +86,29 @@ export async function scheduleNotification(
       trigger: null, // Show immediately
     });
 
+    if (notificationId) {
+      console.log(`[Notifications] ✅ Notification scheduled successfully!`);
+      console.log(`[Notifications] Notification ID: ${notificationId}`);
+      
+      // Lưu thông báo vào storage để hiển thị trong danh sách
+      await saveNotification({
+        title,
+        body,
+        type: data?.type || 'general',
+        videoId: data?.videoId,
+        status: data?.status,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      console.warn('[Notifications] ⚠️ Notification scheduled but no ID returned');
+    }
+    console.log("=".repeat(60));
     return notificationId;
   } catch (error) {
-    console.error('Error scheduling notification:', error);
+    console.error("=".repeat(60));
+    console.error('[Notifications] ❌ Error scheduling notification:', error);
+    console.error('[Notifications] Error details:', JSON.stringify(error, null, 2));
+    console.log("=".repeat(60));
     return '';
   }
 }
