@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { getThumbnailUri, formatNumber } from "@/utils/imageHelpers";
 import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
@@ -36,17 +37,18 @@ interface VideoPost {
   createdAt: string;
 }
 
-const categories = [
-  { id: "all", name: "Tất cả", icon: "grid" },
-  { id: "trending", name: "Thịnh hành", icon: "flame" },
-  { id: "music", name: "Âm nhạc", icon: "musical-notes" },
-  { id: "comedy", name: "Hài kịch", icon: "happy" },
-  { id: "dance", name: "Nhảy múa", icon: "body" },
-  { id: "sports", name: "Thể thao", icon: "football" },
-];
-
 export default function ExploreScreen() {
+  const { t } = useTranslation();
   const Colors = useColors(); // Get theme-aware colors
+  
+  const categories = [
+    { id: "all", name: t("explore.all"), icon: "grid" },
+    { id: "trending", name: t("explore.trending"), icon: "flame" },
+    { id: "music", name: t("explore.music"), icon: "musical-notes" },
+    { id: "comedy", name: t("explore.comedy"), icon: "happy" },
+    { id: "dance", name: t("explore.dance"), icon: "body" },
+    { id: "sports", name: t("explore.sports"), icon: "football" },
+  ];
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +134,7 @@ export default function ExploreScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Khám phá</Text>
+        <Text style={styles.headerTitle}>{t("explore.title")}</Text>
       <TouchableOpacity 
         onPress={() => router.push("/search")}
         activeOpacity={0.7}
@@ -197,7 +199,7 @@ export default function ExploreScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="videocam-off-outline" size={64} color={Colors.gray[400]} />
-            <Text style={styles.emptyText}>Không có video nào</Text>
+            <Text style={styles.emptyText}>{t("explore.noVideos")}</Text>
           </View>
         }
       />

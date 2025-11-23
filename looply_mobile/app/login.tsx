@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import authService, { validateLoginForm } from "@/service/authService";
 import { useUser } from "@/contexts/UserContext";
 import { Input } from "@/components/ui/Input";
@@ -26,6 +27,7 @@ export default function LoginScreen() {
   const [generalError, setGeneralError] = useState("");
   const router = useRouter();
   const { login } = useUser();
+  const { t } = useTranslation();
 
   const handleLogin = async () => {
     const validationErrors = validateLoginForm(email, password);
@@ -46,10 +48,10 @@ export default function LoginScreen() {
         // Tự động navigate về trang index (root route)
         router.replace("/");
       } else {
-        setGeneralError(response.message || "Đăng nhập thất bại");
+        setGeneralError(response.message || t("auth.login.error"));
       }
     } catch (error) {
-      setGeneralError("Đăng nhập thất bại. Vui lòng thử lại!");
+      setGeneralError(t("auth.login.errorMessage"));
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +78,12 @@ export default function LoginScreen() {
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>Đăng nhập</Text>
-          <Text style={styles.subtitle}>Chào mừng bạn quay trở lại Looply</Text>
+          <Text style={styles.title}>{t("auth.login.title")}</Text>
+          <Text style={styles.subtitle}>{t("auth.login.subtitle")}</Text>
 
           {/* Email Input */}
           <Input
-            placeholder="Địa chỉ thư điện tử"
+            placeholder={t("auth.login.email")}
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -98,7 +100,7 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <Input
-            placeholder="Mật khẩu"
+            placeholder={t("auth.login.password")}
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -120,7 +122,7 @@ export default function LoginScreen() {
 
           {/* Login Button */}
           <Button
-            title="ĐĂNG NHẬP"
+            title={t("auth.login.button")}
             onPress={handleLogin}
             variant="primary"
             size="lg"
@@ -135,17 +137,17 @@ export default function LoginScreen() {
             onPress={() => router.push("/register")}
             disabled={isLoading}
           >
-            <Text style={styles.registerLink}>Đăng kí tại đây</Text>
+            <Text style={styles.registerLink}>{t("auth.login.registerLink")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.replace("/(tabs)/home")}>
-            <Text style={styles.forgotPassword}>Quay về trang chủ</Text>
+            <Text style={styles.forgotPassword}>{t("auth.login.backToHome")}</Text>
           </TouchableOpacity>
 
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Lựa chọn khác</Text>
+            <Text style={styles.dividerText}>{t("auth.login.otherOptions")}</Text>
             <View style={styles.dividerLine} />
           </View>
 

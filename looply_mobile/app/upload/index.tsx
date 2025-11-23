@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { AntDesign } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +21,7 @@ import { uploadVideoAsync } from "@/services/uploadService";
 
 export default function UploadScreen() {
   const { uri, type } = useLocalSearchParams();
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
@@ -79,17 +81,17 @@ export default function UploadScreen() {
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setError("Vui lòng nhập tiêu đề");
+      setError(t("upload.titleRequired"));
       return;
     }
 
     if (trimmedTitle.length > 100) {
-      setError("Tiêu đề không được quá 100 ký tự");
+      setError(t("upload.titleRequired") + " " + t("upload.charCount"));
       return;
     }
 
     if (desc.length > 500) {
-      setError("Mô tả không được quá 500 ký tự");
+      setError(t("upload.description") + " " + t("upload.descCharCount"));
       return;
     }
 
@@ -102,11 +104,11 @@ export default function UploadScreen() {
 
     // Show confirmation alert before starting upload
     Alert.alert(
-      "Đang tải lên",
-      "Video đang được tải lên vui lòng đợi",
+      t("upload.uploading"),
+      t("upload.uploading"),
       [
         {
-          text: "OK",
+          text: t("common.confirm"),
           onPress: () => {
             // Start upload asynchronously (don't await)
             uploadVideoAsync({
@@ -134,13 +136,13 @@ export default function UploadScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            {!mediaUri ? "Không tìm thấy file" : "Chỉ hỗ trợ upload video"}
+            {!mediaUri ? t("upload.error") : t("upload.error")}
           </Text>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>Quay lại</Text>
+            <Text style={styles.backButtonText}>{t("common.back")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -202,10 +204,10 @@ export default function UploadScreen() {
               )}
             </View>
 
-            <Text style={styles.label}>Tiêu đề: <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>{t("upload.titleRequired")} <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={[styles.input, error && !title.trim() && styles.inputError]}
-              placeholder="Nhập tiêu đề..."
+              placeholder={t("upload.titlePlaceholder")}
               value={title}
               onChangeText={(text) => {
                 setTitle(text);
@@ -215,13 +217,13 @@ export default function UploadScreen() {
               maxLength={100}
             />
             {title.length > 0 && (
-              <Text style={styles.charCount}>{title.length}/100</Text>
+              <Text style={styles.charCount}>{title.length}{t("upload.charCount")}</Text>
             )}
 
-            <Text style={styles.label}>Mô tả:</Text>
+            <Text style={styles.label}>{t("upload.description")}:</Text>
             <TextInput
               style={[styles.textarea, error && desc.length > 500 && styles.inputError]}
-              placeholder="Viết mô tả (tùy chọn)..."
+              placeholder={t("upload.descriptionPlaceholder")}
               value={desc}
               onChangeText={(text) => {
                 setDesc(text);
@@ -232,7 +234,7 @@ export default function UploadScreen() {
               maxLength={500}
             />
             {desc.length > 0 && (
-              <Text style={styles.charCount}>{desc.length}/500</Text>
+              <Text style={styles.charCount}>{desc.length}{t("upload.descCharCount")}</Text>
             )}
 
             {error ? (
@@ -254,7 +256,7 @@ export default function UploadScreen() {
                 disabled={isUploading || !title.trim()}
               >
                 <Text style={styles.uploadText}>
-                  {isUploading ? "Đang tải..." : "Đăng tải"}
+                  {isUploading ? t("upload.uploading") : t("upload.upload")}
                 </Text>
               </TouchableOpacity>
 
@@ -265,7 +267,7 @@ export default function UploadScreen() {
                 }}
                 disabled={isUploading}
               >
-                <Text style={styles.cancelText}>Hủy bỏ</Text>
+                <Text style={styles.cancelText}>{t("upload.cancel")}</Text>
               </TouchableOpacity>
             </View>
           </View>
