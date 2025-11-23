@@ -4,7 +4,7 @@ import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
 import Save from "../models/Save.js";
 import Comment from "../models/Comment.js";
-import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl } from "../config/cloudinary.js";
+import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl, makeThumbnailPublic } from "../config/cloudinary.js";
 import { uploadVideoToS3 } from "../services/s3Service.js";
 import { startContentModeration } from "../services/rekognitionService.js";
 import fs from "fs";
@@ -54,18 +54,80 @@ export const uploadVideo = async (req, res) => {
     if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
 
     // Step 1: Upload to Cloudinary as private (authenticated access)
+    // Use eager transformation to automatically generate thumbnail
     const cloudinaryResult = await cloudinary.uploader.upload(file.path, {
       resource_type: "video",
       folder: "videos",
       access_mode: "authenticated", // Private access
+      eager: [
+        {
+          width: 320,
+          height: 240,
+          crop: "fill",
+          quality: "auto",
+          format: "jpg",
+          start_offset: 1, // Capture frame at 1 second
+        }
+      ],
+      eager_async: false, // Generate thumbnail immediately
     });
 
-    // Step 2: Generate thumbnail URL using Cloudinary transformation
-    const thumbnailUrl = generateThumbnailUrl(
-      cloudinaryResult.secure_url,
-      cloudinaryResult.public_id,
-      { width: 320, height: 240, offset: 1 }
-    );
+    // Step 2: Upload thumbnail as separate public image
+    // Eager transformation creates a thumbnail from the video, but since the video is private,
+    // the eager thumbnail URL may not be accessible. We need to upload it as a separate public image
+    // so it's accessible even when the video is private.
+    // 
+    // Process:
+    // 1. Eager transformation creates a derived asset (thumbnail) from the video
+    // 2. We upload this thumbnail as a new public image file
+    // 3. This ensures the thumbnail is always accessible, regardless of video access mode
+    let thumbnailUrl = null;
+    if (cloudinaryResult.eager && cloudinaryResult.eager.length > 0) {
+      try {
+        // Get the eager thumbnail URL
+        const eagerThumbnailUrl = cloudinaryResult.eager[0].secure_url;
+        
+        // Extract public_id for thumbnail (use a separate folder for thumbnails)
+        const thumbnailPublicId = `thumbnails/${cloudinaryResult.public_id.replace('videos/', '')}`;
+        
+        // Upload the eager thumbnail as a new public image
+        // Cloudinary can upload from its own URL (even if source is private, we have API access)
+        const thumbnailResult = await cloudinary.uploader.upload(
+          eagerThumbnailUrl,
+          {
+            resource_type: "image",
+            folder: "thumbnails",
+            public_id: thumbnailPublicId,
+            access_mode: "public", // Thumbnail is public
+            overwrite: true,
+            invalidate: true, // Invalidate CDN cache
+          }
+        );
+        thumbnailUrl = thumbnailResult.secure_url;
+        console.log(`[UploadVideo] ✅ Thumbnail uploaded as public image: ${thumbnailUrl}`);
+      } catch (thumbnailError) {
+        console.error("[UploadVideo] ⚠️ Error uploading thumbnail as public image:", thumbnailError);
+        // Try to make eager thumbnail public using explicit API as fallback
+        try {
+          thumbnailUrl = await makeThumbnailPublic(cloudinaryResult.eager[0].secure_url);
+          console.log(`[UploadVideo] ✅ Thumbnail made public via explicit API: ${thumbnailUrl}`);
+        } catch (explicitError) {
+          console.error("[UploadVideo] ⚠️ Error making thumbnail public via explicit API:", explicitError);
+          // Final fallback: Use eager URL (may not work if video is private)
+          thumbnailUrl = cloudinaryResult.eager[0].secure_url;
+          console.warn("[UploadVideo] ⚠️ Using eager URL as fallback (may not be accessible)");
+        }
+      }
+    } else {
+      // Fallback: Generate thumbnail URL using Cloudinary transformation
+      // Note: This may not work if video is private
+      thumbnailUrl = generateThumbnailUrl(
+        cloudinaryResult.secure_url,
+        cloudinaryResult.public_id,
+        { width: 320, height: 240, offset: 1 }
+      );
+      console.warn("[UploadVideo] ⚠️ No eager transformation, using generated thumbnail URL (may not be accessible)");
+    }
 
     // Step 3: Create video record with pending moderation status
     const video = await Video.create({
