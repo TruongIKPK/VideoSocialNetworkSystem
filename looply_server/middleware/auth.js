@@ -31,6 +31,43 @@ export const authenticateToken = async (req, res, next) => {
   }
 };
 
+// Optional authentication middleware - không bắt buộc token, nhưng nếu có token thì sẽ set req.user
+export const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; 
+
+    if (!token) {
+      // Không có token thì tiếp tục, không set req.user
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId).select("-password");
+      
+      if (user) {
+        // Ensure role and status are included, và đảm bảo followingList/followersList là arrays
+        req.user = {
+          ...user.toObject(),
+          role: user.role || "user",
+          status: user.status || "active",
+          followingList: user.followingList || [],
+          followersList: user.followersList || [],
+        };
+      }
+    } catch (tokenError) {
+      // Token không hợp lệ nhưng không báo lỗi, chỉ tiếp tục không set req.user
+      console.log("Optional auth: Invalid token, continuing without authentication");
+    }
+    
+    next();
+  } catch (error) {
+    // Lỗi khác thì vẫn tiếp tục, không block request
+    next();
+  }
+};
+
 // Middleware check admin role
 export const requireAdmin = (req, res, next) => {
   try {

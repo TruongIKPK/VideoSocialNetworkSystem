@@ -13,11 +13,12 @@ import {
   getLikedVideosByUserId,
   getSavedVideosByUserId,
   getPendingModerationVideos,
+  getFlaggedOrRejectedVideos,
   approveVideo,
   rejectVideo,
   updateVideoStatus,
 } from "../controllers/videoController.js";
-import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership, optionalAuthenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -28,6 +29,7 @@ router.delete("/:id", authenticateToken, checkVideoOwnership, deleteVideo);
 
 // Admin moderation routes
 router.get("/moderation/pending", authenticateToken, requireAdmin, getPendingModerationVideos);
+router.get("/moderation/flagged-rejected", authenticateToken, requireAdmin, getFlaggedOrRejectedVideos);
 router.post("/:id/approve", authenticateToken, requireAdmin, approveVideo);
 router.post("/:id/reject", authenticateToken, requireAdmin, rejectVideo);
 router.put("/:id/status", authenticateToken, requireAdmin, updateVideoStatus);
@@ -37,7 +39,7 @@ router.get("/search", searchVideos);
 router.get("/search/hashtags", searchVideosByHashtags);
 router.get("/random", getRandomVideos); 
 router.get("/latest", getLatestVideos);
-router.get("/user/:userId", getVideosByUserId); // Lấy video theo userId
+router.get("/user/:userId", optionalAuthenticate, getVideosByUserId); // Lấy video theo userId (optional auth để owner xem tất cả)
 router.get("/liked/:userId", getLikedVideosByUserId); // Lấy video đã thích
 router.get("/saved/:userId", getSavedVideosByUserId); // Lấy video đã save
 router.get("/", getAllVideos);                              

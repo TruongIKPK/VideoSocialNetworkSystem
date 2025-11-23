@@ -9,6 +9,33 @@ import { uploadVideoToS3 } from "../services/s3Service.js";
 import { startContentModeration } from "../services/rekognitionService.js";
 import fs from "fs";
 
+/**
+ * Helper function to build query filter for approved videos only
+ * Excludes: flagged, rejected, and violation status videos
+ * @returns {Object} MongoDB query filter
+ */
+const getApprovedVideosFilter = () => {
+  return {
+    $and: [
+      // Exclude flagged and rejected videos
+      // Include videos without moderationStatus (backward compatibility) or approved videos
+      {
+        $or: [
+          { moderationStatus: "approved" },
+          { moderationStatus: { $exists: false } }
+        ]
+      },
+      // Exclude violation status (old system)
+      {
+        $or: [
+          { status: { $ne: "violation" } },
+          { status: { $exists: false } }
+        ]
+      }
+    ]
+  };
+};
+
 export const uploadVideo = async (req, res) => {
   try {
     configureCloudinary();
@@ -106,14 +133,9 @@ export const uploadVideo = async (req, res) => {
 
 export const getAllVideos = async (req, res) => {
   try {
-    // Only show approved videos and videos with old status system
-    const videos = await Video.find({ 
-      $or: [
-        { moderationStatus: "approved" },
-        { moderationStatus: { $exists: false } }, // Backward compatibility
-        { status: { $ne: "violation" }, moderationStatus: { $exists: false } }
-      ]
-    }).sort({ createdAt: -1 });
+    // Only show approved videos, exclude flagged, rejected, and violation videos
+    const videos = await Video.find(getApprovedVideosFilter())
+      .sort({ createdAt: -1 });
     res.json(videos);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -125,7 +147,7 @@ export const getVideoById = async (req, res) => {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: "Không tìm thấy video" });
     
-    // Check moderation status
+    // Check moderation status - exclude flagged, rejected, and violation videos
     if (video.moderationStatus === "rejected" || video.moderationStatus === "flagged") {
       return res.status(403).json({ 
         message: "Video này đang chờ kiểm duyệt hoặc đã bị từ chối",
@@ -136,6 +158,14 @@ export const getVideoById = async (req, res) => {
     // Backward compatibility with old status field
     if (video.status === "violation" && !video.moderationStatus) {
       return res.status(403).json({ message: "Video này đã bị vi phạm" });
+    }
+    
+    // Only return approved videos
+    if (video.moderationStatus && video.moderationStatus !== "approved") {
+      return res.status(403).json({ 
+        message: "Video này không khả dụng",
+        moderationStatus: video.moderationStatus
+      });
     }
     
     res.json(video);
@@ -205,7 +235,8 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
-    // Tìm kiếm trong cả title và description, loại bỏ video vi phạm
+    // Tìm kiếm trong cả title và description, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
       $and: [
         {
@@ -214,12 +245,7 @@ export const searchVideos = async (req, res) => {
             { description: { $regex: q, $options: 'i' } }
           ]
         },
-        {
-          $or: [
-            { moderationStatus: "approved" },
-            { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
-          ]
-        }
+        approvedFilter
       ]
     }).sort({ createdAt: -1 });
 
@@ -260,15 +286,11 @@ export const getRandomVideos = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 3;
     
-    // Lấy video ngẫu nhiên, loại bỏ video vi phạm
+    // Lấy video ngẫu nhiên, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.aggregate([
       { 
-        $match: { 
-          $or: [
-            { moderationStatus: "approved" },
-            { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
-          ]
-        } 
+        $match: approvedFilter
       },
       { $sample: { size: limit } }
     ]);
@@ -284,12 +306,8 @@ export const getRandomVideos = async (req, res) => {
 
 export const getLatestVideos = async (req, res) => {
   try {
-    const videos = await Video.find({ 
-      $or: [
-        { moderationStatus: "approved" },
-        { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
-      ]
-    })
+    // Lấy video mới nhất, loại bỏ video flagged, rejected, và violation
+    const videos = await Video.find(getApprovedVideosFilter())
       .sort({ createdAt: -1 })
       .limit(3);
     
@@ -337,11 +355,12 @@ export const searchVideosByHashtags = async (req, res) => {
       const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regexPattern = new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i');
       
+      // Loại bỏ video flagged, rejected, và violation
+      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
-        description: { $regex: regexPattern },
-        $or: [
-          { moderationStatus: "approved" },
-          { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
+        $and: [
+          { description: { $regex: regexPattern } },
+          approvedFilter
         ]
       }).sort({ createdAt: -1 });
     } else {
@@ -352,15 +371,12 @@ export const searchVideosByHashtags = async (req, res) => {
         return { description: { $regex: new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i') } };
       });
       
+      // Loại bỏ video flagged, rejected, và violation
+      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
         $and: [
           ...regexConditions,
-          {
-            $or: [
-              { moderationStatus: "approved" },
-              { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
-            ]
-          }
+          approvedFilter
         ]
       }).sort({ createdAt: -1 });
     }
@@ -413,15 +429,30 @@ export const getVideosByUserId = async (req, res) => {
       return res.status(400).json({ message: "Thiếu userId" });
     }
 
-    // Tìm tất cả video do user này đăng tải, loại bỏ video vi phạm
-    const videos = await Video.find({
-      "user._id": userId,
-      $or: [
-        { moderationStatus: "approved" },
-        { moderationStatus: "pending" }, // Show pending videos to owner
-        { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
-      ]
-    })
+    // Kiểm tra xem user đang request có phải là chủ sở hữu không
+    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+    const isOwner = currentUserId && currentUserId === userId;
+
+    let query;
+
+    if (isOwner) {
+      // Nếu là chủ sở hữu: hiển thị TẤT CẢ video (pending, approved, flagged, rejected, violation)
+      // Không filter gì cả, chỉ lấy video của user này
+      query = {
+        "user._id": userId
+      };
+    } else {
+      // Nếu không phải chủ sở hữu: chỉ hiển thị video approved
+      const approvedFilter = getApprovedVideosFilter();
+      query = {
+        $and: [
+          { "user._id": userId },
+          approvedFilter
+        ]
+      };
+    }
+
+    const videos = await Video.find(query)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -480,12 +511,12 @@ export const getLikedVideosByUserId = async (req, res) => {
       });
     }
 
-    // Lấy thông tin video, loại bỏ video vi phạm
+    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
-      _id: { $in: videoIds },
-      $or: [
-        { moderationStatus: "approved" },
-        { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
+      $and: [
+        { _id: { $in: videoIds } },
+        approvedFilter
       ]
     })
       .sort({ createdAt: -1 })
@@ -545,12 +576,12 @@ export const getSavedVideosByUserId = async (req, res) => {
       });
     }
 
-    // Lấy thông tin video, loại bỏ video vi phạm
+    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
-      _id: { $in: videoIds },
-      $or: [
-        { moderationStatus: "approved" },
-        { moderationStatus: { $exists: false }, status: { $ne: "violation" } }
+      $and: [
+        { _id: { $in: videoIds } },
+        approvedFilter
       ]
     })
       .sort({ createdAt: -1 })
@@ -588,7 +619,7 @@ export const getSavedVideosByUserId = async (req, res) => {
 // Admin Review Endpoints
 
 /**
- * Get pending moderation videos (flagged or rejected)
+ * Get pending moderation videos (flagged, rejected, or pending)
  * Admin only
  */
 export const getPendingModerationVideos = async (req, res) => {
@@ -605,6 +636,69 @@ export const getPendingModerationVideos = async (req, res) => {
     });
   } catch (error) {
     console.error("Get pending moderation videos error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get flagged or rejected videos only (excludes pending)
+ * Admin only
+ */
+export const getFlaggedOrRejectedVideos = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build query - only flagged or rejected
+    const query = {
+      moderationStatus: { $in: ["flagged", "rejected"] }
+    };
+
+    // Optional: filter by specific status if provided
+    if (status && (status === "flagged" || status === "rejected")) {
+      query.moderationStatus = status;
+    }
+
+    // Get total count for pagination
+    const total = await Video.countDocuments(query);
+
+    // Get videos with pagination
+    const videos = await Video.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean();
+
+    // Get additional stats for each video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get flagged or rejected videos error:", error);
     res.status(500).json({ message: error.message });
   }
 };
