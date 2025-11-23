@@ -429,20 +429,30 @@ export const getVideosByUserId = async (req, res) => {
       return res.status(400).json({ message: "Thiếu userId" });
     }
 
-    // Tìm tất cả video do user này đăng tải
-    // Loại bỏ video flagged, rejected, và violation (nhưng vẫn hiển thị pending cho owner)
-    const approvedFilter = getApprovedVideosFilter();
-    const videos = await Video.find({
-      $and: [
-        { "user._id": userId },
-        {
-          $or: [
-            approvedFilter,
-            { moderationStatus: "pending" } // Show pending videos to owner
-          ]
-        }
-      ]
-    })
+    // Kiểm tra xem user đang request có phải là chủ sở hữu không
+    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+    const isOwner = currentUserId && currentUserId === userId;
+
+    let query;
+
+    if (isOwner) {
+      // Nếu là chủ sở hữu: hiển thị TẤT CẢ video (pending, approved, flagged, rejected, violation)
+      // Không filter gì cả, chỉ lấy video của user này
+      query = {
+        "user._id": userId
+      };
+    } else {
+      // Nếu không phải chủ sở hữu: chỉ hiển thị video approved
+      const approvedFilter = getApprovedVideosFilter();
+      query = {
+        $and: [
+          { "user._id": userId },
+          approvedFilter
+        ]
+      };
+    }
+
+    const videos = await Video.find(query)
       .sort({ createdAt: -1 })
       .lean();
 

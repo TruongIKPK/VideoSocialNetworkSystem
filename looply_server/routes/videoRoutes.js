@@ -18,7 +18,7 @@ import {
   rejectVideo,
   updateVideoStatus,
 } from "../controllers/videoController.js";
-import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership, optionalAuthenticate } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -39,7 +39,7 @@ router.get("/search", searchVideos);
 router.get("/search/hashtags", searchVideosByHashtags);
 router.get("/random", getRandomVideos); 
 router.get("/latest", getLatestVideos);
-router.get("/user/:userId", getVideosByUserId); // Lấy video theo userId
+router.get("/user/:userId", optionalAuthenticate, getVideosByUserId); // Lấy video theo userId (optional auth để owner xem tất cả)
 router.get("/liked/:userId", getLikedVideosByUserId); // Lấy video đã thích
 router.get("/saved/:userId", getSavedVideosByUserId); // Lấy video đã save
 router.get("/", getAllVideos);                              
