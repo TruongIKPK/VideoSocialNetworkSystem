@@ -105,7 +105,6 @@ export default function EditProfileScreen() {
         });
       }
     } catch (error) {
-      console.error("Error picking image:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại!");
     }
   };
@@ -179,7 +178,6 @@ export default function EditProfileScreen() {
         },
       ]);
     } catch (error: any) {
-      console.error("Error updating profile:", error);
       Alert.alert("Lỗi", error.message || "Cập nhật thất bại. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);
