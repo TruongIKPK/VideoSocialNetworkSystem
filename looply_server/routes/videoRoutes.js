@@ -13,6 +13,7 @@ import {
   getLikedVideosByUserId,
   getSavedVideosByUserId,
   getPendingModerationVideos,
+  getFlaggedOrRejectedVideos,
   approveVideo,
   rejectVideo,
   updateVideoStatus,
@@ -28,6 +29,7 @@ router.delete("/:id", authenticateToken, checkVideoOwnership, deleteVideo);
 
 // Admin moderation routes
 router.get("/moderation/pending", authenticateToken, requireAdmin, getPendingModerationVideos);
+router.get("/moderation/flagged-rejected", authenticateToken, requireAdmin, getFlaggedOrRejectedVideos);
 router.post("/:id/approve", authenticateToken, requireAdmin, approveVideo);
 router.post("/:id/reject", authenticateToken, requireAdmin, rejectVideo);
 router.put("/:id/status", authenticateToken, requireAdmin, updateVideoStatus);

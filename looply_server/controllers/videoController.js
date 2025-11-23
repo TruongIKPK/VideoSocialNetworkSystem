@@ -588,7 +588,7 @@ export const getSavedVideosByUserId = async (req, res) => {
 // Admin Review Endpoints
 
 /**
- * Get pending moderation videos (flagged or rejected)
+ * Get pending moderation videos (flagged, rejected, or pending)
  * Admin only
  */
 export const getPendingModerationVideos = async (req, res) => {
@@ -605,6 +605,69 @@ export const getPendingModerationVideos = async (req, res) => {
     });
   } catch (error) {
     console.error("Get pending moderation videos error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get flagged or rejected videos only (excludes pending)
+ * Admin only
+ */
+export const getFlaggedOrRejectedVideos = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build query - only flagged or rejected
+    const query = {
+      moderationStatus: { $in: ["flagged", "rejected"] }
+    };
+
+    // Optional: filter by specific status if provided
+    if (status && (status === "flagged" || status === "rejected")) {
+      query.moderationStatus = status;
+    }
+
+    // Get total count for pagination
+    const total = await Video.countDocuments(query);
+
+    // Get videos with pagination
+    const videos = await Video.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean();
+
+    // Get additional stats for each video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get flagged or rejected videos error:", error);
     res.status(500).json({ message: error.message });
   }
 };
