@@ -460,7 +460,7 @@ export default function AdminVideoDetailScreen() {
       
       // Hiển thị thông báo thành công
       const successMessage = statusUpdateSuccess 
-        ? "Đã báo cáo vi phạm và cập nhật trạng thái video thành công"
+        ? "Đã báo cáo vi phạm thành công. Video này sẽ bị ẩn khỏi tất cả người dùng."
         : "Đã báo cáo vi phạm thành công. Trạng thái video sẽ được cập nhật sau.";
       
       Alert.alert("Thành công", successMessage, [
