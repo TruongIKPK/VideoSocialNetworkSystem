@@ -66,19 +66,33 @@ export default function AdminReportDetailScreen() {
     }
   }, [reportId, token]);
 
-  // Fetch comment or video content when report is loaded (chỉ khi chưa có reportedContent)
+  // Fetch comment or video content when report is loaded (chỉ khi chưa có content data)
   useEffect(() => {
     if (report && token) {
-      // Nếu đã có reportedContent từ API, không cần fetch lại
-      if (report.reportedContent) {
-        console.log("[Report Detail] reportedContent already available from API");
+      // Kiểm tra xem đã có content data chưa
+      const hasContent = 
+        (report.reportedType === "comment" && commentData) ||
+        (report.reportedType === "video" && videoData) ||
+        (report.reportedType === "user" && userData);
+      
+      console.log("[Report Detail] useEffect check:", {
+        reportedType: report.reportedType,
+        hasCommentData: !!commentData,
+        hasVideoData: !!videoData,
+        hasUserData: !!userData,
+        hasContent: hasContent,
+      });
+      
+      if (hasContent) {
+        console.log("[Report Detail] Content data already available, skipping fetch");
         return;
       }
       
-      // Nếu chưa có reportedContent, fetch riêng
+      // Nếu chưa có content data, fetch riêng
       // Đặc biệt quan trọng khi API getReportWithContent không trả về content
       if (report.reportedType && report.reportedId) {
-        console.log("[Report Detail] reportedContent not found, fetching separately...");
+        console.log("[Report Detail] Content data not found, fetching separately...");
+        console.log("[Report Detail] Reported type:", report.reportedType, "Reported ID:", report.reportedId);
         fetchReportedContent();
       }
     }
@@ -157,18 +171,57 @@ export default function AdminReportDetailScreen() {
         }
       } else if (report.reportedType === "video") {
         // Fetch video data
-        const videoResponse = await fetch(`${API_BASE_URL}/admin/videos/${report.reportedId}`, {
+        const videoUrl = `${API_BASE_URL}/admin/videos/${report.reportedId}`;
+        console.log(`[Report Detail] Fetching video from: ${videoUrl}`);
+        
+        const videoResponse = await fetch(videoUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
 
+        console.log(`[Report Detail] Video response status: ${videoResponse.status}`);
+
         if (videoResponse.ok) {
           const data = await videoResponse.json();
+          console.log("[Report Detail] ✅ Video data received:", {
+            _id: data._id,
+            hasTitle: !!data.title,
+            title: data.title,
+            hasThumbnail: !!data.thumbnail,
+            thumbnail: data.thumbnail,
+            hasUser: !!data.user,
+            user: data.user,
+            status: data.status,
+            fullData: JSON.stringify(data).substring(0, 500),
+          });
+          console.log("[Report Detail] Setting videoData state...");
           setVideoData(data);
+          console.log("[Report Detail] videoData state set completed");
         } else {
-          console.error("Failed to fetch video:", videoResponse.status);
+          const contentType = videoResponse.headers.get("content-type");
+          let errorText = "";
+          
+          try {
+            errorText = await videoResponse.text();
+            console.error(`[Report Detail] ❌ Failed to fetch video: ${videoResponse.status}`);
+            console.error(`[Report Detail] Error response:`, errorText.substring(0, 200));
+            
+            if (contentType && contentType.includes("application/json")) {
+              try {
+                const errorData = JSON.parse(errorText);
+                console.error(`[Report Detail] Error details:`, errorData);
+              } catch (e) {
+                console.error(`[Report Detail] Non-JSON error response`);
+              }
+            }
+          } catch (e) {
+            console.error("[Report Detail] Error reading video response:", e);
+          }
+          
+          // Set videoData to null để hiển thị error state
+          setVideoData(null);
         }
       } else if (report.reportedType === "user") {
         // Fetch user data
@@ -211,39 +264,60 @@ export default function AdminReportDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Report Detail] Report with content received:", {
+        console.log("[Report Detail] 📋 Report with content received:", {
           hasReportedContent: !!data.reportedContent,
           reportedType: data.reportedType,
           reportedId: data.reportedId,
+          reportedContentType: data.reportedContent ? typeof data.reportedContent : "null",
         });
         setReport(data);
         
         // Reset tất cả content data trước khi set mới
+        console.log("[Report Detail] Resetting all content data...");
         setCommentData(null);
         setVideoData(null);
         setUserData(null);
         
         // Set content data từ reportedContent nếu có - CHỈ set đúng loại tương ứng
         if (data.reportedContent) {
-          console.log("[Report Detail] Setting content from reportedContent:", {
+          console.log("[Report Detail] 📦 Setting content from reportedContent:", {
             type: data.reportedType,
             hasText: data.reportedType === "comment" ? !!data.reportedContent.text : false,
+            hasTitle: data.reportedType === "video" ? !!data.reportedContent.title : false,
+            hasThumbnail: data.reportedType === "video" ? !!data.reportedContent.thumbnail : false,
+            reportedContentKeys: data.reportedContent ? Object.keys(data.reportedContent) : [],
           });
           
           // CHỈ set data cho loại được report, không set các loại khác
           if (data.reportedType === "comment") {
+            console.log("[Report Detail] Setting commentData...");
             setCommentData(data.reportedContent);
             setIsLoadingContent(false);
           } else if (data.reportedType === "video") {
+            console.log("[Report Detail] 🎬 Setting video data from reportedContent");
+            console.log("[Report Detail] Video reportedContent full:", JSON.stringify(data.reportedContent).substring(0, 1000));
+            console.log("[Report Detail] Video reportedContent keys:", Object.keys(data.reportedContent || {}));
+            console.log("[Report Detail] Video reportedContent:", {
+              _id: data.reportedContent?._id,
+              title: data.reportedContent?.title,
+              thumbnail: data.reportedContent?.thumbnail,
+              hasUser: !!data.reportedContent?.user,
+              user: data.reportedContent?.user,
+            });
+            console.log("[Report Detail] Calling setVideoData...");
             setVideoData(data.reportedContent);
+            console.log("[Report Detail] setVideoData called, setting isLoadingContent = false");
             setIsLoadingContent(false);
           } else if (data.reportedType === "user") {
+            console.log("[Report Detail] Setting userData...");
             setUserData(data.reportedContent);
             setIsLoadingContent(false);
           }
         } else {
           // Nếu không có reportedContent, sẽ fetch riêng trong useEffect
-          console.warn("[Report Detail] No reportedContent in response, will fetch separately");
+          console.warn("[Report Detail] ⚠️ No reportedContent in response, will fetch separately");
+          // Set isLoadingContent = true để hiển thị loading khi fetch riêng
+          setIsLoadingContent(true);
         }
       } else {
         // Fallback: Nếu API with-content không hoạt động, dùng API thông thường
@@ -725,6 +799,18 @@ export default function AdminReportDetailScreen() {
               <View style={styles.errorContentContainer}>
                 <Ionicons name="alert-circle" size={24} color={Colors.text.secondary} />
                 <Text style={styles.noContentText}>Không thể tải thông tin video</Text>
+                <Text style={styles.errorDetailText}>
+                  Video ID: {report.reportedId}
+                </Text>
+                <Text style={styles.errorDetailText}>
+                  Vui lòng kiểm tra lại API hoặc video có tồn tại không
+                </Text>
+                <Text style={styles.errorDetailText}>
+                  isLoadingContent: {isLoadingContent ? "true" : "false"}
+                </Text>
+                <Text style={styles.errorDetailText}>
+                  videoData: {videoData ? "exists" : "null"}
+                </Text>
               </View>
             )}
             </View>
