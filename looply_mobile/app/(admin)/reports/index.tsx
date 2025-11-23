@@ -167,7 +167,7 @@ export default function AdminReportsScreen() {
         </View>
         <TouchableOpacity 
           style={styles.viewButton}
-          onPress={() => handleViewReport(item._id)}
+          onPress={() => handleViewReport(item)}
           activeOpacity={0.7}
         >
           <Text style={styles.viewButtonText}>Xem</Text>
