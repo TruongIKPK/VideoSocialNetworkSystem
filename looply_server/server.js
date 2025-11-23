@@ -1,5 +1,21 @@
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Get current file directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file in the server directory
+const envResult = dotenv.config({ path: join(__dirname, ".env") });
+
+if (envResult.error) {
+  console.warn("⚠️  Could not load .env file:", envResult.error.message);
+  console.warn("   Trying to load from default location...");
+  dotenv.config(); // Try default location
+} else {
+  console.log(`✅ Environment variables loaded from: ${join(__dirname, ".env")}`);
+}
 
 import express from "express";
 import http from "http";
@@ -30,11 +46,29 @@ import reportRoutes from "./routes/reportRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import saveRoutes from "./routes/saveRoutes.js";
 
+// Import moderation services
+import { initializeCollection } from "./services/qdrantService.js";
+import { startModerationPolling } from "./services/moderationProcessor.js";
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
 });
+
+// Connect to database
+connectDB();
+
+// Initialize Qdrant collection and start moderation polling after DB connection
+setTimeout(async () => {
+  try {
+    await initializeCollection();
+    // Start polling for moderation jobs every 30 seconds
+    startModerationPolling(30000);
+  } catch (error) {
+    console.error("Error initializing moderation system:", error);
+  }
+}, 3000);
 
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
@@ -63,9 +97,6 @@ const createDefaultAdmin = async () => {
     console.error("❌ Error creating default admin:", error);
   }
 };
-
-// Connect to database
-connectDB();
 
 // Create admin after DB connection is established
 mongoose.connection.once('connected', async () => {
@@ -112,17 +143,6 @@ app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
-console.log("✅ Admin routes registered at /api/admin");
-console.log("   Available routes:");
-console.log("   - GET  /api/admin/test");
-console.log("   - GET  /api/admin/dashboard/stats");
-console.log("   - GET  /api/admin/dashboard/recent-videos");
-console.log("   - GET  /api/admin/dashboard/recent-reports");
-console.log("   - GET  /api/admin/users");
-console.log("   - GET  /api/admin/videos");
-console.log("   - GET  /api/admin/videos/:videoId");
-console.log("   - PUT  /api/admin/videos/:videoId/status");
-console.log("   - GET  /api/admin/comments");
 app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
@@ -184,31 +204,6 @@ io.on("connection", (socket) => {
     console.log("⚠️ Kết nối không có userId hợp lệ");
     // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
   }
-
-  // Join event - User đăng nhập vào hệ thống
-  // socket.on("join", (data) => {
-  //   try {
-  //     if (!userId) {
-  //       return socket.emit("error-message", {
-  //         message: "User ID không hợp lệ",
-  //       });
-  //     }
-
-  //     // Lưu userId -> socketId mapping
-  //     connectedUsers[userId] = socket.id;
-
-  //     // Broadcast user online to all other users
-  //     socket.broadcast.emit("user-online", { userId });
-
-  //     console.log(
-  //       `User ${userId} joined. Total connected: ${
-  //         Object.keys(connectedUsers).length
-  //       }`
-  //     );
-  //   } catch (error) {
-  //     socket.emit("error-message", { message: "Lỗi khi join hệ thống" });
-  //   }
-  // });
 
   // Send message event - Relay tin nhắn giữa 2 users
   socket.on("send-message", (data) => {
@@ -368,7 +363,6 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });

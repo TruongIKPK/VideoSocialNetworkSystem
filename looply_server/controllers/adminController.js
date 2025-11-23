@@ -429,3 +429,43 @@ export const getRecentReports = async (req, res) => {
   }
 };
 
+// Wrapper functions for report management to match admin route parameter naming
+import {
+  getReportById as getReportByIdOriginal,
+  updateReportStatus as updateReportStatusOriginal,
+} from "../controllers/reportController.js";
+
+export const getReportByIdAdmin = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    // Create a new request object with id parameter for compatibility
+    const modifiedReq = {
+      ...req,
+      params: {
+        ...req.params,
+        id: reportId,
+      },
+    };
+    return getReportByIdOriginal(modifiedReq, res);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateReportStatusAdmin = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    // Create a new request object with id parameter for compatibility
+    const modifiedReq = {
+      ...req,
+      params: {
+        ...req.params,
+        id: reportId,
+      },
+    };
+    return updateReportStatusOriginal(modifiedReq, res);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
