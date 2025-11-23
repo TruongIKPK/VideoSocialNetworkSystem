@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +19,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Report {
   _id: string;
@@ -378,14 +380,16 @@ export default function AdminReportDetailScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBackButton}
-          onPress={() => router.replace("/(admin)/reports")}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết báo cáo</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => router.replace("/(admin)/reports")}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi tiết báo cáo</Text>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
       <ScrollView
@@ -395,6 +399,7 @@ export default function AdminReportDetailScreen() {
       >
         {/* Report Info Card */}
         <View style={styles.card}>
+          <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Thông tin báo cáo</Text>
             <View
@@ -484,11 +489,13 @@ export default function AdminReportDetailScreen() {
               <Text style={styles.infoValue}>{formatDate(report.resolvedAt)}</Text>
             </View>
           )}
+          </View>
         </View>
 
         {/* Comment Content Card */}
         {report.reportedType === "comment" && (
           <View style={styles.card}>
+            <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleRow}>
                 <Ionicons name="chatbubble-ellipses" size={24} color="#F59E0B" />
@@ -607,12 +614,14 @@ export default function AdminReportDetailScreen() {
                 </Text>
               </View>
             )}
+            </View>
           </View>
         )}
 
         {/* Video Content Card */}
         {report.reportedType === "video" && (
           <View style={styles.card}>
+            <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleRow}>
                 <Ionicons name="videocam" size={24} color="#EF4444" />
@@ -718,12 +727,14 @@ export default function AdminReportDetailScreen() {
                 <Text style={styles.noContentText}>Không thể tải thông tin video</Text>
               </View>
             )}
+            </View>
           </View>
         )}
 
         {/* User Content Card */}
         {report.reportedType === "user" && (
           <View style={styles.card}>
+            <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
               <View style={styles.cardTitleRow}>
                 <Ionicons name="person" size={24} color="#3B82F6" />
@@ -811,12 +822,14 @@ export default function AdminReportDetailScreen() {
                 </Text>
               </View>
             )}
+            </View>
           </View>
         )}
 
         {/* Action Buttons */}
         {report.status === "pending" && (
           <View style={styles.actionsCard}>
+            <View style={styles.cardContent}>
             <Text style={styles.actionsTitle}>Thao tác</Text>
             <View style={styles.actionsButtons}>
               <TouchableOpacity
@@ -850,6 +863,7 @@ export default function AdminReportDetailScreen() {
                   </>
                 )}
               </TouchableOpacity>
+            </View>
             </View>
           </View>
         )}
@@ -899,14 +913,17 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
   },
   header: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
   },
   headerBackButton: {
     padding: Spacing.xs,
@@ -922,24 +939,27 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   card: {
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
     marginBottom: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  cardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   cardHeader: {
     flexDirection: "row",
@@ -1192,17 +1212,13 @@ const styles = StyleSheet.create({
   },
   actionsCard: {
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
     marginBottom: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
   },
   actionsTitle: {
     fontSize: Typography.fontSize.lg,
