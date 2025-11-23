@@ -1,9 +1,21 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { CustomHeader } from "../_layout";
 
+import { useUser } from "@/contexts/UserContext";
+import { socketService } from "../../service/socketService";
+
 export default function TabLayout() {
+  const { user, token } = useUser();
+
+  useEffect(() => {
+    if (token && user?._id) {
+      console.log("🔄 Đang kết nối Socket từ TabLayout...");
+      socketService.connect(token);
+    }
+  }, [token, user]);
+
   return (
     <Tabs
       screenOptions={{
@@ -25,7 +37,11 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="home" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+            <Ionicons
+              name="home"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
           ),
           headerShown: true,
           header: () => <CustomHeader />,
@@ -42,7 +58,11 @@ export default function TabLayout() {
         options={{
           title: "Explore",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="compass" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+            <Ionicons
+              name="compass"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
           ),
           headerShown: true,
           header: () => <CustomHeader />,
@@ -53,7 +73,11 @@ export default function TabLayout() {
         options={{
           title: "Camera",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="camera" size={32} color={focused ? "#fff" : "#B5B5B5"} />
+            <Ionicons
+              name="camera"
+              size={32}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
           ),
         }}
       />
@@ -62,7 +86,11 @@ export default function TabLayout() {
         options={{
           title: "Inbox",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="chatbubble" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+            <Ionicons
+              name="chatbubble"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
           ),
         }}
       />
@@ -88,14 +116,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings/index"
         options={{
-          href: null, 
+          href: null,
         }}
       />
       <Tabs.Screen
         name="settings/edit-profile"
         options={{
-          href: null, 
-          tabBarStyle: { display: "none" }, 
+          href: null,
+          tabBarStyle: { display: "none" },
         }}
       />
 
@@ -104,7 +132,11 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ focused }) => (
-            <Ionicons name="person" size={28} color={focused ? "#fff" : "#B5B5B5"} />
+            <Ionicons
+              name="person"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
           ),
         }}
       />

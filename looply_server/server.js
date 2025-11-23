@@ -11,7 +11,7 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import helmet from "helmet"; // Thêm helmet
-import rateLimit from "express-rate-limit"; 
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import User from "./models/User.js";
 import bcrypt from "bcryptjs";
@@ -30,11 +30,10 @@ import reportRoutes from "./routes/reportRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import saveRoutes from "./routes/saveRoutes.js";
 
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: "*" },
 });
 
 // Create default admin user if not exists
@@ -45,14 +44,14 @@ const createDefaultAdmin = async () => {
       const adminEmail = process.env.ADMIN_EMAIL || "admin@looply.com";
       const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      
+
       await User.create({
         username: "admin",
         email: adminEmail,
         password: hashedPassword,
         name: "Administrator",
         role: "admin",
-        status: "active"
+        status: "active",
       });
       console.log("✅ Default admin user created successfully");
       console.log(`   Email: ${adminEmail}`);
@@ -86,14 +85,16 @@ app.use(helmet()); // Adds various HTTP headers for security
 // app.use(limiter);
 
 // CORS configuration
-app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:19006",
-    "https://looply-nine.vercel.app",
-  ], // Add your frontend URLs
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:19006",
+      "https://looply-nine.vercel.app",
+    ], // Add your frontend URLs
+    credentials: true,
+  })
+);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -147,8 +148,10 @@ const connectedUsers = {};
 // Socket authentication middleware
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
-    
+    const token =
+      socket.handshake.auth.token ||
+      socket.handshake.headers.authorization?.split(" ")[1];
+
     if (!token) {
       return next(new Error("Authentication token required"));
     }
@@ -166,65 +169,84 @@ io.on("connection", (socket) => {
   const userId = socket.userId;
   console.log("User connected:", socket.id, "userId:", userId);
 
-  // Join event - User đăng nhập vào hệ thống
-  socket.on("join", (data) => {
-    try {
-      if (!userId) {
-        return socket.emit("error-message", { message: "User ID không hợp lệ" });
-      }
+  if (userId) {
+    connectedUsers[userId] = socket.id;
 
-      // Lưu userId -> socketId mapping
-      connectedUsers[userId] = socket.id;
-      
-      // Broadcast user online to all other users
-      socket.broadcast.emit("user-online", { userId });
-      
-      console.log(`User ${userId} joined. Total connected: ${Object.keys(connectedUsers).length}`);
-    } catch (error) {
-      socket.emit("error-message", { message: "Lỗi khi join hệ thống" });
-    }
-  });
+    // Broadcast user online
+    socket.broadcast.emit("user-online", { userId });
+
+    console.log(`✅ User ${userId} joined automatically.`);
+    console.log(
+      `📋 Total connected: ${Object.keys(connectedUsers).length}`,
+      Object.keys(connectedUsers)
+    );
+  } else {
+    console.log("⚠️ Kết nối không có userId hợp lệ");
+    // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
+  }
+
+  // Join event - User đăng nhập vào hệ thống
+  // socket.on("join", (data) => {
+  //   try {
+  //     if (!userId) {
+  //       return socket.emit("error-message", {
+  //         message: "User ID không hợp lệ",
+  //       });
+  //     }
+
+  //     // Lưu userId -> socketId mapping
+  //     connectedUsers[userId] = socket.id;
+
+  //     // Broadcast user online to all other users
+  //     socket.broadcast.emit("user-online", { userId });
+
+  //     console.log(
+  //       `User ${userId} joined. Total connected: ${
+  //         Object.keys(connectedUsers).length
+  //       }`
+  //     );
+  //   } catch (error) {
+  //     socket.emit("error-message", { message: "Lỗi khi join hệ thống" });
+  //   }
+  // });
 
   // Send message event - Relay tin nhắn giữa 2 users
   socket.on("send-message", (data) => {
-    try {
-      const { to, text, type, timestamp, messageId } = data;
+    console.log("-------------------------------------------------");
+    console.log("📨 [1] SERVER NHẬN TIN TỪ:", socket.userId);
+    console.log("📦 [2] Dữ liệu gửi lên:", JSON.stringify(data));
 
-      // Validate input
-      if (!to || !text || !messageId) {
-        return socket.emit("error-message", { message: "Thiếu thông tin tin nhắn" });
-      }
+    const { to, text, type, timestamp, messageId } = data;
 
-      // Check if receiver is online
-      const receiverSocketId = connectedUsers[to];
-      if (!receiverSocketId) {
-        // Receiver offline - có thể queue hoặc báo lỗi
-        return socket.emit("error-message", { 
-          message: "Người nhận không online",
-          code: "RECEIVER_OFFLINE"
-        });
-      }
+    // Kiểm tra người nhận có online không
+    const receiverSocketId = connectedUsers[to];
+    console.log(`🔍 [3] Tìm người nhận (ID: ${to})...`);
 
-      // Relay message to receiver
+    if (receiverSocketId) {
+      console.log(`✅ [4] TÌM THẤY! Socket ID: ${receiverSocketId}`);
+
+      // Gửi đi
       io.to(receiverSocketId).emit("receive-message", {
         from: userId,
-        to: to,
-        text: text,
-        type: type || "text",
-        timestamp: timestamp || Date.now(),
-        messageId: messageId
+        to,
+        text,
+        type,
+        timestamp,
+        messageId,
       });
+      console.log("🚀 [5] Đã chuyển tiếp tin nhắn thành công!");
 
-      // Also send confirmation to sender
-      socket.emit("message-sent", {
-        messageId: messageId,
-        timestamp: timestamp || Date.now()
+      socket.emit("message-sent", { messageId, timestamp: Date.now() });
+    } else {
+      console.log("❌ [4] KHÔNG TÌM THẤY (Người này đang Offline hoặc sai ID)");
+      console.log("📋 Danh sách đang Online:", Object.keys(connectedUsers)); // In ra xem ai đang on
+
+      socket.emit("error-message", {
+        message: "Người nhận không online",
+        code: "RECEIVER_OFFLINE",
       });
-
-    } catch (error) {
-      console.error("Send message error:", error);
-      socket.emit("error-message", { message: "Không gửi được tin nhắn" });
     }
+    console.log("-------------------------------------------------");
   });
 
   // Typing indicator
@@ -267,7 +289,7 @@ io.on("connection", (socket) => {
       if (senderSocketId) {
         io.to(senderSocketId).emit("message-seen", {
           messageId: messageId,
-          seenBy: userId
+          seenBy: userId,
         });
       }
     } catch (error) {
@@ -285,7 +307,7 @@ io.on("connection", (socket) => {
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("webrtc-offer", {
           from: userId,
-          offer: offer
+          offer: offer,
         });
       }
     } catch (error) {
@@ -303,7 +325,7 @@ io.on("connection", (socket) => {
       if (senderSocketId) {
         io.to(senderSocketId).emit("webrtc-answer", {
           from: userId,
-          answer: answer
+          answer: answer,
         });
       }
     } catch (error) {
@@ -321,7 +343,7 @@ io.on("connection", (socket) => {
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("webrtc-ice-candidate", {
           from: userId,
-          candidate: candidate
+          candidate: candidate,
         });
       }
     } catch (error) {
@@ -335,18 +357,18 @@ io.on("connection", (socket) => {
       delete connectedUsers[userId];
       // Broadcast user offline
       socket.broadcast.emit("user-offline", { userId });
-      console.log(`User ${userId} disconnected. Total connected: ${Object.keys(connectedUsers).length}`);
+      console.log(
+        `User ${userId} disconnected. Total connected: ${
+          Object.keys(connectedUsers).length
+        }`
+      );
     } else {
       console.log("User disconnected:", socket.id);
     }
   });
 });
 
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
-  console.log(`✅ Admin routes available at http://localhost:${PORT}/api/admin`);
-  console.log(`   Test route: GET http://localhost:${PORT}/api/admin/ping (no auth required)`);
-  console.log(`   Dashboard: GET http://localhost:${PORT}/api/admin/dashboard/stats`);
-  console.log(`   Videos: GET http://localhost:${PORT}/api/admin/videos`);
-  console.log(`   Video Detail: GET http://localhost:${PORT}/api/admin/videos/:videoId`);
 });
