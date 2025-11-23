@@ -7,7 +7,27 @@ import Comment from "../models/Comment.js";
 import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl, makeThumbnailPublic } from "../config/cloudinary.js";
 import { uploadVideoToS3 } from "../services/s3Service.js";
 import { startContentModeration } from "../services/rekognitionService.js";
+import { emitModerationNotification } from "../utils/socketHelper.js";
 import fs from "fs";
+
+// Import io and connectedUsers from server.js
+// Using dynamic import to avoid circular dependency issues
+let io = null;
+let connectedUsers = null;
+
+// Lazy load io and connectedUsers
+async function getSocketInstance() {
+  if (!io || !connectedUsers) {
+    try {
+      const serverModule = await import("../server.js");
+      io = serverModule.io;
+      connectedUsers = serverModule.connectedUsers;
+    } catch (error) {
+      console.warn("[VideoController] Could not load socket instance:", error.message);
+    }
+  }
+  return { io, connectedUsers };
+}
 
 /**
  * Helper function to build query filter for approved videos only
@@ -815,6 +835,19 @@ export const approveVideo = async (req, res) => {
     
     await video.save();
 
+    // Emit notification to user
+    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
+    if (socketIo && users && video.user?._id) {
+      emitModerationNotification(
+        socketIo,
+        users,
+        video.user._id.toString(),
+        video._id.toString(),
+        "approved",
+        video.title
+      );
+    }
+
     res.json({
       message: "Video đã được duyệt thành công",
       video: video
@@ -855,12 +888,78 @@ export const rejectVideo = async (req, res) => {
       { new: true }
     );
 
+    // Emit notification to user
+    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
+    if (socketIo && users && existingVideo.user?._id) {
+      emitModerationNotification(
+        socketIo,
+        users,
+        existingVideo.user._id.toString(),
+        id,
+        "rejected",
+        existingVideo.title
+      );
+    }
+
     res.json({
       message: "Video đã bị từ chối",
       video: video
     });
   } catch (error) {
     console.error("Reject video error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Admin flag a video for review
+ * Admin only
+ */
+export const flagVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const existingVideo = await Video.findById(id);
+    if (!existingVideo) {
+      return res.status(404).json({ message: "Không tìm thấy video" });
+    }
+
+    const video = await Video.findByIdAndUpdate(
+      id,
+      {
+        moderationStatus: "flagged",
+        moderationResults: {
+          ...(existingVideo.moderationResults || {}),
+          adminFlag: {
+            reason: reason || "Video cần được xem xét thêm",
+            flaggedAt: new Date(),
+            flaggedBy: req.user?._id || req.user?.id
+          }
+        }
+      },
+      { new: true }
+    );
+
+    // Emit notification to user
+    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
+    if (socketIo && users && existingVideo.user?._id) {
+      emitModerationNotification(
+        socketIo,
+        users,
+        existingVideo.user._id.toString(),
+        id,
+        "flagged",
+        existingVideo.title
+      );
+    }
+
+    res.json({
+      message: "Video đã được đánh dấu để xem xét",
+      video: video
+    });
+  } catch (error) {
+    console.error("Flag video error:", error);
     res.status(500).json({ message: error.message });
   }
 };

@@ -16,6 +16,7 @@ import {
   getFlaggedOrRejectedVideos,
   approveVideo,
   rejectVideo,
+  flagVideo,
   updateVideoStatus,
 } from "../controllers/videoController.js";
 import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership, optionalAuthenticate } from "../middleware/auth.js";
@@ -32,6 +33,7 @@ router.get("/moderation/pending", authenticateToken, requireAdmin, getPendingMod
 router.get("/moderation/flagged-rejected", authenticateToken, requireAdmin, getFlaggedOrRejectedVideos);
 router.post("/:id/approve", authenticateToken, requireAdmin, approveVideo);
 router.post("/:id/reject", authenticateToken, requireAdmin, rejectVideo);
+router.post("/:id/flag", authenticateToken, requireAdmin, flagVideo);
 router.put("/:id/status", authenticateToken, requireAdmin, updateVideoStatus);
 
 // Public routes
