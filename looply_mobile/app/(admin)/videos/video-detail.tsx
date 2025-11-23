@@ -270,6 +270,91 @@ export default function AdminVideoDetailScreen() {
     setShowViolationModal(true);
   };
 
+  const handleApprove = async () => {
+    if (!token || !videoId) {
+      Alert.alert("Lỗi", "Không có token xác thực hoặc video ID");
+      return;
+    }
+
+    try {
+      const statusUrl = `${API_BASE_URL}/admin/videos/${videoId}/status`;
+      const statusBody = { 
+        status: "active",
+        moderationStatus: "approved"
+      };
+      
+      console.log("[Approve Video] 🎬 Updating video status...");
+      console.log("[Approve Video] URL:", statusUrl);
+      console.log("[Approve Video] Body:", statusBody);
+      
+      const response = await fetch(statusUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(statusBody),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[Approve Video] ✅ Video approved:", data);
+        
+        // Cập nhật status vào videoData ngay lập tức
+        if (videoData) {
+          setVideoData({
+            ...videoData,
+            status: "active",
+            moderationStatus: "approved",
+          });
+        }
+        
+        // Refresh video data từ server
+        try {
+          await fetchVideoData();
+        } catch (error) {
+          console.warn("[Approve Video] ⚠️ Failed to refresh from server, but status already updated in local state");
+        }
+        
+        Alert.alert("Thành công", "Video đã được đánh dấu là hợp lệ và sẽ hiển thị cho tất cả người dùng.", [
+          {
+            text: "OK",
+            onPress: () => {
+              // Quay lại danh sách videos
+              router.back();
+            },
+          },
+        ]);
+      } else {
+        const contentType = response.headers.get("content-type");
+        let errorMessage = "Không thể cập nhật trạng thái video";
+        
+        try {
+          const responseText = await response.text();
+          console.error(`[Approve Video] ❌ Error response (${response.status}):`, responseText);
+          
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+              errorMessage = `Lỗi ${response.status}: ${responseText.substring(0, 100)}`;
+            }
+          } else {
+            errorMessage = `Lỗi ${response.status}: ${responseText.substring(0, 100)}`;
+          }
+        } catch (e) {
+          errorMessage = `Lỗi ${response.status}: Không thể cập nhật trạng thái video`;
+        }
+        
+        Alert.alert("Lỗi", errorMessage);
+      }
+    } catch (error: any) {
+      console.error("[Approve Video] ❌ Error:", error);
+      Alert.alert("Lỗi", error.message || "Không thể cập nhật trạng thái video. Vui lòng thử lại.");
+    }
+  };
+
   const handleCloseModal = () => {
     setShowViolationModal(false);
     setSelectedReason("");
@@ -589,7 +674,15 @@ export default function AdminVideoDetailScreen() {
           >
             <Text style={styles.skipButtonText}>Bỏ qua</Text>
           </TouchableOpacity>
-          {videoData?.status !== "violation" && (
+          {videoData?.status === "violation" ? (
+            <TouchableOpacity
+              style={styles.approveButton}
+              onPress={handleApprove}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.approveButtonText}>Hợp lệ</Text>
+            </TouchableOpacity>
+          ) : (
             <TouchableOpacity
               style={styles.violationButton}
               onPress={handleViolation}
@@ -868,6 +961,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   violationButtonText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  approveButton: {
+    backgroundColor: Colors.success,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  approveButtonText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.white,
