@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
@@ -208,6 +208,7 @@ export default function AdminVideoDetailScreen() {
   // Update player when videoUrl changes
   const player = useVideoPlayer(videoUrl, (player) => {
     player.loop = true;
+    player.muted = false; // Cho phép có âm thanh khi đang xem
     player.play();
   });
 
@@ -218,7 +219,48 @@ export default function AdminVideoDetailScreen() {
     }
   }, [videoData?.url]);
 
+  // Dừng video khi màn hình mất focus (navigate away)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Khi màn hình được focus, không làm gì (video đã đang phát)
+      return () => {
+        // Khi màn hình mất focus (navigate away), dừng video
+        try {
+          if (player) {
+            player.pause();
+            player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+          }
+        } catch (error) {
+          console.log("[Video Detail] Player already released, skipping pause");
+        }
+      };
+    }, [player])
+  );
+
+  // Dừng video khi component unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (player) {
+          player.pause();
+          player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+        }
+      } catch (error) {
+        console.log("[Video Detail] Player already released, skipping pause");
+      }
+    };
+  }, [player]);
+
   const handleSkip = () => {
+    // Dừng video và tắt tiếng trước khi quay lại
+    try {
+      if (player) {
+        player.pause();
+        player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+      }
+    } catch (error) {
+      console.log("[Video Detail] Player already released, skipping pause");
+    }
     // Bỏ qua video này, quay lại danh sách
     // Danh sách sẽ tự refresh khi quay lại (useFocusEffect)
     router.back();

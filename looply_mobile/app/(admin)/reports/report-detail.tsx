@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { VideoView, useVideoPlayer } from "expo-video";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -52,13 +53,69 @@ export default function AdminReportDetailScreen() {
   
   const [report, setReport] = useState<Report | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null); // Track which action is updating: "resolved" | "rejected" | null
   const [commentData, setCommentData] = useState<any>(null);
   const [videoData, setVideoData] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   const reportId = Array.isArray(params.reportId) ? params.reportId[0] : params.reportId;
+
+  // Video player cho video được báo cáo
+  const videoUrl = videoData?.url || videoData?.thumbnail || "";
+  const videoPlayer = useVideoPlayer(
+    videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    (player) => {
+      player.loop = true;
+      player.muted = true;
+      if (videoUrl) {
+        player.play();
+      }
+    }
+  );
+
+  // Update player khi videoData thay đổi
+  useEffect(() => {
+    if (videoData && videoPlayer) {
+      const newUrl = videoData.url || videoData.thumbnail || "";
+      if (newUrl) {
+        videoPlayer.replace(newUrl);
+        videoPlayer.play();
+      }
+    }
+  }, [videoData?.url, videoData?.thumbnail]);
+
+  // Dừng video khi màn hình mất focus (navigate away)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Khi màn hình được focus, không làm gì (video đã đang phát)
+      return () => {
+        // Khi màn hình mất focus (navigate away), dừng video
+        try {
+          if (videoPlayer) {
+            videoPlayer.pause();
+            videoPlayer.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+          }
+        } catch (error) {
+          console.log("[Report Detail] Video player already released, skipping pause");
+        }
+      };
+    }, [videoPlayer])
+  );
+
+  // Dừng video khi component unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (videoPlayer) {
+          videoPlayer.pause();
+          videoPlayer.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+        }
+      } catch (error) {
+        console.log("[Report Detail] Video player already released, skipping pause");
+      }
+    };
+  }, [videoPlayer]);
 
   useEffect(() => {
     if (reportId && token) {
@@ -170,9 +227,11 @@ export default function AdminReportDetailScreen() {
           }
         }
       } else if (report.reportedType === "video") {
-        // Fetch video data
-        const videoUrl = `${API_BASE_URL}/admin/videos/${report.reportedId}`;
-        console.log(`[Report Detail] Fetching video from: ${videoUrl}`);
+        // Fetch video data - sử dụng route /api/videos/:videoId (KHÔNG phải /api/admin/videos)
+        const videoUrl = `${API_BASE_URL}/videos/${report.reportedId}`;
+        console.log(`[Report Detail] 🎬 Fetching video from: ${videoUrl}`);
+        console.log(`[Report Detail] 🎬 Video ID: ${report.reportedId}`);
+        console.log(`[Report Detail] 🎬 Using route: /api/videos/:id (NOT /api/admin/videos)`);
         
         const videoResponse = await fetch(videoUrl, {
           headers: {
@@ -182,6 +241,7 @@ export default function AdminReportDetailScreen() {
         });
 
         console.log(`[Report Detail] Video response status: ${videoResponse.status}`);
+        console.log(`[Report Detail] Video response URL: ${videoResponse.url || videoUrl}`);
 
         if (videoResponse.ok) {
           const data = await videoResponse.json();
@@ -215,6 +275,12 @@ export default function AdminReportDetailScreen() {
               } catch (e) {
                 console.error(`[Report Detail] Non-JSON error response`);
               }
+            }
+            
+            // Log rõ ràng để báo server
+            if (videoResponse.status === 404) {
+              console.error(`[Report Detail] 🚨 Route GET /api/videos/:videoId không tồn tại hoặc video không tìm thấy`);
+              console.error(`[Report Detail] 🚨 Video ID cần fetch: ${report.reportedId}`);
             }
           } catch (e) {
             console.error("[Report Detail] Error reading video response:", e);
@@ -351,14 +417,16 @@ export default function AdminReportDetailScreen() {
   };
 
   const handleUpdateStatus = async (newStatus: string) => {
-    if (!token || !reportId) {
-      Alert.alert("Lỗi", "Không có token hoặc report ID");
+    if (!token || !reportId || !report) {
+      Alert.alert("Lỗi", "Không có token, report ID hoặc report data");
       return;
     }
 
     try {
-      setIsUpdating(true);
+      setIsUpdating(newStatus); // Set which action is updating
 
+      // 1. Cập nhật report status
+      console.log(`[Report Detail] 📝 Updating report status to: ${newStatus}`);
       const response = await fetch(`${API_BASE_URL}/reports/${reportId}/status`, {
         method: "PUT",
         headers: {
@@ -370,19 +438,141 @@ export default function AdminReportDetailScreen() {
         }),
       });
 
-      if (response.ok) {
-        const updatedReport = await response.json();
-        setReport(updatedReport.report);
-        Alert.alert("Thành công", `Đã cập nhật trạng thái thành "${getStatusText(newStatus)}"`);
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Không thể cập nhật trạng thái");
+        throw new Error(errorData.message || "Không thể cập nhật trạng thái report");
+      }
+
+      const updatedReport = await response.json();
+      setReport(updatedReport.report);
+      console.log(`[Report Detail] ✅ Report status updated to: ${newStatus}`);
+
+      // 2. Nếu resolve report (chấp nhận báo cáo), đánh dấu vi phạm cho đúng loại được report
+      if (newStatus === "resolved") {
+        console.log(`[Report Detail] 🔍 Report resolved, marking violation for: ${report.reportedType}`);
+        
+        // CHỈ xử lý đúng loại được report, không xử lý cả 2
+        if (report.reportedType === "comment") {
+          // Xử lý comment: đánh dấu comment vi phạm (ẩn comment)
+          console.log(`[Report Detail] 💬 Marking comment as violation: ${report.reportedId}`);
+          try {
+            const commentStatusResponse = await fetch(
+              `${API_BASE_URL}/admin/comments/${report.reportedId}/status`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  status: "violation",
+                }),
+              }
+            );
+
+            if (commentStatusResponse.ok) {
+              const contentType = commentStatusResponse.headers.get("content-type");
+              if (contentType && contentType.includes("application/json")) {
+                try {
+                  const commentData = await commentStatusResponse.json();
+                  console.log(`[Report Detail] ✅ Comment marked as violation:`, commentData);
+                  // Cập nhật commentData trong state để hiển thị trạng thái vi phạm
+                  if (commentData.comment) {
+                    setCommentData({
+                      ...commentData.comment,
+                      status: "violation",
+                    });
+                  }
+                } catch (parseError) {
+                  console.error(`[Report Detail] ❌ Failed to parse JSON response:`, parseError);
+                }
+              } else {
+                const textResponse = await commentStatusResponse.text();
+                console.warn(`[Report Detail] ⚠️ Non-JSON response:`, textResponse.substring(0, 200));
+              }
+            } else {
+              // Xử lý error response
+              const contentType = commentStatusResponse.headers.get("content-type");
+              let errorMessage = "Không thể đánh dấu comment vi phạm";
+              
+              try {
+                if (contentType && contentType.includes("application/json")) {
+                  const errorData = await commentStatusResponse.json();
+                  errorMessage = errorData.message || errorMessage;
+                  console.error(`[Report Detail] ❌ Failed to mark comment as violation:`, errorData);
+                } else {
+                  // Server trả về HTML (404 page) hoặc text
+                  const textResponse = await commentStatusResponse.text();
+                  console.error(`[Report Detail] ❌ Non-JSON error response (${commentStatusResponse.status}):`, textResponse.substring(0, 200));
+                  if (commentStatusResponse.status === 404) {
+                    errorMessage = "API không tìm thấy route hoặc comment không tồn tại";
+                  }
+                }
+              } catch (e) {
+                console.error(`[Report Detail] ❌ Error reading error response:`, e);
+              }
+              // Không throw error, vì report đã được resolve thành công
+            }
+          } catch (error: any) {
+            console.error(`[Report Detail] ❌ Error marking comment as violation:`, error);
+            // Không throw error, vì report đã được resolve thành công
+          }
+        } else if (report.reportedType === "video") {
+          // Xử lý video: đánh dấu video vi phạm
+          console.log(`[Report Detail] 🎬 Marking video as violation: ${report.reportedId}`);
+          try {
+            const videoStatusResponse = await fetch(
+              `${API_BASE_URL}/admin/videos/${report.reportedId}/status`,
+              {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  status: "violation",
+                }),
+              }
+            );
+
+            if (videoStatusResponse.ok) {
+              const videoStatusData = await videoStatusResponse.json();
+              console.log(`[Report Detail] ✅ Video marked as violation:`, videoStatusData);
+              // Cập nhật videoData trong state
+              if (videoStatusData.video) {
+                setVideoData({
+                  ...videoStatusData.video,
+                  status: "violation",
+                });
+              }
+            } else {
+              const errorData = await videoStatusResponse.json();
+              console.error(`[Report Detail] ❌ Failed to mark video as violation:`, errorData);
+              // Không throw error, vì report đã được resolve thành công
+            }
+          } catch (error: any) {
+            console.error(`[Report Detail] ❌ Error marking video as violation:`, error);
+            // Không throw error, vì report đã được resolve thành công
+          }
+        } else if (report.reportedType === "user") {
+          // Xử lý user: có thể khóa tài khoản hoặc cập nhật status
+          console.log(`[Report Detail] 👤 User report resolved, user ID: ${report.reportedId}`);
+          // TODO: Implement user status update if needed
+        }
+
+        Alert.alert(
+          "Thành công",
+          `Đã xử lý báo cáo và đánh dấu ${report.reportedType === "comment" ? "comment" : report.reportedType === "video" ? "video" : "người dùng"} vi phạm`
+        );
+      } else {
+        // Reject report: chỉ cập nhật report status, không đánh dấu vi phạm
+        Alert.alert("Thành công", `Đã cập nhật trạng thái thành "${getStatusText(newStatus)}"`);
       }
     } catch (error: any) {
       console.error("Error updating report status:", error);
       Alert.alert("Lỗi", error.message || "Không thể cập nhật trạng thái");
     } finally {
-      setIsUpdating(false);
+      setIsUpdating(null); // Reset updating state
     }
   };
 
@@ -457,7 +647,18 @@ export default function AdminReportDetailScreen() {
         <View style={styles.headerContent}>
           <TouchableOpacity
             style={styles.headerBackButton}
-            onPress={() => router.replace("/(admin)/reports")}
+            onPress={() => {
+              // Dừng video và tắt tiếng trước khi quay lại
+              try {
+                if (videoPlayer) {
+                  videoPlayer.pause();
+                  videoPlayer.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+                }
+              } catch (error) {
+                console.log("[Report Detail] Video player already released, skipping pause");
+              }
+              router.replace("/(admin)/reports");
+            }}
           >
             <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
           </TouchableOpacity>
@@ -629,52 +830,6 @@ export default function AdminReportDetailScreen() {
                     </View>
                   )}
                 </View>
-                
-                {commentData.videoId && (
-                  <View style={styles.videoContextCard}>
-                    <Text style={styles.videoContextTitle}>Comment này thuộc video:</Text>
-                    <View style={styles.videoContextInfo}>
-                      {commentData.videoId.thumbnail && (
-                        <Image
-                          source={{ uri: commentData.videoId.thumbnail }}
-                          style={styles.videoContextThumbnail}
-                        />
-                      )}
-                      <View style={styles.videoContextDetails}>
-                        <Text style={styles.videoContextName} numberOfLines={2}>
-                          {commentData.videoId.title || "Untitled Video"}
-                        </Text>
-                        {commentData.videoId.user && (
-                          <Text style={styles.videoContextAuthor}>
-                            {commentData.videoId.user.name || commentData.videoId.user.username || "Unknown"}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.viewVideoButton}
-                      onPress={() => {
-                        router.push({
-                          pathname: "/(admin)/videos/video-detail",
-                          params: {
-                            videoId: commentData.videoId._id,
-                            videoUrl: commentData.videoId.url || commentData.videoId.thumbnail || "",
-                            title: commentData.videoId.title || "Untitled Video",
-                            author: commentData.videoId.user?.name || "Unknown",
-                            views: "0",
-                            authorId: commentData.videoId.user?._id || "",
-                            commentId: commentData._id,
-                            highlightComment: "true",
-                          },
-                        });
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="videocam" size={20} color={Colors.white} />
-                      <Text style={styles.viewVideoButtonText}>Xem video và comment</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </>
             ) : (
               <View style={styles.errorContentContainer}>
@@ -715,12 +870,30 @@ export default function AdminReportDetailScreen() {
                     <Ionicons name="flag" size={16} color="#EF4444" />
                     <Text style={styles.reportedContentLabelText}>Video được báo cáo:</Text>
                   </View>
-                  {videoData.thumbnail && (
-                    <Image
-                      source={{ uri: videoData.thumbnail }}
-                      style={styles.videoThumbnail}
-                    />
-                  )}
+                  <View style={styles.videoThumbnailContainer}>
+                    {videoUrl ? (
+                      <>
+                        <VideoView
+                          player={videoPlayer}
+                          style={styles.videoThumbnail}
+                          contentFit="cover"
+                          nativeControls={false}
+                          allowsFullscreen={false}
+                        />
+                        {videoData.status === "violation" && (
+                          <View style={styles.videoThumbnailOverlay}>
+                            <Ionicons name="warning" size={24} color={Colors.white} />
+                            <Text style={styles.videoThumbnailOverlayText}>Vi phạm</Text>
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <View style={styles.videoThumbnailPlaceholder}>
+                        <Ionicons name="videocam-outline" size={48} color={Colors.gray[400]} />
+                        <Text style={styles.videoThumbnailPlaceholderText}>Không có video</Text>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.videoInfoContainer}>
                     <View style={styles.videoTitleRow}>
                       <Text style={styles.videoTitle} numberOfLines={2}>
@@ -921,10 +1094,10 @@ export default function AdminReportDetailScreen() {
               <TouchableOpacity
                 style={[styles.actionButton, styles.resolveButton]}
                 onPress={() => handleUpdateStatus("resolved")}
-                disabled={isUpdating}
+                disabled={isUpdating !== null}
                 activeOpacity={0.7}
               >
-                {isUpdating ? (
+                {isUpdating === "resolved" ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <>
@@ -937,10 +1110,10 @@ export default function AdminReportDetailScreen() {
               <TouchableOpacity
                 style={[styles.actionButton, styles.rejectButton]}
                 onPress={() => handleUpdateStatus("rejected")}
-                disabled={isUpdating}
+                disabled={isUpdating !== null}
                 activeOpacity={0.7}
               >
-                {isUpdating ? (
+                {isUpdating === "rejected" ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <>
@@ -1392,12 +1565,50 @@ const styles = StyleSheet.create({
   videoContentCard: {
     marginTop: Spacing.sm,
   },
+  videoThumbnailContainer: {
+    width: "100%",
+    marginBottom: Spacing.md,
+    position: "relative",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: Colors.error + "30",
+  },
   videoThumbnail: {
     width: "100%",
     height: 200,
-    borderRadius: BorderRadius.md,
     backgroundColor: Colors.gray[200],
-    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  videoThumbnailPlaceholder: {
+    width: "100%",
+    height: 200,
+    backgroundColor: Colors.gray[100],
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  videoThumbnailPlaceholderText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  videoThumbnailOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(239, 68, 68, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  videoThumbnailOverlayText: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.bold,
   },
   videoInfo: {
     gap: Spacing.xs,

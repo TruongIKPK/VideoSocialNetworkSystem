@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
+import { formatNumber, getAvatarUri, getThumbnailUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -389,8 +389,20 @@ export default function AdminDashboardScreen() {
               recentVideos.slice(0, 3).map((video) => (
                 <View key={video._id} style={styles.videoItem}>
                   <View style={styles.videoThumbnail}>
-                    {/* <Ionicons name="videocam" size={24} color="#fff" /> */}
-                    <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnailImage} />
+                    {video.thumbnail ? (
+                      <Image 
+                        source={getThumbnailUri(video.thumbnail)} 
+                        style={styles.videoThumbnailImage}
+                        resizeMode="cover"
+                        onError={() => {
+                          console.log(`[Dashboard] Failed to load thumbnail for video: ${video._id}`);
+                        }}
+                      />
+                    ) : (
+                      <View style={styles.videoThumbnailPlaceholder}>
+                        <Ionicons name="videocam-outline" size={24} color={Colors.gray[400]} />
+                      </View>
+                    )}
                   </View>
                   <View style={styles.videoInfo}>
                     <Text style={styles.videoTitle} numberOfLines={1} ellipsizeMode="tail">{video.title}</Text>
@@ -506,9 +518,6 @@ export default function AdminDashboardScreen() {
               <View style={styles.emptyReportContainer}>
                 <Ionicons name="videocam-outline" size={48} color={Colors.gray[400]} />
                 <Text style={styles.emptyText}>Chưa có báo cáo video nào</Text>
-                <Text style={styles.emptySubtext}>
-                  Các báo cáo video mới sẽ hiển thị ở đây
-                </Text>
               </View>
             )}
           </View>
@@ -717,6 +726,14 @@ const styles = StyleSheet.create({
   videoThumbnailImage: {
     width: "100%",
     height: "100%",
+    borderRadius: BorderRadius.md,
+  },
+  videoThumbnailPlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.gray[200],
     borderRadius: BorderRadius.md,
   },
   videoInfo: {
