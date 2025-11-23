@@ -177,13 +177,19 @@ io.use(async (socket, next) => {
       socket.handshake.headers.authorization?.split(" ")[1];
 
     if (!token) {
+      console.log("[Socket Auth] ❌ No token provided");
       return next(new Error("Authentication token required"));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded.userId;
+    // Convert userId to string to ensure consistency
+    socket.userId = String(decoded.userId);
+    console.log("[Socket Auth] ✅ Token verified");
+    console.log(`[Socket Auth] Decoded userId: ${socket.userId}`);
+    console.log(`[Socket Auth] UserId type: ${typeof socket.userId}`);
     next();
   } catch (error) {
+    console.error("[Socket Auth] ❌ Token verification failed:", error.message);
     next(new Error("Invalid or expired token"));
   }
 });
@@ -191,21 +197,31 @@ io.use(async (socket, next) => {
 // Lắng nghe kết nối socket
 io.on("connection", (socket) => {
   const userId = socket.userId;
-  console.log("User connected:", socket.id, "userId:", userId);
+  console.log("=".repeat(60));
+  console.log("🔌 [Socket] New connection received");
+  console.log(`[Socket] Socket ID: ${socket.id}`);
+  console.log(`[Socket] User ID: ${userId}`);
+  console.log(`[Socket] User ID type: ${typeof userId}`);
+  console.log(`[Socket] User ID string: ${String(userId)}`);
 
   if (userId) {
-    connectedUsers[userId] = socket.id;
+    // Convert userId to string to ensure consistency
+    const userIdString = String(userId);
+    connectedUsers[userIdString] = socket.id;
 
     // Broadcast user online
-    socket.broadcast.emit("user-online", { userId });
+    socket.broadcast.emit("user-online", { userId: userIdString });
 
-    console.log(`✅ User ${userId} joined automatically.`);
+    console.log(`✅ User ${userIdString} joined automatically.`);
+    console.log(`[Socket] Stored in connectedUsers: ${userIdString} -> ${socket.id}`);
     console.log(
       `📋 Total connected: ${Object.keys(connectedUsers).length}`,
       Object.keys(connectedUsers)
     );
+    console.log("=".repeat(60));
   } else {
     console.log("⚠️ Kết nối không có userId hợp lệ");
+    console.log("=".repeat(60));
     // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
   }
 

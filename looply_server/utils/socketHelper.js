@@ -28,13 +28,39 @@ export function emitModerationNotification(io, connectedUsers, userId, videoId, 
       return;
     }
 
+    // Convert userId to string to ensure consistency
+    const userIdString = String(userId);
+    
     // Find user's socket ID
-    const socketId = connectedUsers[userId];
+    const socketId = connectedUsers[userIdString];
+    
+    console.log(`[SocketHelper] 🔍 Looking for user: ${userIdString}`);
+    console.log(`[SocketHelper] User ID type: ${typeof userIdString}`);
+    console.log(`[SocketHelper] Total connected users: ${Object.keys(connectedUsers).length}`);
+    console.log(`[SocketHelper] Connected user IDs: ${Object.keys(connectedUsers).join(", ")}`);
+    console.log(`[SocketHelper] User ID matches: ${Object.keys(connectedUsers).includes(userIdString)}`);
     
     if (!socketId) {
-      console.log(`[SocketHelper] ❌ User ${userId} is not connected. Notification will not be sent.`);
-      console.log(`[SocketHelper] Total connected users: ${Object.keys(connectedUsers).length}`);
-      console.log(`[SocketHelper] Connected user IDs: ${Object.keys(connectedUsers).join(", ")}`);
+      console.log(`[SocketHelper] ❌ User ${userIdString} is not connected. Notification will not be sent.`);
+      // Try to find with different formats
+      const allUserIds = Object.keys(connectedUsers);
+      const matchingUserId = allUserIds.find(id => String(id) === userIdString || id === userIdString);
+      if (matchingUserId) {
+        console.log(`[SocketHelper] ⚠️ Found matching user ID with different format: ${matchingUserId}`);
+        console.log(`[SocketHelper] Using socket ID: ${connectedUsers[matchingUserId]}`);
+        // Use the matching user ID
+        const actualSocketId = connectedUsers[matchingUserId];
+        const notificationData = {
+          videoId,
+          status,
+          videoTitle,
+          timestamp: new Date().toISOString(),
+        };
+        io.to(actualSocketId).emit("moderation-result", notificationData);
+        console.log(`[SocketHelper] ✅ Notification sent using alternative user ID format`);
+        console.log("=".repeat(60));
+        return;
+      }
       // TODO: Could store notification in database for later delivery
       console.log("=".repeat(60));
       return;
