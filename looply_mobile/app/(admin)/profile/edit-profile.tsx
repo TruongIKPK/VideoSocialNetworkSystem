@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   Platform,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/Button";
 import { getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function AdminEditProfileScreen() {
   const router = useRouter();
@@ -160,14 +162,16 @@ export default function AdminEditProfileScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.replace("/(admin)/profile")}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.replace("/(admin)/profile")}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
+          <View style={styles.placeholder} />
+        </View>
       </View>
 
       <ScrollView
@@ -204,6 +208,8 @@ export default function AdminEditProfileScreen() {
             onChangeText={setName}
             placeholder="Nhập tên của bạn"
             autoCapitalize="words"
+            style={styles.textInput}
+            containerStyle={styles.inputContainer}
           />
 
           <Input
@@ -212,7 +218,8 @@ export default function AdminEditProfileScreen() {
             onChangeText={setUsername}
             placeholder="Nhập username"
             autoCapitalize="none"
-            style={styles.inputSpacing}
+            style={styles.textInput}
+            containerStyle={styles.inputContainer}
           />
 
           <Input
@@ -222,7 +229,8 @@ export default function AdminEditProfileScreen() {
             placeholder="Giới thiệu về bản thân"
             multiline
             numberOfLines={4}
-            style={styles.inputSpacing}
+            style={styles.bioInput}
+            containerStyle={styles.inputContainer}
             textAlignVertical="top"
           />
         </View>
@@ -246,17 +254,20 @@ export default function AdminEditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background.gray,
   },
   header: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    ...Shadows.sm,
+    paddingHorizontal: Spacing.lg,
   },
   backButton: {
     padding: Spacing.xs,
@@ -272,9 +283,13 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    paddingBottom: Spacing.xl,
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   avatarSection: {
     alignItems: "center",
@@ -318,13 +333,30 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   form: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
-  inputSpacing: {
-    marginTop: Spacing.md,
+  inputContainer: {
+    marginBottom: Spacing.md,
+  },
+  textInput: {
+    fontSize: Typography.fontSize.md,
+    fontFamily: Typography.fontFamily.regular,
+    paddingVertical: Spacing.sm,
+    textAlignVertical: "center",
+    textAlign: "left",
+    width: "100%",
+    height: 50,
+    minHeight: 50,
+  },
+  bioInput: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    minHeight: 100,
   },
   buttonContainer: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xl,
+    width: "100%",
   },
 });
