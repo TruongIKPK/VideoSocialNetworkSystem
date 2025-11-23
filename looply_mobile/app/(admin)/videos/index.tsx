@@ -8,7 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
-  Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,6 +47,7 @@ export default function AdminVideosScreen() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [allVideos, setAllVideos] = useState<Video[]>([]); // Lưu tất cả videos để filter
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
   
   // Create dynamic styles based on theme
@@ -67,17 +68,26 @@ export default function AdminVideosScreen() {
     }, [token])
   );
 
-  const fetchVideos = async () => {
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    if (token) {
+      await fetchVideos(false); // Không hiển thị loading screen khi refresh
+    }
+    setRefreshing(false);
+  }, [token]);
+
+  const fetchVideos = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       if (!token) {
-        console.warn("No token available");
         return;
       }
 
       // Thử fetch từ admin route trước
       let url = `${API_BASE_URL}/videos/moderation/flagged-rejected`;
-      console.log(`[Admin Videos] Fetching from: ${url}`);
       
       let response = await fetch(url, {
         headers: {
@@ -86,11 +96,8 @@ export default function AdminVideosScreen() {
         },
       });
       
-      console.log(`[Admin Videos] Response status: ${response.status}`);
-      
       // Fallback: Nếu admin route trả về 404, dùng route videos thông thường
       if (response.status === 404) {
-        console.warn("⚠️ Admin videos route not found, using fallback: /api/videos");
         url = `${API_BASE_URL}/videos`;
         response = await fetch(url, {
           headers: {
@@ -98,15 +105,12 @@ export default function AdminVideosScreen() {
             "Content-Type": "application/json",
           },
         });
-        console.log(`[Admin Videos] Fallback response status: ${response.status}`);
       }
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[Admin Videos] Data received:`, data);
         // API trả về { total, page, limit, videos: [...] } hoặc array trực tiếp
         const videoList = Array.isArray(data) ? data : (data.videos || []);
-        console.log(`[Admin Videos] Video list length: ${videoList.length}`);
         setAllVideos(videoList); // Lưu tất cả videos
         applyFilter(videoList, filter); // Áp dụng filter hiện tại
       } else {
@@ -115,19 +119,17 @@ export default function AdminVideosScreen() {
         
         try {
           errorText = await response.text();
-          console.error(`[Admin Videos] Failed to fetch videos: ${response.status}`, errorText);
           
           // Try to parse error message if it's JSON
           if (contentType && contentType.includes("application/json")) {
             try {
               const errorData = JSON.parse(errorText);
-              console.error(`[Admin Videos] Error details:`, errorData);
             } catch (e) {
               // Not JSON, just log the text
             }
           }
         } catch (e) {
-          console.error("[Admin Videos] Error reading response:", e);
+          // Error reading response
         }
         
         // Set empty array nếu không fetch được
@@ -135,11 +137,12 @@ export default function AdminVideosScreen() {
         setVideos([]);
       }
     } catch (error) {
-      console.error("[Admin Videos] Error fetching videos:", error);
       setAllVideos([]);
       setVideos([]);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -199,74 +202,19 @@ export default function AdminVideosScreen() {
     handleViewVideo(video);
   };
 
-  const handleApprove = async (video: Video) => {
-    if (!token) {
-      console.warn("No token available");
-      return;
-    }
-
-    try {
-      const statusUrl = `${API_BASE_URL}/admin/videos/${video._id}/status`;
-      const statusBody = { 
-        status: "active",
-        moderationStatus: "approved"
-      };
-      
-      console.log("[Approve Video] 🎬 Updating video status...");
-      console.log("[Approve Video] URL:", statusUrl);
-      console.log("[Approve Video] Body:", statusBody);
-      
-      const response = await fetch(statusUrl, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(statusBody),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("[Approve Video] ✅ Video approved:", data);
-        
-        // Refresh danh sách videos
-        await fetchVideos();
-      } else {
-        const contentType = response.headers.get("content-type");
-        let errorMessage = "Không thể cập nhật trạng thái video";
-        
-        try {
-          const responseText = await response.text();
-          console.error(`[Approve Video] ❌ Error response (${response.status}):`, responseText);
-          
-          if (contentType && contentType.includes("application/json")) {
-            try {
-              const errorData = JSON.parse(responseText);
-              errorMessage = errorData.message || errorMessage;
-            } catch (e) {
-              errorMessage = `Lỗi ${response.status}: ${responseText.substring(0, 100)}`;
-            }
-          } else {
-            errorMessage = `Lỗi ${response.status}: ${responseText.substring(0, 100)}`;
-          }
-        } catch (e) {
-          errorMessage = `Lỗi ${response.status}: Không thể cập nhật trạng thái video`;
-        }
-        
-        Alert.alert("Lỗi", errorMessage);
-      }
-    } catch (error: any) {
-      console.error("[Approve Video] ❌ Error:", error);
-      Alert.alert("Lỗi", error.message || "Không thể cập nhật trạng thái video. Vui lòng thử lại.");
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
@@ -387,14 +335,7 @@ export default function AdminVideosScreen() {
                     >
                       <Text style={styles.viewButtonText}>Xem</Text>
                     </TouchableOpacity>
-                    {item.status === "violation" ? (
-                      <TouchableOpacity 
-                        style={styles.approveButton}
-                        onPress={() => handleApprove(item)}
-                      >
-                        <Text style={styles.approveButtonText}>Hợp lệ</Text>
-                      </TouchableOpacity>
-                    ) : (
+                    {item.status !== "violation" && (
                       <TouchableOpacity 
                         style={styles.violationButton}
                         onPress={() => handleViolation(item)}
@@ -705,19 +646,6 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     minWidth: 60,
   },
   violationButtonText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.white,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  approveButton: {
-    backgroundColor: Colors.success,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    minWidth: 60,
-  },
-  approveButtonText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.medium,
     color: Colors.white,

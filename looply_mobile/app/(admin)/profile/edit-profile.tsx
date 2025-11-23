@@ -36,12 +36,6 @@ export default function AdminEditProfileScreen() {
   // Hàm reset form về dữ liệu ban đầu từ user context
   const resetFormToUserData = React.useCallback(() => {
     if (user) {
-      console.log("[Edit Profile] Resetting form to user data:", {
-        name: user.name,
-        username: user.username,
-        bio: user.bio,
-        hasAvatar: !!user.avatar,
-      });
       setName(user.name || "");
       setUsername(user.username || "");
       setBio(user.bio || "");
@@ -100,7 +94,6 @@ export default function AdminEditProfileScreen() {
         });
       }
     } catch (error) {
-      console.error("Error picking image:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại!");
     }
   };
@@ -170,7 +163,6 @@ export default function AdminEditProfileScreen() {
       // Quay lại trang profile, trang profile sẽ tự refresh dữ liệu
       router.replace("/(admin)/profile");
     } catch (error: any) {
-      console.error("Error updating profile:", error);
       Alert.alert("Lỗi", error.message || "Cập nhật thất bại. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);

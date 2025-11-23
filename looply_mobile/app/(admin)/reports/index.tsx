@@ -8,10 +8,11 @@ import {
   FlatList,
   Image,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
@@ -50,6 +51,7 @@ export default function AdminReportsScreen() {
   const Colors = useColors(); // Get theme-aware colors
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Create dynamic styles based on theme
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -58,11 +60,30 @@ export default function AdminReportsScreen() {
     fetchReports();
   }, []);
 
-  const fetchReports = async () => {
+  // Reload khi quay lại trang
+  useFocusEffect(
+    React.useCallback(() => {
+      if (token) {
+        fetchReports();
+      }
+    }, [token])
+  );
+
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    if (token) {
+      await fetchReports(false); // Không hiển thị loading screen khi refresh
+    }
+    setRefreshing(false);
+  }, [token]);
+
+  const fetchReports = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       if (!token) {
-        console.warn("No token available");
         return;
       }
 
@@ -78,14 +99,14 @@ export default function AdminReportsScreen() {
         const reportList = Array.isArray(data) ? data : (data.reports || []);
         setReports(reportList);
       } else {
-        console.error("Failed to fetch reports:", response.status, await response.text());
         setReports([]);
       }
     } catch (error) {
-      console.error("Error fetching reports:", error);
       setReports([]);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -186,6 +207,13 @@ export default function AdminReportsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>

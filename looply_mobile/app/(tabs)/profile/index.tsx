@@ -247,16 +247,6 @@ export default function Profile() {
   // Create dynamic styles based on theme
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   
-  // Log tất cả params để debug - params có thể là string hoặc string[]
-  useEffect(() => {
-    console.log(`[Profile] 📥 All params received:`, params);
-    console.log(`[Profile] 📥 Params type:`, {
-      userId: typeof params.userId,
-      username: typeof params.username,
-      userIdValue: params.userId,
-      usernameValue: params.username
-    });
-  }, [params]);
   
   // Xử lý params - expo-router có thể trả về string hoặc string[]
   const targetUserId = Array.isArray(params.userId) 
@@ -266,17 +256,6 @@ export default function Profile() {
     ? params.username[0] 
     : (params.username as string | undefined);
   
-  // Log params đã parse để debug
-  useEffect(() => {
-    console.log(`[Profile] 📥 Parsed params:`, { 
-      userId: targetUserId, 
-      username: targetUsername,
-      currentUserId: currentUser?._id,
-      hasTargetUserId: !!targetUserId,
-      targetUserIdType: typeof targetUserId,
-      willViewOtherProfile: targetUserId && targetUserId !== currentUser?._id
-    });
-  }, [targetUserId, targetUsername, currentUser?._id]);
   
   // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
   const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
@@ -294,28 +273,18 @@ export default function Profile() {
   const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log(`[Profile] 🔄 useEffect triggered:`, {
-      targetUserId,
-      isViewingOtherProfile,
-      isAuthenticated,
-      hasCurrentUser: !!currentUser
-    });
-
     // Reset state khi params thay đổi
     setVideos([]);
     setLiked([]);
 
     if (isViewingOtherProfile && targetUserId) {
-      console.log(`[Profile] 👤 Fetching other user profile:`, targetUserId);
       // Fetch profile của user khác
       fetchOtherUserProfile(targetUserId);
     } else if (isAuthenticated && currentUser) {
-      console.log(`[Profile] 👤 Showing current user profile`);
       // Hiển thị profile của user hiện tại
       setProfileUser(currentUser);
       fetchProfileData();
     } else {
-      console.log(`[Profile] ⚠️ No user data available`);
       setIsLoading(false);
     }
   }, [
@@ -329,42 +298,29 @@ export default function Profile() {
   const fetchOtherUserProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-      console.log(`[Profile] 🔍 Fetching user profile for ID:`, userId);
       
       const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-      console.log(`[Profile] 📡 User API response status:`, response.status);
       
       if (response.ok) {
         const userData = await response.json();
-        console.log(`[Profile] ✅ User data received:`, {
-          id: userData._id,
-          name: userData.name,
-          username: userData.username
-        });
         setProfileUser(userData);
         
         // Fetch videos của user đó
-        console.log(`[Profile] 🔍 Fetching videos for user:`, userId);
         const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
-        console.log(`[Profile] 📡 Videos API response status:`, videosResponse.status);
         
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
           const videosArray = Array.isArray(videosData.videos || videosData) 
             ? (videosData.videos || videosData) 
             : [];
-          console.log(`[Profile] ✅ Videos received:`, videosArray.length);
           setVideos(videosArray);
         } else {
-          console.warn(`[Profile] ⚠️ Failed to fetch videos:`, videosResponse.status);
           setVideos([]);
         }
       } else {
-        console.error(`[Profile] ❌ Failed to fetch user profile:`, response.status);
         setProfileUser(null);
       }
     } catch (error) {
-      console.error("[Profile] ❌ Error fetching other user profile:", error);
       setProfileUser(null);
     } finally {
       setIsLoading(false);
@@ -430,8 +386,7 @@ export default function Profile() {
         }
       }
     } catch (error) {
-      console.error("Error fetching tab data:", error);
-      console.error("Error fetching other user profile:", error);
+      // Error fetching tab data
     } finally {
       setIsLoading(false);
     }
@@ -509,7 +464,7 @@ export default function Profile() {
         );
       }
     } catch (error) {
-      console.error("Error fetching profile data:", error);
+      // Error fetching profile data
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -578,7 +533,7 @@ export default function Profile() {
                 }
               }
             } catch (error) {
-              console.error("[Profile] ❌ Error deleting video:", error);
+              // Error deleting video
               Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa video. Vui lòng thử lại.");
             } finally {
               setDeletingVideoId(null);
@@ -709,7 +664,6 @@ export default function Profile() {
                   title="Follow"
                   onPress={() => {
                     // TODO: Implement follow functionality
-                    console.log("Follow user:", targetUserId);
                   }}
                   variant="primary"
                   size="sm"

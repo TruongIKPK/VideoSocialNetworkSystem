@@ -6,7 +6,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
 import { Spacing } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
+import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { VideoItem } from "@/components/home/VideoItem";
 import { LoadingScreen } from "@/components/home/LoadingScreen";
 import { ErrorScreen } from "@/components/home/ErrorScreen";
@@ -22,14 +23,19 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
+  const { isReloading, setIsReloading, setReloadCallback } = useHomeReload();
   const Colors = useColors(); // Get theme-aware colors
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const hasScrolledToVideoRef = useRef(false);
   const lastFetchedIndexRef = useRef(-1); // Track index đã fetch để tránh fetch nhiều lần
   const lastVideosLengthRef = useRef(0); // Track số lượng video để phát hiện khi có video mới
+  const lastFocusTimeRef = useRef<number>(0); // Track thời gian focus lần trước
+  const focusCountRef = useRef(0); // Track số lần focus
+  const isManualReloadRef = useRef(false); // Track xem có phải reload thủ công không
   
   // Create dynamic styles based on theme
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -84,19 +90,88 @@ export default function HomeScreen() {
     },
   });
 
-  // Xử lý khi tab được focus/unfocus
+  // Lưu fetchVideos vào ref để tránh stale closure trong useFocusEffect
+  const fetchVideosRef = useRef(fetchVideos);
+  fetchVideosRef.current = fetchVideos;
+
+  // Cập nhật reload state khi isLoading thay đổi
+  useEffect(() => {
+    console.log(`[Home] 🔄 isLoading changed: ${isLoading}, isManualReload: ${isManualReloadRef.current}`);
+    if (isManualReloadRef.current) {
+      // Nếu là reload thủ công, chỉ reset khi loading xong
+      if (!isLoading) {
+        console.log(`[Home] ✅ Loading finished, resetting isReloading`);
+        isManualReloadRef.current = false;
+        // Reset ngay lập tức để animation dừng nhanh
+        setIsReloading(false);
+      } else {
+        console.log(`[Home] ⏳ Still loading...`);
+      }
+    }
+  }, [isLoading, setIsReloading]);
+  
+  // Safety timeout: Đảm bảo isReloading không quay mãi mãi (tối đa 10 giây)
+  useEffect(() => {
+    if (isReloading) {
+      const safetyTimeout = setTimeout(() => {
+        console.log(`[Home] ⚠️ Safety timeout: Force reset isReloading after 10s`);
+        isManualReloadRef.current = false;
+        setIsReloading(false);
+      }, 10000); // 10 giây
+      
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [isReloading, setIsReloading]);
+
+  // Xử lý khi tab được focus/unfocus - CHỈ để track focus state, KHÔNG reload
   useFocusEffect(
     React.useCallback(() => {
+      console.log(`[Home] 📍 useFocusEffect triggered - chỉ track focus, không reload`);
       setIsScreenFocused(true);
+      
       return () => {
+        console.log(`[Home] 🔚 useFocusEffect cleanup`);
         setIsScreenFocused(false);
       };
     }, [])
   );
 
+  // Đăng ký reload callback với context - CHỈ được gọi khi nhấn icon home ở tab bar
+  // KHÔNG có logic reload tự động nào khác (không reload khi focus, không reload tự động)
   useEffect(() => {
-    fetchVideos();
-  }, [isAuthenticated]);
+    const reloadHandler = () => {
+      console.log(`[Home] 🔄 Manual reload triggered from icon home press ONLY`);
+      
+      // Kiểm tra xem có đang loading không để tránh reload nhiều lần
+      if (isLoading) {
+        console.log(`[Home] ⚠️ Already loading, skipping reload`);
+        return;
+      }
+      
+      // Kiểm tra xem có đang reload không
+      if (isManualReloadRef.current) {
+        console.log(`[Home] ⚠️ Already in manual reload, skipping`);
+        return;
+      }
+      
+      console.log(`[Home] ✅ Starting manual reload from icon home ONLY`);
+      isManualReloadRef.current = true;
+      setIsReloading(true);
+      // Scroll về đầu danh sách ngay lập tức (không delay)
+      if (flatListRef.current && videos.length > 0) {
+        flatListRef.current.scrollToIndex({ index: 0, animated: false });
+      }
+      // Gọi fetchVideos với isManualReload = true để không filter duplicates
+      fetchVideosRef.current(true);
+    };
+    
+    console.log(`[Home] 📝 Registering reload callback - CHỈ cho icon home press, KHÔNG tự động`);
+    setReloadCallback(reloadHandler);
+    return () => {
+      console.log(`[Home] 🗑️ Unregistering reload callback`);
+      setReloadCallback(() => {});
+    };
+  }, [setReloadCallback, setIsReloading, isLoading, videos.length]);
 
   // Fetch video cụ thể theo ID (khi video không có trong list hiện tại)
   const fetchSpecificVideo = async (videoId: string) => {

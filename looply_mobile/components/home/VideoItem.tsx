@@ -492,7 +492,7 @@ export const VideoItem = ({
 
         {/* Share */}
         <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="share-outline" size={30} color="#FFF" />
+          <Ionicons name="share-social-outline" size={30} color="#FFF" />
           <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
         </TouchableOpacity>
 
