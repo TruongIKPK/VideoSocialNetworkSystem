@@ -8,6 +8,8 @@ import {
   Dimensions,
   RefreshControl,
   FlatList,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -20,7 +22,6 @@ import {
   Typography,
   Spacing,
   BorderRadius,
-  Shadows,
 } from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
@@ -38,6 +39,190 @@ interface VideoPost {
   views?: number;
   type?: 'video' | 'image';
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background.light,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  profileSection: {
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+    backgroundColor: Colors.white,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.avatar,
+    marginBottom: Spacing.md,
+    borderWidth: 3,
+    borderColor: Colors.primary,
+  },
+  username: {
+    fontSize: Typography.fontSize.xxxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  bio: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.text.secondary,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  statNumber: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  statLabel: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    marginTop: Spacing.xs / 2,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    width: "100%",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    gap: Spacing.xs,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+  },
+  tabText: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.gray[400],
+    fontFamily: Typography.fontFamily.regular,
+  },
+  activeTabText: {
+    color: Colors.primary,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  videoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: 100,
+  },
+  videoItemWrapper: {
+    width: itemWidth,
+    marginHorizontal: 2.5,
+    marginBottom: Spacing.sm,
+  },
+  videoItemContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  videoItem: {
+    width: "100%",
+    height: itemWidth * 1.4,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    backgroundColor: Colors.gray[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  deleteButton: {
+    position: "absolute",
+    top: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: "rgba(255, 0, 0, 0.7)",
+    borderRadius: BorderRadius.round,
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  videoThumbnail: {
+    width: "100%",
+    height: "100%",
+  },
+  videoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: Spacing.xs,
+  },
+  videoStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs / 2,
+  },
+  videoStatsText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xxxl,
+  },
+  emptyText: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.text.secondary,
+    marginTop: Spacing.md,
+    fontFamily: Typography.fontFamily.regular,
+  },
+  notLoggedInContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  notLoggedInText: {
+    fontSize: Typography.fontSize.lg,
+    color: Colors.text.secondary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+    fontFamily: Typography.fontFamily.regular,
+  },
+});
 
 export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
@@ -79,15 +264,16 @@ export default function Profile() {
   const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
   const [profileUser, setProfileUser] = useState<any>(currentUser);
 
-  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
+  const [activeTab, setActiveTab] = useState<"video" | "saved" | "liked">(
     "video"
   );
   const [videos, setVideos] = useState<VideoPost[]>([]);
-  const [favorites, setFavorites] = useState<VideoPost[]>([]);
+  const [saved, setSaved] = useState<VideoPost[]>([]);
   const [liked, setLiked] = useState<VideoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
 
   useEffect(() => {
     console.log(`[Profile] 🔄 useEffect triggered:`, {
@@ -99,7 +285,6 @@ export default function Profile() {
 
     // Reset state khi params thay đổi
     setVideos([]);
-    setFavorites([]);
     setLiked([]);
 
     if (isViewingOtherProfile && targetUserId) {
@@ -115,7 +300,13 @@ export default function Profile() {
       console.log(`[Profile] ⚠️ No user data available`);
       setIsLoading(false);
     }
-  }, [isAuthenticated, currentUser?._id, activeTab, targetUserId, isViewingOtherProfile]);
+  }, [
+    isAuthenticated,
+    currentUser,
+    activeTab,
+    targetUserId,
+    isViewingOtherProfile,
+  ]);
 
   const fetchOtherUserProfile = async (userId: string) => {
     try {
@@ -162,6 +353,72 @@ export default function Profile() {
     }
   };
 
+  const fetchTabData = async () => {
+    try {
+      const token = await require("@/utils/tokenStorage").getToken();
+      if (!token || !currentUser?._id) return;
+
+      if (activeTab === "video") {
+        const videosResponse = await fetch(
+          `${API_BASE_URL}/videos/user/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(
+            Array.isArray(videosData.videos || videosData)
+              ? videosData.videos || videosData
+              : []
+          );
+        }
+
+      } else if (activeTab === "saved") {
+        const savedResponse = await fetch(
+          `${API_BASE_URL}/videos/saved/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (savedResponse.ok) {
+          const savedData = await savedResponse.json();
+          setSaved(
+            Array.isArray(savedData.videos || savedData)
+              ? savedData.videos || savedData
+              : []
+          );
+        }
+      } else if (activeTab === "liked") {
+        const likedResponse = await fetch(
+          `${API_BASE_URL}/videos/liked/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (likedResponse.ok) {
+          const likedData = await likedResponse.json();
+          setLiked(
+            Array.isArray(likedData.videos || likedData)
+              ? likedData.videos || likedData
+              : []
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tab data:", error);
+      console.error("Error fetching other user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchProfileData = async () => {
     try {
       setIsLoading(true);
@@ -197,10 +454,42 @@ export default function Profile() {
         );
       }
 
-      // For now, use empty arrays for favorites and liked
-      // These would need separate API endpoints
-      setFavorites([]);
-      setLiked([]);
+
+      // Fetch saved videos
+      const savedResponse = await fetch(
+        `${API_BASE_URL}/videos/saved/${currentUser._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (savedResponse.ok) {
+        const savedData = await savedResponse.json();
+        setSaved(
+          Array.isArray(savedData.videos || savedData)
+            ? savedData.videos || savedData
+            : []
+        );
+      }
+
+      // Fetch liked videos
+      const likedResponse = await fetch(
+        `${API_BASE_URL}/videos/liked/${currentUser._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (likedResponse.ok) {
+        const likedData = await likedResponse.json();
+        setLiked(
+          Array.isArray(likedData.videos || likedData)
+            ? likedData.videos || likedData
+            : []
+        );
+      }
     } catch (error) {
       console.error("Error fetching profile data:", error);
     } finally {
@@ -220,27 +509,108 @@ export default function Profile() {
     }
   };
 
-  const renderVideoItem = ({ item }: { item: VideoPost }) => (
-    <TouchableOpacity
-      style={styles.videoItem}
-      onPress={() => router.push("/(tabs)/home")}
-      activeOpacity={0.8}
-    >
-      <Image
-        source={getAvatarUri(item.thumbnail)}
-        style={styles.videoThumbnail}
-        contentFit="cover"
-      />
-      <View style={styles.videoOverlay}>
-        <View style={styles.videoStats}>
-          <Ionicons name="eye-outline" size={12} color={Colors.white} />
-          <Text style={styles.videoStatsText}>
-            {formatNumber(item.views || 0)}
-          </Text>
-        </View>
+  const handleDeleteVideo = async (videoId: string) => {
+    Alert.alert(
+      "Xóa video",
+      "Bạn có chắc chắn muốn xóa video này?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingVideoId(videoId);
+              const token = await require("@/utils/tokenStorage").getToken();
+              if (!token) {
+                Alert.alert("Lỗi", "Vui lòng đăng nhập để xóa video");
+                return;
+              }
+
+              const response = await fetch(
+                `${API_BASE_URL}/videos/${videoId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+              if (response.ok) {
+                // Xóa video khỏi tất cả các danh sách (videos, saved, liked)
+                setVideos((prev) => prev.filter((v) => v._id !== videoId));
+                setSaved((prev) => prev.filter((v) => v._id !== videoId));
+                setLiked((prev) => prev.filter((v) => v._id !== videoId));
+                
+                Alert.alert("Thành công", "Đã xóa video");
+              } else {
+                const errorData = await response.json().catch(() => ({ message: "Không thể xóa video" }));
+                const errorMessage = errorData.message || `Lỗi: ${response.status}`;
+                
+                if (response.status === 403) {
+                  Alert.alert("Không có quyền", "Bạn chỉ có thể xóa video của chính mình");
+                } else if (response.status === 404) {
+                  Alert.alert("Không tìm thấy", "Video không tồn tại hoặc đã bị xóa");
+                } else {
+                  Alert.alert("Lỗi", errorMessage);
+                }
+              }
+            } catch (error) {
+              console.error("[Profile] ❌ Error deleting video:", error);
+              Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa video. Vui lòng thử lại.");
+            } finally {
+              setDeletingVideoId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderVideoItem = ({ item }: { item: VideoPost }) => {
+    const isOwnVideo = activeTab === "video" && !isViewingOtherProfile;
+    
+    return (
+      <View style={styles.videoItemContainer}>
+        <TouchableOpacity
+          style={styles.videoItem}
+          onPress={() => router.push("/(tabs)/home")}
+          activeOpacity={0.8}
+        >
+          <Image
+            source={getAvatarUri(item.thumbnail || item.url)}
+            style={styles.videoThumbnail}
+            contentFit="cover"
+          />
+          <View style={styles.videoOverlay}>
+            <View style={styles.videoStats}>
+              <Ionicons name="eye-outline" size={12} color={Colors.white} />
+              <Text style={styles.videoStatsText}>
+                {formatNumber(item.views || 0)}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        {isOwnVideo && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteVideo(item._id)}
+            disabled={deletingVideoId === item._id}
+          >
+            {deletingVideoId === item._id ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Ionicons name="trash-outline" size={16} color={Colors.white} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   // Chỉ yêu cầu đăng nhập nếu đang xem profile của chính mình
   // Cho phép xem profile của người khác mà không cần đăng nhập
@@ -278,25 +648,12 @@ export default function Profile() {
     );
   }
 
-  // Hiển thị thông báo khi không tìm thấy user (khi đang xem profile người khác)
-  if (isViewingOtherProfile && !isLoading && !profileUser) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.notLoggedInContainer}>
-          <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
-          <Text style={styles.notLoggedInText}>Không tìm thấy người dùng</Text>
-          <Button
-            title="Quay lại"
-            onPress={() => router.back()}
-            variant="primary"
-            style={{ marginTop: Spacing.lg }}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const currentVideos = activeTab === "video" ? videos : activeTab === "favorites" ? favorites : liked;
+  const currentVideos =
+    activeTab === "video"
+      ? videos
+      : activeTab === "saved"
+      ? saved
+      : liked;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -413,25 +770,25 @@ export default function Profile() {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === "favorites" && styles.activeTab,
+                activeTab === "saved" && styles.activeTab,
               ]}
-              onPress={() => setActiveTab("favorites")}
+              onPress={() => setActiveTab("saved")}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="bookmark-outline"
                 size={16}
                 color={
-                  activeTab === "favorites" ? Colors.primary : Colors.gray[400]
+                  activeTab === "saved" ? Colors.primary : Colors.gray[400]
                 }
               />
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === "favorites" && styles.activeTabText,
+                  activeTab === "saved" && styles.activeTabText,
                 ]}
               >
-                Yêu thích
+                Đã lưu
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -481,8 +838,8 @@ export default function Profile() {
             <Text style={styles.emptyText}>
               {activeTab === "video"
                 ? "Chưa có video nào"
-                : activeTab === "favorites"
-                ? "Chưa có video yêu thích"
+                : activeTab === "saved"
+                ? "Chưa có video đã lưu"
                 : "Chưa có video đã thích"}
             </Text>
           </View>
@@ -491,167 +848,3 @@ export default function Profile() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.light,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  profileSection: {
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.white,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: BorderRadius.avatar,
-    marginBottom: Spacing.md,
-    borderWidth: 3,
-    borderColor: Colors.primary,
-  },
-  username: {
-    fontSize: Typography.fontSize.xxxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    marginBottom: Spacing.xs,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  bio: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    marginBottom: Spacing.md,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    marginBottom: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    marginBottom: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  statLabel: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    width: "100%",
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.md,
-    gap: Spacing.xs,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.gray[400],
-    fontFamily: Typography.fontFamily.regular,
-  },
-  activeTabText: {
-    color: Colors.primary,
-    fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  videoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: 100,
-  },
-  videoItemWrapper: {
-    width: itemWidth,
-    marginHorizontal: 2.5,
-    marginBottom: Spacing.sm,
-  },
-  videoItem: {
-    width: "100%",
-    height: itemWidth * 1.4,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-    backgroundColor: Colors.gray[200],
-    ...Shadows.sm,
-  },
-  videoThumbnail: {
-    width: "100%",
-    height: "100%",
-  },
-  videoOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    padding: Spacing.xs,
-  },
-  videoStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs / 2,
-  },
-  videoStatsText: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.white,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.xxxl,
-  },
-  emptyText: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.text.secondary,
-    marginTop: Spacing.md,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  notLoggedInContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
-  },
-  notLoggedInText: {
-    fontSize: Typography.fontSize.lg,
-    color: Colors.text.secondary,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.lg,
-    textAlign: "center",
-    fontFamily: Typography.fontFamily.regular,
-  },
-});

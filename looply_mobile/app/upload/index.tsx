@@ -147,7 +147,21 @@ export default function UploadScreen() {
       if (response.ok) {
         setProgress(100);
         const data = await response.json();
-        Alert.alert("Thành công", "Video đã được đăng!", [
+        
+        // Check moderation status
+        const moderationStatus = data.moderationStatus || "pending";
+        let alertTitle = "Thành công";
+        let alertMessage = "Video đã được đăng!";
+        
+        if (moderationStatus === "pending") {
+          alertTitle = "Video đang được kiểm duyệt";
+          alertMessage = data.message || "Video của bạn đang được kiểm duyệt. Bạn sẽ được thông báo khi video được duyệt.";
+        } else if (moderationStatus === "flagged" || moderationStatus === "rejected") {
+          alertTitle = "Video cần xem xét";
+          alertMessage = "Video của bạn cần được xem xét bởi quản trị viên trước khi được hiển thị.";
+        }
+        
+        Alert.alert(alertTitle, alertMessage, [
           {
             text: "OK",
             onPress: () => {

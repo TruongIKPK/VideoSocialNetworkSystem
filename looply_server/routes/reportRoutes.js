@@ -10,17 +10,8 @@ import { authenticateToken, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Log all requests to report routes
-router.use((req, res, next) => {
-  console.log(`[ReportRoutes] ${req.method} ${req.path} - Original URL: ${req.originalUrl}`);
-  next();
-});
-
 // Protected route - any authenticated user can create a report
-router.post("/", authenticateToken, (req, res, next) => {
-  console.log("📝 Create report route handler called");
-  next();
-}, createReport);
+router.post("/", authenticateToken, createReport);
 
 // Admin only routes
 router.get("/", authenticateToken, requireAdmin, getReports);
