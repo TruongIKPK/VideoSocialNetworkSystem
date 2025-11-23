@@ -522,7 +522,6 @@ export default function AdminVideoDetailScreen() {
             />
             <View style={styles.adminTextContainer}>
               <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
             </View>
           </View>
         </View>

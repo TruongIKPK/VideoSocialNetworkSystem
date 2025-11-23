@@ -22,7 +22,6 @@ export function AdminCard({ name, username, email, avatar }: AdminCardProps) {
         />
         <View style={styles.adminTextContainer}>
           <Text style={styles.adminName}>{displayName}</Text>
-          <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
           {email && (
             <Text style={styles.adminEmail}>{email}</Text>
           )}

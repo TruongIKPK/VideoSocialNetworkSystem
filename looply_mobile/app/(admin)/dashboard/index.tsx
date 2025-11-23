@@ -325,7 +325,6 @@ export default function AdminDashboardScreen() {
             />
             <View style={styles.adminTextContainer}>
               <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
               {user?.email && (
                 <Text style={styles.adminEmail}>{user.email}</Text>
               )}
