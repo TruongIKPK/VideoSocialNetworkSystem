@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
+import { formatNumber, getAvatarUri, getThumbnailUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface StatsData {
   total: {
@@ -70,6 +73,7 @@ export default function AdminDashboardScreen() {
   const router = useRouter();
   const { token } = useUser();
   const { user } = useCurrentUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [recentVideoReports, setRecentVideoReports] = useState<RecentReport[]>([]);
@@ -130,7 +134,7 @@ export default function AdminDashboardScreen() {
 
       // Fetch recent videos - mặc định hiển thị 3 video mới nhất
       // Thử route admin trước, nếu fail thì dùng route videos/latest làm fallback
-      const videosUrl = `${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`;
+      const videosUrl = `${API_BASE_URL}/videos/moderation/flagged-rejected?page=1&limit=3`;
       console.log("📹 Fetching recent videos from:", videosUrl);
       let videosResponse = await fetch(videosUrl, {
         headers: {
@@ -297,9 +301,12 @@ export default function AdminDashboardScreen() {
     return `#${displayNum.toString()}`;
   };
 
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -308,7 +315,7 @@ export default function AdminDashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -316,21 +323,23 @@ export default function AdminDashboardScreen() {
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Dashboard Content */}
         <View style={styles.dashboardCard}>
+          <View style={styles.dashboardCardContent}>
             {/* Quick Overview */}
           {stats && (
             <View style={styles.section}>
@@ -375,7 +384,7 @@ export default function AdminDashboardScreen() {
           {/* Recent Videos */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Video gần đây</Text>
+              <Text style={styles.sectionTitle}>Video vi phạm</Text>
               <TouchableOpacity onPress={() => router.push("/(admin)/videos")}>
                 <Text style={styles.viewAllLink}>Xem tất cả</Text>
               </TouchableOpacity>
@@ -384,12 +393,24 @@ export default function AdminDashboardScreen() {
               recentVideos.slice(0, 3).map((video) => (
                 <View key={video._id} style={styles.videoItem}>
                   <View style={styles.videoThumbnail}>
-                    {/* <Ionicons name="videocam" size={24} color="#fff" /> */}
-                    <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnailImage} />
+                    {video.thumbnail ? (
+                      <Image 
+                        source={getThumbnailUri(video.thumbnail)} 
+                        style={styles.videoThumbnailImage}
+                        resizeMode="cover"
+                        onError={() => {
+                          console.log(`[Dashboard] Failed to load thumbnail for video: ${video._id}`);
+                        }}
+                      />
+                    ) : (
+                      <View style={styles.videoThumbnailPlaceholder}>
+                        <Ionicons name="videocam-outline" size={24} color={Colors.gray[400]} />
+                      </View>
+                    )}
                   </View>
                   <View style={styles.videoInfo}>
-                    <Text style={styles.videoTitle}>{video.title}</Text>
-                    <Text style={styles.videoMeta}>
+                    <Text style={styles.videoTitle} numberOfLines={1} ellipsizeMode="tail">{video.title}</Text>
+                    <Text style={styles.videoMeta} numberOfLines={1} ellipsizeMode="tail">
                       {video.user?.name || video.user?.username || "Unknown"} • {formatNumber(video.views || 0)} lượt xem
                     </Text>
                   </View>
@@ -435,7 +456,7 @@ export default function AdminDashboardScreen() {
           {/* Video Reports - Hiển thị tối đa 3 video reports mới nhất */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Báo cáo video</Text>
+              <Text style={styles.sectionTitle}>Báo cáo</Text>
               <TouchableOpacity 
                 onPress={() => router.push("/(admin)/reports")}
                 activeOpacity={0.7}
@@ -501,11 +522,9 @@ export default function AdminDashboardScreen() {
               <View style={styles.emptyReportContainer}>
                 <Ionicons name="videocam-outline" size={48} color={Colors.gray[400]} />
                 <Text style={styles.emptyText}>Chưa có báo cáo video nào</Text>
-                <Text style={styles.emptySubtext}>
-                  Các báo cáo video mới sẽ hiển thị ở đây
-                </Text>
               </View>
             )}
+          </View>
           </View>
         </View>
       </ScrollView>
@@ -513,16 +532,21 @@ export default function AdminDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: Colors.background.gray,
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0, 
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 120, 
+    paddingHorizontal: 0, 
+    marginHorizontal: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -531,37 +555,40 @@ const styles = StyleSheet.create({
   },
   adminCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginHorizontal: 0, 
+    marginTop: 0, 
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0, 
+    paddingVertical: Spacing.lg, 
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  adminCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingHorizontal: Spacing.lg,
+    flex: 1,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.gray[200],
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0, // Đảm bảo flex shrink hoạt động
   },
   adminName: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1, // Cho phép text co lại nếu cần
   },
   adminRole: {
     fontSize: Typography.fontSize.sm,
@@ -576,11 +603,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dashboardCard: {
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  dashboardCardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   dashboardTitle: {
     fontSize: Typography.fontSize.xxl,
@@ -590,8 +624,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   section: {
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.border.light,
   },
@@ -600,43 +634,52 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
+    letterSpacing: -0.5,
   },
   sectionSubtitle: {
     fontSize: Typography.fontSize.sm,
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
     marginBottom: Spacing.md,
+    lineHeight: 18,
   },
   statsGrid: {
     flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    width: "100%",
   },
   statCard: {
     flex: 1,
-    backgroundColor: "#D1D1D1",
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: "center",
+    minWidth: 0,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   statLabel: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
+    fontFamily: Typography.fontFamily.medium,
     marginBottom: Spacing.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   statValue: {
-    fontSize: Typography.fontSize.xxl,
+    fontSize: Typography.fontSize.xxxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    marginVertical: Spacing.xs,
   },
   statSubtext: {
     fontSize: Typography.fontSize.xs,
     color: Colors.primary,
     fontFamily: Typography.fontFamily.medium,
-    marginTop: Spacing.xs / 2,
+    marginTop: Spacing.xs,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -648,11 +691,17 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.primary,
     fontFamily: Typography.fontFamily.medium,
+    textDecorationLine: "underline",
   },
   adCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   adCardText: {
     flex: 1,
@@ -661,25 +710,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.md,
+    padding: Spacing.sm,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   videoThumbnail: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
     borderRadius: BorderRadius.md,
-    backgroundColor: "#10B981",
+    backgroundColor: Colors.gray[200],
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   videoThumbnailImage: {
     width: "100%",
     height: "100%",
     borderRadius: BorderRadius.md,
   },
+  videoThumbnailPlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.gray[200],
+    borderRadius: BorderRadius.md,
+  },
   videoInfo: {
     flex: 1,
     marginLeft: Spacing.sm,
+    minWidth: 0, // Đảm bảo flex shrink hoạt động
   },
   videoTitle: {
     fontSize: Typography.fontSize.md,
@@ -687,6 +752,7 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
     marginBottom: 2,
+    flexShrink: 1, // Cho phép text co lại nếu cần
   },
   videoMeta: {
     fontSize: Typography.fontSize.sm,
@@ -696,28 +762,31 @@ const styles = StyleSheet.create({
   videoActions: {
     flexDirection: "row",
     gap: Spacing.xs,
+    flexShrink: 0, // Buttons không co lại
   },
   viewButton: {
-    backgroundColor: "#D1D1D1",
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    minWidth: 60,
   },
   viewButtonText: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.text.primary,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
     fontFamily: Typography.fontFamily.medium,
   },
   violationButton: {
-    backgroundColor: "#EF4444",
+    backgroundColor: Colors.error,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    minWidth: 70,
   },
   violationButtonText: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
+    fontWeight: Typography.fontWeight.semibold,
     color: Colors.white,
     fontFamily: Typography.fontFamily.medium,
   },
@@ -725,20 +794,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginTop: Spacing.md,
-    gap: Spacing.sm,
-    padding: Spacing.sm,
-    backgroundColor: Colors.white,
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.gray[50],
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.border.light,
   },
   reportThumbnail: {
-    width: 60,
-    height: 60,
+    width: 56,
+    height: 56,
     borderRadius: BorderRadius.md,
-    backgroundColor: "#10B981",
+    backgroundColor: Colors.warning + "20",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.warning + "40",
   },
   reportInfo: {
     flex: 1,
@@ -788,4 +859,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: Spacing.md,
   },
-});
+  });
+};

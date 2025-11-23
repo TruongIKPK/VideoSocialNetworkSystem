@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Report {
   _id: string;
@@ -174,7 +176,7 @@ export default function AdminReportsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -182,22 +184,24 @@ export default function AdminReportsScreen() {
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         {/* New Reports Section */}
         <View style={styles.reportsCard}>
-          <Text style={styles.reportsTitle}>Báo cáo mới</Text>
+          <View style={styles.reportsCardContent}>
+          <Text style={styles.reportsTitle}>Danh sách báo cáo</Text>
           
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -252,6 +256,7 @@ export default function AdminReportsScreen() {
               <Text style={styles.emptyText}>Không có báo cáo nào</Text>
             </View>
           )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -261,47 +266,54 @@ export default function AdminReportsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: Colors.background.gray,
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    paddingBottom: 100,
-    paddingTop: Spacing.md,
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   adminCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: 0,
+    marginTop: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.gray[200],
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+  },
+  adminCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.gray[200],
+    paddingHorizontal: Spacing.lg,
+    flex: 1,
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   adminName: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
   },
   adminRole: {
     fontSize: Typography.fontSize.sm,
@@ -316,11 +328,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   reportsCard: {
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  reportsCardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   reportsTitle: {
     fontSize: Typography.fontSize.xxl,
@@ -335,20 +354,28 @@ const styles = StyleSheet.create({
   reportItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   reportThumbnail: {
-    width: 60,
-    height: 60,
+    width: 56,
+    height: 56,
     borderRadius: BorderRadius.md,
-    backgroundColor: "#10B981",
+    backgroundColor: Colors.warning + "20",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.warning + "40",
   },
   reportInfo: {
     flex: 1,
     marginLeft: Spacing.sm,
+    minWidth: 0,
   },
   reportId: {
     fontSize: Typography.fontSize.md,
@@ -375,23 +402,25 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   reportStatusResolved: {
-    backgroundColor: "#D1FAE5",
-    color: "#065F46",
+    backgroundColor: Colors.success + "20",
+    color: Colors.success,
+    fontFamily: Typography.fontFamily.medium,
   },
   reportStatusRejected: {
-    backgroundColor: "#FEE2E2",
-    color: "#991B1B",
+    backgroundColor: Colors.error + "20",
+    color: Colors.error,
+    fontFamily: Typography.fontFamily.medium,
   },
   viewButton: {
-    backgroundColor: "#D1D1D1",
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
   },
   viewButtonText: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.text.primary,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
     fontFamily: Typography.fontFamily.medium,
   },
   loadingContainer: {

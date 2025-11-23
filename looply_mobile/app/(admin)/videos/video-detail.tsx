@@ -10,10 +10,11 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
@@ -22,6 +23,7 @@ import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { Button } from "@/components/ui/Button";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const VIOLATION_REASONS = [
   "Nội dung bản quyền",
@@ -206,6 +208,7 @@ export default function AdminVideoDetailScreen() {
   // Update player when videoUrl changes
   const player = useVideoPlayer(videoUrl, (player) => {
     player.loop = true;
+    player.muted = false; // Cho phép có âm thanh khi đang xem
     player.play();
   });
 
@@ -216,7 +219,48 @@ export default function AdminVideoDetailScreen() {
     }
   }, [videoData?.url]);
 
+  // Dừng video khi màn hình mất focus (navigate away)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Khi màn hình được focus, không làm gì (video đã đang phát)
+      return () => {
+        // Khi màn hình mất focus (navigate away), dừng video
+        try {
+          if (player) {
+            player.pause();
+            player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+          }
+        } catch (error) {
+          console.log("[Video Detail] Player already released, skipping pause");
+        }
+      };
+    }, [player])
+  );
+
+  // Dừng video khi component unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (player) {
+          player.pause();
+          player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+        }
+      } catch (error) {
+        console.log("[Video Detail] Player already released, skipping pause");
+      }
+    };
+  }, [player]);
+
   const handleSkip = () => {
+    // Dừng video và tắt tiếng trước khi quay lại
+    try {
+      if (player) {
+        player.pause();
+        player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
+      }
+    } catch (error) {
+      console.log("[Video Detail] Player already released, skipping pause");
+    }
     // Bỏ qua video này, quay lại danh sách
     // Danh sách sẽ tự refresh khi quay lại (useFocusEffect)
     router.back();
@@ -416,7 +460,7 @@ export default function AdminVideoDetailScreen() {
       
       // Hiển thị thông báo thành công
       const successMessage = statusUpdateSuccess 
-        ? "Đã báo cáo vi phạm và cập nhật trạng thái video thành công"
+        ? "Đã báo cáo vi phạm thành công. Video này sẽ bị ẩn khỏi tất cả người dùng."
         : "Đã báo cáo vi phạm thành công. Trạng thái video sẽ được cập nhật sau.";
       
       Alert.alert("Thành công", successMessage, [
@@ -439,7 +483,7 @@ export default function AdminVideoDetailScreen() {
 
   if (isLoadingVideo) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Đang tải video...</Text>
@@ -449,7 +493,7 @@ export default function AdminVideoDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Background Video/Image */}
       <View style={styles.backgroundContainer}>
         <VideoView
@@ -464,20 +508,21 @@ export default function AdminVideoDetailScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <View style={styles.adminInfo}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <View style={styles.adminInfo}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -519,6 +564,7 @@ export default function AdminVideoDetailScreen() {
 
       {/* Video Info Card */}
       <View style={styles.videoCard}>
+        <View style={styles.videoCardContent}>
         <View style={styles.videoInfo}>
           <View style={styles.videoTitleRow}>
             <Text style={styles.videoTitle} numberOfLines={2}>
@@ -552,6 +598,7 @@ export default function AdminVideoDetailScreen() {
               <Text style={styles.violationButtonText}>Vi phạm</Text>
             </TouchableOpacity>
           )}
+        </View>
         </View>
       </View>
 
@@ -676,12 +723,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+    paddingHorizontal: 0,
     zIndex: 10,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
   },
   backButton: {
     marginRight: Spacing.md,
@@ -702,6 +752,7 @@ const styles = StyleSheet.create({
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   adminName: {
     fontSize: Typography.fontSize.lg,
@@ -711,6 +762,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+    flexShrink: 1,
   },
   adminRole: {
     fontSize: Typography.fontSize.xs,
@@ -723,11 +775,12 @@ const styles = StyleSheet.create({
   videoCard: {
     position: "absolute",
     bottom: 100,
-    left: Spacing.md,
-    right: Spacing.md,
+    left: 0,
+    right: 0,
     backgroundColor: "#1E3A5F",
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -741,9 +794,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
+  videoCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    width: "100%",
+  },
   videoInfo: {
     flex: 1,
     marginRight: Spacing.md,
+    minWidth: 0,
   },
   videoTitleRow: {
     flexDirection: "row",
@@ -757,6 +818,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
   },
   violationBadge: {
     flexDirection: "row",

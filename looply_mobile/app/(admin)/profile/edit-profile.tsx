@@ -8,10 +8,11 @@ import {
   Alert,
   Image,
   Platform,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/Button";
 import { getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function AdminEditProfileScreen() {
   const router = useRouter();
@@ -31,11 +33,20 @@ export default function AdminEditProfileScreen() {
   const [avatarFile, setAvatarFile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
+  // Hàm reset form về dữ liệu ban đầu từ user context
+  const resetFormToUserData = React.useCallback(() => {
     if (user) {
+      console.log("[Edit Profile] Resetting form to user data:", {
+        name: user.name,
+        username: user.username,
+        bio: user.bio,
+        hasAvatar: !!user.avatar,
+      });
       setName(user.name || "");
       setUsername(user.username || "");
       setBio(user.bio || "");
+      // Reset avatarFile khi reset form (xóa các thay đổi chưa lưu)
+      setAvatarFile(null);
       // getAvatarUri trả về object { uri: string }, cần lấy uri
       if (user.avatar) {
         const avatarUri = getAvatarUri(user.avatar);
@@ -45,6 +56,20 @@ export default function AdminEditProfileScreen() {
       }
     }
   }, [user]);
+
+  // Reset form mỗi khi vào trang (khi focus)
+  // Điều này đảm bảo nếu user thay đổi nhưng chưa lưu và rời khỏi trang,
+  // khi quay lại form sẽ về lại dữ liệu ban đầu
+  useFocusEffect(
+    React.useCallback(() => {
+      resetFormToUserData();
+    }, [resetFormToUserData])
+  );
+
+  // Load dữ liệu khi user thay đổi (lần đầu mount hoặc khi user được update từ context)
+  useEffect(() => {
+    resetFormToUserData();
+  }, [resetFormToUserData]);
 
   const pickImage = async () => {
     try {
@@ -142,12 +167,8 @@ export default function AdminEditProfileScreen() {
         await login(updatedUserData, token);
       }
       
-      Alert.alert("Thành công", "Cập nhật hồ sơ thành công!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(admin)/profile"),
-        },
-      ]);
+      // Quay lại trang profile, trang profile sẽ tự refresh dữ liệu
+      router.replace("/(admin)/profile");
     } catch (error: any) {
       console.error("Error updating profile:", error);
       Alert.alert("Lỗi", error.message || "Cập nhật thất bại. Vui lòng thử lại!");
@@ -157,17 +178,19 @@ export default function AdminEditProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.replace("/(admin)/profile")}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.replace("/(admin)/profile")}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
+          <View style={styles.placeholder} />
+        </View>
       </View>
 
       <ScrollView
@@ -204,6 +227,8 @@ export default function AdminEditProfileScreen() {
             onChangeText={setName}
             placeholder="Nhập tên của bạn"
             autoCapitalize="words"
+            style={styles.textInput}
+            containerStyle={styles.inputContainer}
           />
 
           <Input
@@ -212,7 +237,8 @@ export default function AdminEditProfileScreen() {
             onChangeText={setUsername}
             placeholder="Nhập username"
             autoCapitalize="none"
-            style={styles.inputSpacing}
+            style={styles.textInput}
+            containerStyle={styles.inputContainer}
           />
 
           <Input
@@ -222,7 +248,8 @@ export default function AdminEditProfileScreen() {
             placeholder="Giới thiệu về bản thân"
             multiline
             numberOfLines={4}
-            style={styles.inputSpacing}
+            style={styles.bioInput}
+            containerStyle={styles.inputContainer}
             textAlignVertical="top"
           />
         </View>
@@ -246,17 +273,20 @@ export default function AdminEditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background.gray,
   },
   header: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    ...Shadows.sm,
+    paddingHorizontal: Spacing.lg,
   },
   backButton: {
     padding: Spacing.xs,
@@ -272,9 +302,13 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    paddingBottom: Spacing.xl,
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   avatarSection: {
     alignItems: "center",
@@ -318,13 +352,30 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   form: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
-  inputSpacing: {
-    marginTop: Spacing.md,
+  inputContainer: {
+    marginBottom: Spacing.md,
+  },
+  textInput: {
+    fontSize: Typography.fontSize.md,
+    fontFamily: Typography.fontFamily.regular,
+    paddingVertical: Spacing.sm,
+    textAlignVertical: "center",
+    textAlign: "left",
+    width: "100%",
+    height: 50,
+    minHeight: 50,
+  },
+  bioInput: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    minHeight: 100,
   },
   buttonContainer: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xl,
+    width: "100%",
   },
 });

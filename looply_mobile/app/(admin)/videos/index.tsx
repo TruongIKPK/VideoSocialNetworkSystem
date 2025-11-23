@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Video {
   _id: string;
@@ -39,10 +42,14 @@ export default function AdminVideosScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
   const { token } = useUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [videos, setVideos] = useState<Video[]>([]);
   const [allVideos, setAllVideos] = useState<Video[]>([]); // Lưu tất cả videos để filter
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     if (token) {
@@ -68,7 +75,7 @@ export default function AdminVideosScreen() {
       }
 
       // Thử fetch từ admin route trước
-      let url = `${API_BASE_URL}/admin/videos`;
+      let url = `${API_BASE_URL}/videos/moderation/flagged-rejected`;
       console.log(`[Admin Videos] Fetching from: ${url}`);
       
       let response = await fetch(url, {
@@ -192,7 +199,7 @@ export default function AdminVideosScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -200,21 +207,23 @@ export default function AdminVideosScreen() {
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Videos Section */}
         <View style={styles.videosCard}>
+          <View style={styles.videosCardContent}>
           <View style={styles.videosHeader}>
             <Text style={styles.videosTitle}>Quản lý Video</Text>
             {/* Stats */}
@@ -339,33 +348,37 @@ export default function AdminVideosScreen() {
               </Text>
             </View>
           )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   adminCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginHorizontal: 0,
+    marginTop: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -376,19 +389,30 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.gray[200],
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+  },
+  adminCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    flex: 1,
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   adminName: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
   },
   adminRole: {
     fontSize: Typography.fontSize.sm,
@@ -403,11 +427,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   videosCard: {
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  videosCardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   videosHeader: {
     marginBottom: Spacing.md,
@@ -423,19 +454,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
     marginTop: Spacing.xs,
+    width: "100%",
   },
   statItem: {
     flex: 1,
-    backgroundColor: Colors.gray[100],
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
     alignItems: "center",
+    minWidth: 0,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   statActive: {
-    backgroundColor: "#D1FAE5",
+    backgroundColor: Colors.success + "15",
+    borderColor: Colors.success + "30",
   },
   statViolation: {
-    backgroundColor: "#FEE2E2",
+    backgroundColor: Colors.error + "15",
+    borderColor: Colors.error + "30",
   },
   statValue: {
     fontSize: Typography.fontSize.xl,
@@ -444,10 +481,10 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
   },
   statValueActive: {
-    color: "#059669",
+    color: Colors.success,
   },
   statValueViolation: {
-    color: "#DC2626",
+    color: Colors.error,
   },
   statLabel: {
     fontSize: Typography.fontSize.xs,
@@ -459,15 +496,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.xs,
     marginBottom: Spacing.md,
-    backgroundColor: Colors.gray[100],
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.lg,
     padding: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   filterTab: {
     flex: 1,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
   },
   filterTabActive: {
@@ -475,11 +514,11 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   filterText: {
     fontSize: Typography.fontSize.sm,
@@ -488,7 +527,7 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: Colors.primary,
-    fontFamily: Typography.fontFamily.semibold,
+    fontFamily: Typography.fontFamily.bold,
   },
   videosList: {
     gap: Spacing.sm,
@@ -496,26 +535,29 @@ const styles = StyleSheet.create({
   videoItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
-    padding: Spacing.xs,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+    padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.gray[50],
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   videoItemViolation: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FEE2E2",
+    backgroundColor: Colors.error + "10",
+    borderColor: Colors.error + "40",
   },
   videoThumbnail: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
     borderRadius: BorderRadius.md,
-    backgroundColor: "#10B981",
+    backgroundColor: Colors.gray[200],
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
     position: "relative",
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   violationOverlay: {
     position: "absolute",
@@ -530,6 +572,7 @@ const styles = StyleSheet.create({
   videoInfo: {
     flex: 1,
     marginLeft: Spacing.sm,
+    minWidth: 0,
   },
   videoTitleRow: {
     flexDirection: "row",
@@ -569,12 +612,14 @@ const styles = StyleSheet.create({
   videoActions: {
     flexDirection: "row",
     gap: Spacing.xs,
+    flexShrink: 0,
   },
   viewButton: {
     backgroundColor: "#D1D1D1",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
+    minWidth: 50,
   },
   viewButtonText: {
     fontSize: Typography.fontSize.sm,
@@ -584,9 +629,10 @@ const styles = StyleSheet.create({
   },
   violationButton: {
     backgroundColor: "#EF4444",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
+    minWidth: 60,
   },
   violationButtonText: {
     fontSize: Typography.fontSize.sm,
@@ -618,5 +664,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: BorderRadius.md,
   },
-});
+  });
+};
 

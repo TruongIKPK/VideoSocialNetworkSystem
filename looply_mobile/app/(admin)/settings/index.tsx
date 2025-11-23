@@ -1,23 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Switch,
   Alert,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { Card } from "@/components/ui/Card";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { Button } from "@/components/ui/Button";
-import { getAvatarUri } from "@/utils/imageHelpers";
+import { SettingsSection } from "@/components/admin/SettingsSection";
 
 interface SettingItem {
   id: string;
@@ -31,10 +29,16 @@ interface SettingItem {
 
 export default function AdminSettingsScreen() {
   const router = useRouter();
-  const { user, logout } = useUser();
-  const { user: currentUser } = useCurrentUser();
+  const { logout } = useUser();
+  const { theme, toggleTheme } = useTheme();
+  const Colors = useColors(); // Get theme-aware colors
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  
+  // Dark mode state từ theme context
+  const darkModeEnabled = theme === "dark";
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -57,15 +61,8 @@ export default function AdminSettingsScreen() {
     );
   };
 
+
   const accountSettings: SettingItem[] = [
-    {
-      id: "edit-profile",
-      title: "Chỉnh sửa hồ sơ",
-      subtitle: "Cập nhật thông tin cá nhân",
-      icon: "person-outline",
-      type: "navigation",
-      onPress: () => router.push("/(admin)/profile/edit-profile"),
-    },
     {
       id: "privacy",
       title: "Quyền riêng tư",
@@ -97,11 +94,15 @@ export default function AdminSettingsScreen() {
     {
       id: "dark-mode",
       title: "Chế độ tối",
-      subtitle: "Bật/tắt chế độ tối",
-      icon: "moon-outline",
+      subtitle: darkModeEnabled ? "Đang bật" : "Đang tắt",
+      icon: darkModeEnabled ? "moon" : "moon-outline",
       type: "toggle",
       value: darkModeEnabled,
-      onPress: () => setDarkModeEnabled(!darkModeEnabled),
+      onPress: async () => {
+        console.log(`[Settings] Dark mode toggle pressed. Current: ${darkModeEnabled ? "dark" : "light"}`);
+        await toggleTheme();
+        console.log(`[Settings] Dark mode toggle completed. New: ${!darkModeEnabled ? "dark" : "light"}`);
+      },
     },
     {
       id: "language",
@@ -140,112 +141,36 @@ export default function AdminSettingsScreen() {
     },
   ];
 
-  const renderSettingItem = (item: SettingItem) => {
-    if (item.type === "toggle") {
-      return (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.settingItem}
-          onPress={item.onPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.settingLeft}>
-            <Ionicons name={item.icon} size={24} color={Colors.primary} />
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>{item.title}</Text>
-              {item.subtitle && (
-                <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-              )}
-            </View>
-          </View>
-          <Switch
-            value={item.value}
-            onValueChange={item.onPress}
-            trackColor={{ false: Colors.gray[300], true: Colors.primaryLight }}
-            thumbColor={item.value ? Colors.primary : Colors.gray[400]}
-          />
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.settingItem}
-        onPress={item.onPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.settingLeft}>
-          <Ionicons name={item.icon} size={24} color={Colors.primary} />
-          <View style={styles.settingText}>
-            <Text style={styles.settingTitle}>{item.title}</Text>
-            {item.subtitle && (
-              <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-            )}
-          </View>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={Colors.gray[400]} />
-      </TouchableOpacity>
-    );
-  };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.replace("/(admin)/profile")}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Cài đặt</Text>
-        </View>
-
-        {/* Admin Info Card */}
-        <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(currentUser?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{currentUser?.name || currentUser?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {currentUser?.email && (
-              <Text style={styles.adminEmail}>{currentUser.email}</Text>
-            )}
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.replace("/(admin)/profile")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Cài đặt</Text>
           </View>
         </View>
 
         {/* Account Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tài khoản</Text>
-          <Card>
-            {accountSettings.map(renderSettingItem)}
-          </Card>
-        </View>
+        <SettingsSection title="Tài khoản" items={accountSettings} />
 
         {/* App Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ứng dụng</Text>
-          <Card>
-            {appSettings.map(renderSettingItem)}
-          </Card>
-        </View>
+        <SettingsSection title="Ứng dụng" items={appSettings} />
 
         {/* Support */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hỗ trợ</Text>
-          <Card>
-            {supportSettings.map(renderSettingItem)}
-          </Card>
-        </View>
+        <SettingsSection title="Hỗ trợ" items={supportSettings} />
 
         {/* Logout Button */}
         <View style={styles.logoutSection}>
@@ -266,135 +191,59 @@ export default function AdminSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  backButton: {
-    marginRight: Spacing.md,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.xxxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  adminCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.gray[200],
-  },
-  adminTextContainer: {
-    flex: 1,
-  },
-  adminName: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  adminRole: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
-    marginTop: 2,
-  },
-  adminEmail: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
-    marginTop: 2,
-  },
-  section: {
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.semibold,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: Spacing.md,
-  },
-  settingText: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  settingSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  logoutSection: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
-  },
-  logoutButton: {
-    marginTop: Spacing.md,
-  },
-  footer: {
-    alignItems: "center",
-    paddingVertical: Spacing.xl,
-  },
-  footerText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.tertiary,
-    fontFamily: Typography.fontFamily.regular,
-  },
-});
+    scrollView: {
+      flex: 1,
+      marginHorizontal: 0,
+      paddingHorizontal: 0,
+    },
+    scrollContent: {
+      paddingBottom: 120,
+      paddingHorizontal: 0,
+      marginHorizontal: 0,
+    },
+    header: {
+      backgroundColor: Colors.white,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.border.light,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: 0,
+    },
+    headerContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: Spacing.lg,
+    },
+    backButton: {
+      marginRight: Spacing.md,
+    },
+    headerTitle: {
+      fontSize: Typography.fontSize.xl,
+      fontWeight: Typography.fontWeight.bold,
+      color: Colors.text.primary,
+      fontFamily: Typography.fontFamily.bold,
+    },
+    logoutSection: {
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.lg,
+    },
+    logoutButton: {
+      marginTop: Spacing.md,
+    },
+    footer: {
+      alignItems: "center",
+      paddingVertical: Spacing.xl,
+    },
+    footerText: {
+      fontSize: Typography.fontSize.sm,
+      color: Colors.text.tertiary,
+      fontFamily: Typography.fontFamily.regular,
+    },
+  });
+};
 

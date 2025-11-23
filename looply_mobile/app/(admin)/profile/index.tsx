@@ -1,227 +1,106 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Image,
-  TouchableOpacity,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useUser } from "@/contexts/UserContext";
-import { getAvatarUri } from "@/utils/imageHelpers";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
-import { Button } from "@/components/ui/Button";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
+import { AdminCard } from "@/components/admin/AdminCard";
+import { SettingItem } from "@/components/admin/SettingItem";
 
 export default function AdminProfileScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
-  const { logout } = useUser();
-
-  const handleLogout = () => {
-    Alert.alert(
-      "Đăng xuất",
-      "Bạn có chắc chắn muốn đăng xuất?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel",
-        },
-        {
-          text: "Đăng xuất",
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-            router.replace("/login");
-          },
-        },
-      ]
-    );
-  };
-
-  const handleEditProfile = () => {
-    router.push("/(admin)/profile/edit-profile");
-  };
+  const Colors = useColors(); // Get theme-aware colors
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Admin Info Card */}
-        <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
-          </View>
-        </View>
+        <AdminCard
+          name={user?.name}
+          username={user?.username}
+          email={user?.email}
+          avatar={user?.avatar}
+        />
 
-        {/* Settings Section */}
+        {/* Profile Actions */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cài đặt</Text>
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleEditProfile}
-            activeOpacity={0.7}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="person-outline" size={24} color={Colors.primary} />
-              <View style={styles.settingText}>
-                <Text style={styles.settingTitle}>Chỉnh sửa hồ sơ</Text>
-                <Text style={styles.settingSubtitle}>Cập nhật thông tin cá nhân</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.settingItem, { borderTopWidth: 1, borderTopColor: Colors.border.light }]}
-            onPress={() => router.push({ pathname: "/(admin)/settings" as any })}
-            activeOpacity={0.7}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="settings-outline" size={24} color={Colors.primary} />
-              <View style={styles.settingText}>
-                <Text style={styles.settingTitle}>Cài đặt</Text>
-                <Text style={styles.settingSubtitle}>Quản lý cài đặt tài khoản</Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.text.secondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Logout Button */}
-        <View style={styles.logoutSection}>
-          <Button
-            title="Đăng xuất"
-            onPress={handleLogout}
-            variant="danger"
-            fullWidth
-            style={styles.logoutButton}
-          />
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Thông tin cá nhân</Text>
+            
+            <SettingItem
+              title="Chỉnh sửa hồ sơ"
+              subtitle="Cập nhật thông tin cá nhân"
+              icon="person-outline"
+              type="navigation"
+              onPress={() => router.push("/(admin)/profile/edit-profile")}
+            />
+            <SettingItem
+              title="Cài đặt"
+              subtitle="Quản lý cài đặt tài khoản"
+              icon="settings-outline"
+              type="navigation"
+              onPress={() => router.push({ pathname: "/(admin)/settings" as any })}
+              showBorder={false}
+            />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  adminCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.gray[200],
-  },
-  adminTextContainer: {
-    flex: 1,
-  },
-  adminName: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  adminRole: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
-    marginTop: 2,
-  },
-  adminEmail: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    fontFamily: Typography.fontFamily.regular,
-    marginTop: 2,
-  },
-  card: {
-    backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-  },
-  cardTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.md,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: Spacing.md,
-  },
-  settingText: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  settingSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  logoutSection: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  logoutButton: {
-    marginTop: Spacing.md,
-  },
-});
+    scrollView: {
+      flex: 1,
+      marginHorizontal: 0,
+      paddingHorizontal: 0,
+    },
+    scrollContent: {
+      paddingBottom: 120,
+      paddingHorizontal: 0,
+      marginHorizontal: 0,
+    },
+    card: {
+      backgroundColor: Colors.white,
+      marginHorizontal: 0,
+      marginBottom: Spacing.md,
+      borderRadius: 0,
+      paddingVertical: Spacing.lg,
+      paddingHorizontal: 0,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border.light,
+    },
+    cardContent: {
+      paddingHorizontal: Spacing.lg,
+      width: "100%",
+    },
+    cardTitle: {
+      fontSize: Typography.fontSize.xxl,
+      fontWeight: Typography.fontWeight.bold,
+      color: Colors.text.primary,
+      fontFamily: Typography.fontFamily.bold,
+      marginBottom: Spacing.md,
+      letterSpacing: -0.5,
+    },
+  });
+};

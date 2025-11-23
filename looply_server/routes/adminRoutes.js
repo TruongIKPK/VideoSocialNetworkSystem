@@ -8,6 +8,7 @@ import {
   updateVideoStatus,
   getAllComments,
   updateCommentStatus,
+  deleteComment,
   getRecentVideos,
   getRecentReports,
   getReportByIdAdmin,
@@ -44,6 +45,7 @@ router.get("/videos", getAllVideos);
 // Comment Management
 router.get("/comments", getAllComments);
 router.put("/comments/:commentId/status", updateCommentStatus);
+router.delete("/comments/:commentId", deleteComment);
 
 // Reports Management
 router.get("/reports/type/:type", getReportsByType);

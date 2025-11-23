@@ -10,11 +10,22 @@ export default function TabLayout() {
   const { user, token } = useUser();
 
   useEffect(() => {
-    if (token && user?._id) {
+    // Chỉ kết nối socket cho user thường, không phải admin
+    if (token && user?._id && user?.role !== "admin") {
       console.log("🔄 Đang kết nối Socket từ TabLayout...");
       socketService.connect(token);
+    } else if (user?.role === "admin") {
+      // Nếu là admin, disconnect socket
+      console.log("🔌 Admin user detected, disconnecting socket");
+      socketService.disconnect();
     }
-  }, [token, user]);
+
+    // Cleanup: disconnect khi component unmount hoặc user thay đổi
+    return () => {
+      // Không disconnect ở đây vì có thể user chỉ navigate giữa các tab
+      // Socket sẽ được quản lý bởi socketService
+    };
+  }, [token, user?._id, user?.role]); // Chỉ depend vào _id và role, không phải toàn bộ user object
 
   return (
     <Tabs
@@ -101,9 +112,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
-          href: null, 
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="person"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -112,7 +130,6 @@ export default function TabLayout() {
           href: null, // Ẩn khỏi tab bar
         }}
       />
-
       <Tabs.Screen
         name="settings/index"
         options={{
@@ -124,20 +141,6 @@ export default function TabLayout() {
         options={{
           href: null,
           tabBarStyle: { display: "none" },
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile/index"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="person"
-              size={28}
-              color={focused ? "#fff" : "#B5B5B5"}
-            />
-          ),
         }}
       />
     </Tabs>
