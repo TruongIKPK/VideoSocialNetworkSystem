@@ -48,7 +48,7 @@ export default function AdminProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 120, // Đủ space cho tab bar
   },
   adminCard: {
     backgroundColor: Colors.white,

@@ -349,7 +349,7 @@ export default function AdminReportDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Đang tải...</Text>
@@ -360,7 +360,7 @@ export default function AdminReportDetailScreen() {
 
   if (!report) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Không tìm thấy báo cáo</Text>
           <TouchableOpacity
@@ -375,7 +375,7 @@ export default function AdminReportDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

@@ -190,10 +190,10 @@ export default function AdminSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }} // Đủ space cho tab bar
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -269,7 +269,7 @@ export default function AdminSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.gray,
+    backgroundColor: "#F5F5F5", // Đồng bộ với các trang admin khác
   },
   scrollView: {
     flex: 1,

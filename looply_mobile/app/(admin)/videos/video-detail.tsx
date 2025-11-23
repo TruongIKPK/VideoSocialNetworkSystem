@@ -439,7 +439,7 @@ export default function AdminVideoDetailScreen() {
 
   if (isLoadingVideo) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Đang tải video...</Text>
@@ -449,7 +449,7 @@ export default function AdminVideoDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Background Video/Image */}
       <View style={styles.backgroundContainer}>
         <VideoView
