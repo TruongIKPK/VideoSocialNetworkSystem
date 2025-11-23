@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { formatNumber, getAvatarUri, getThumbnailUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -72,6 +73,7 @@ export default function AdminDashboardScreen() {
   const router = useRouter();
   const { token } = useUser();
   const { user } = useCurrentUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [stats, setStats] = useState<StatsData | null>(null);
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [recentVideoReports, setRecentVideoReports] = useState<RecentReport[]>([]);
@@ -132,7 +134,7 @@ export default function AdminDashboardScreen() {
 
       // Fetch recent videos - mặc định hiển thị 3 video mới nhất
       // Thử route admin trước, nếu fail thì dùng route videos/latest làm fallback
-      const videosUrl = `${API_BASE_URL}/admin/dashboard/recent-videos?limit=3`;
+      const videosUrl = `${API_BASE_URL}/videos/moderation/flagged-rejected?page=1&limit=3`;
       console.log("📹 Fetching recent videos from:", videosUrl);
       let videosResponse = await fetch(videosUrl, {
         headers: {
@@ -298,6 +300,9 @@ export default function AdminDashboardScreen() {
     const displayNum = num < 100 ? num + 100 : num;
     return `#${displayNum.toString()}`;
   };
+
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   if (isLoading) {
     return (
@@ -527,7 +532,8 @@ export default function AdminDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.gray,
@@ -853,4 +859,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: Spacing.md,
   },
-});
+  });
+};

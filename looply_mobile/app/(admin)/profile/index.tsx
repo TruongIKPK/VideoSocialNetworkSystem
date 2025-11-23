@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { SettingItem } from "@/components/admin/SettingItem";
 
 export default function AdminProfileScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
+  const Colors = useColors(); // Get theme-aware colors
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -59,41 +64,43 @@ export default function AdminProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
-  scrollView: {
-    flex: 1,
-    marginHorizontal: 0,
-    paddingHorizontal: 0,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-    paddingHorizontal: 0,
-    marginHorizontal: 0,
-  },
-  card: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 0,
-    marginBottom: Spacing.md,
-    borderRadius: 0,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: 0,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-  },
-  cardContent: {
-    paddingHorizontal: Spacing.lg,
-    width: "100%",
-  },
-  cardTitle: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-    marginBottom: Spacing.md,
-    letterSpacing: -0.5,
-  },
-});
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
+    scrollView: {
+      flex: 1,
+      marginHorizontal: 0,
+      paddingHorizontal: 0,
+    },
+    scrollContent: {
+      paddingBottom: 120,
+      paddingHorizontal: 0,
+      marginHorizontal: 0,
+    },
+    card: {
+      backgroundColor: Colors.white,
+      marginHorizontal: 0,
+      marginBottom: Spacing.md,
+      borderRadius: 0,
+      paddingVertical: Spacing.lg,
+      paddingHorizontal: 0,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border.light,
+    },
+    cardContent: {
+      paddingHorizontal: Spacing.lg,
+      width: "100%",
+    },
+    cardTitle: {
+      fontSize: Typography.fontSize.xxl,
+      fontWeight: Typography.fontWeight.bold,
+      color: Colors.text.primary,
+      fontFamily: Typography.fontFamily.bold,
+      marginBottom: Spacing.md,
+      letterSpacing: -0.5,
+    },
+  });
+};

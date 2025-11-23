@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 
 interface SettingItemProps {
   title: string;
@@ -22,6 +23,9 @@ export function SettingItem({
   onPress,
   showBorder = true,
 }: SettingItemProps) {
+  const Colors = useColors(); // Get theme-aware colors
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  
   if (type === "toggle") {
     return (
       <TouchableOpacity
@@ -88,41 +92,43 @@ export function SettingItem({
   );
 }
 
-const styles = StyleSheet.create({
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  noBorder: {
-    borderBottomWidth: 0,
-  },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: Spacing.md,
-  },
-  settingText: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  settingSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  actionTitle: {
-    color: Colors.error,
-  },
-});
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    settingItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: Spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.border.light,
+    },
+    noBorder: {
+      borderBottomWidth: 0,
+    },
+    settingLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+      gap: Spacing.md,
+    },
+    settingText: {
+      flex: 1,
+    },
+    settingTitle: {
+      fontSize: Typography.fontSize.md,
+      fontWeight: Typography.fontWeight.medium,
+      color: Colors.text.primary,
+      fontFamily: Typography.fontFamily.medium,
+    },
+    settingSubtitle: {
+      fontSize: Typography.fontSize.sm,
+      color: Colors.text.secondary,
+      marginTop: Spacing.xs / 2,
+      fontFamily: Typography.fontFamily.regular,
+    },
+    actionTitle: {
+      color: Colors.error,
+    },
+  });
+};
 

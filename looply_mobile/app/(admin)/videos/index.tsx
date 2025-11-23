@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -41,10 +42,14 @@ export default function AdminVideosScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
   const { token } = useUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [videos, setVideos] = useState<Video[]>([]);
   const [allVideos, setAllVideos] = useState<Video[]>([]); // Lưu tất cả videos để filter
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     if (token) {
@@ -350,11 +355,12 @@ export default function AdminVideosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
     marginHorizontal: 0,
@@ -658,5 +664,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: BorderRadius.md,
   },
-});
+  });
+};
 

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { SettingItem } from "./SettingItem";
 
 interface SettingItemData {
@@ -20,6 +21,9 @@ interface SettingsSectionProps {
 }
 
 export function SettingsSection({ title, items }: SettingsSectionProps) {
+  const Colors = useColors(); // Get theme-aware colors
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  
   return (
     <View style={styles.section}>
       {title && <Text style={styles.sectionTitle}>{title}</Text>}
@@ -43,34 +47,36 @@ export function SettingsSection({ title, items }: SettingsSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    width: "100%",
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semibold,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  card: {
-    backgroundColor: Colors.white,
-    borderRadius: 0,
-    marginHorizontal: 0,
-    marginBottom: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border.light,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: 0,
-  },
-  cardContent: {
-    paddingHorizontal: Spacing.lg,
-    width: "100%",
-  },
-});
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    section: {
+      marginTop: Spacing.lg,
+      paddingHorizontal: Spacing.lg,
+      width: "100%",
+    },
+    sectionTitle: {
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.semibold,
+      color: Colors.text.secondary,
+      marginBottom: Spacing.sm,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontFamily: Typography.fontFamily.medium,
+    },
+    card: {
+      backgroundColor: Colors.white,
+      borderRadius: 0,
+      marginHorizontal: 0,
+      marginBottom: Spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border.light,
+      paddingVertical: Spacing.lg,
+      paddingHorizontal: 0,
+    },
+    cardContent: {
+      paddingHorizontal: Spacing.lg,
+      width: "100%",
+    },
+  });
+};
 

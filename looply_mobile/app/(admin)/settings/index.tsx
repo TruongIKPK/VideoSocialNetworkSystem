@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { Button } from "@/components/ui/Button";
 import { SettingsSection } from "@/components/admin/SettingsSection";
 
@@ -28,8 +30,15 @@ interface SettingItem {
 export default function AdminSettingsScreen() {
   const router = useRouter();
   const { logout } = useUser();
+  const { theme, toggleTheme } = useTheme();
+  const Colors = useColors(); // Get theme-aware colors
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  
+  // Dark mode state từ theme context
+  const darkModeEnabled = theme === "dark";
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -85,11 +94,15 @@ export default function AdminSettingsScreen() {
     {
       id: "dark-mode",
       title: "Chế độ tối",
-      subtitle: "Bật/tắt chế độ tối",
-      icon: "moon-outline",
+      subtitle: darkModeEnabled ? "Đang bật" : "Đang tắt",
+      icon: darkModeEnabled ? "moon" : "moon-outline",
       type: "toggle",
       value: darkModeEnabled,
-      onPress: () => setDarkModeEnabled(!darkModeEnabled),
+      onPress: async () => {
+        console.log(`[Settings] Dark mode toggle pressed. Current: ${darkModeEnabled ? "dark" : "light"}`);
+        await toggleTheme();
+        console.log(`[Settings] Dark mode toggle completed. New: ${!darkModeEnabled ? "dark" : "light"}`);
+      },
     },
     {
       id: "language",
@@ -178,57 +191,59 @@ export default function AdminSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
-  scrollView: {
-    flex: 1,
-    marginHorizontal: 0,
-    paddingHorizontal: 0,
-  },
-  scrollContent: {
-    paddingBottom: 120,
-    paddingHorizontal: 0,
-    marginHorizontal: 0,
-  },
-  header: {
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: 0,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-  },
-  backButton: {
-    marginRight: Spacing.md,
-  },
-  headerTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  logoutSection: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  logoutButton: {
-    marginTop: Spacing.md,
-  },
-  footer: {
-    alignItems: "center",
-    paddingVertical: Spacing.xl,
-  },
-  footerText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.tertiary,
-    fontFamily: Typography.fontFamily.regular,
-  },
-});
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
+    scrollView: {
+      flex: 1,
+      marginHorizontal: 0,
+      paddingHorizontal: 0,
+    },
+    scrollContent: {
+      paddingBottom: 120,
+      paddingHorizontal: 0,
+      marginHorizontal: 0,
+    },
+    header: {
+      backgroundColor: Colors.white,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.border.light,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: 0,
+    },
+    headerContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: Spacing.lg,
+    },
+    backButton: {
+      marginRight: Spacing.md,
+    },
+    headerTitle: {
+      fontSize: Typography.fontSize.xl,
+      fontWeight: Typography.fontWeight.bold,
+      color: Colors.text.primary,
+      fontFamily: Typography.fontFamily.bold,
+    },
+    logoutSection: {
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.lg,
+    },
+    logoutButton: {
+      marginTop: Spacing.md,
+    },
+    footer: {
+      alignItems: "center",
+      paddingVertical: Spacing.xl,
+    },
+    footerText: {
+      fontSize: Typography.fontSize.sm,
+      color: Colors.text.tertiary,
+      fontFamily: Typography.fontFamily.regular,
+    },
+  });
+};
 

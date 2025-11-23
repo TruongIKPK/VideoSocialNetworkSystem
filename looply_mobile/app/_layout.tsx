@@ -1,7 +1,7 @@
 import {
   DarkTheme,
   DefaultTheme,
-  ThemeProvider,
+  ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { AppState, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserProvider } from "@/contexts/UserContext";
+import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { initDB } from "@/utils/database";
 
 export const unstable_settings = {
@@ -22,9 +23,40 @@ export function CustomHeader() {
   return null; // Không hiển thị header vì đã có search button riêng trong home screen
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutContent() {
+  const { theme } = useTheme();
+  
+  // Sử dụng theme từ context
+  const effectiveTheme = theme === "dark" ? DarkTheme : DefaultTheme;
 
+  return (
+    <NavigationThemeProvider value={effectiveTheme}>
+          <Stack>
+          {/* Ẩn header ở các màn hình ngoài */}
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="user/[userId]" options={{ headerShown: false }} />
+
+          {/* Tabs có header riêng */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+          {/* Admin tabs */}
+          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+
+          <Stack.Screen
+            name="modal"
+            options={{ presentation: "modal", title: "Modal" }}
+          />
+        </Stack>
+
+        {/* Ẩn luôn thanh trạng thái trên cùng */}
+        <StatusBar hidden />
+        </NavigationThemeProvider>
+  );
+}
+
+export default function RootLayout() {
   useEffect(() => {
     initDB();
   }, []);
@@ -50,28 +82,8 @@ export default function RootLayout() {
 
   return (
     <UserProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
-          {/* Ẩn header ở các màn hình ngoài */}
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="register" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="user/[userId]" options={{ headerShown: false }} />
-
-          {/* Tabs có header riêng */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-          {/* Admin tabs */}
-          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-
-          <Stack.Screen
-            name="modal"
-            options={{ presentation: "modal", title: "Modal" }}
-          />
-        </Stack>
-
-        {/* Ẩn luôn thanh trạng thái trên cùng */}
-        <StatusBar hidden />
+      <ThemeProvider>
+        <RootLayoutContent />
       </ThemeProvider>
     </UserProvider>
   );
