@@ -84,13 +84,10 @@ export default function AdminVideoDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Video Detail] Comment data fetched:", data);
         setCommentData(data);
-      } else {
-        console.error("[Video Detail] Failed to fetch comment:", response.status);
       }
     } catch (error) {
-      console.error("[Video Detail] Error fetching comment:", error);
+      // Error fetching comment
     }
   };
 
@@ -98,13 +95,10 @@ export default function AdminVideoDetailScreen() {
     try {
       setIsLoadingVideo(true);
       if (!token || !videoId) {
-        console.warn("[Video Detail] Missing token or videoId");
         return;
       }
 
       const videoUrl = `${API_BASE_URL}/admin/videos/${videoId}`;
-      console.log("[Video Detail] 📹 Fetching video from:", videoUrl);
-      console.log("[Video Detail] Video ID:", videoId);
       
       const response = await fetch(videoUrl, {
         headers: {
@@ -115,7 +109,6 @@ export default function AdminVideoDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Video Detail] ✅ Video data fetched:", data);
         setVideoData(data);
       } else {
         // Xử lý lỗi một cách graceful
@@ -125,35 +118,26 @@ export default function AdminVideoDetailScreen() {
         try {
           errorText = await response.text();
           
-          // Nếu là 404, chỉ log warning (chỉ khi chưa có videoData)
+          // Nếu là 404, sử dụng fallback data
           if (response.status === 404) {
-            if (!videoData) {
-              console.warn(`[Video Detail] ⚠️ Video API not available (404). Using fallback data.`);
-              console.warn(`[Video Detail] ⚠️ URL: ${videoUrl}`);
-            } else {
-              // Đã có videoData, chỉ log info để tránh spam warning
-              console.log(`[Video Detail] ℹ️ Video API not available (404), keeping existing videoData`);
-            }
+            // Using fallback data
           } else {
-            // Các lỗi khác vẫn log error
-            console.error(`[Video Detail] ❌ Error response (${response.status}):`, errorText.substring(0, 200));
+            // Các lỗi khác
             if (contentType && contentType.includes("application/json")) {
               try {
                 const errorData = JSON.parse(errorText);
-                console.error("[Video Detail] ❌ Error data:", errorData);
               } catch (e) {
                 // Ignore parse error
               }
             }
           }
         } catch (e) {
-          console.warn("[Video Detail] ⚠️ Failed to read error response");
+          // Failed to read error response
         }
         
         // Chỉ dùng fallback data nếu chưa có videoData (lần đầu load)
         // Nếu đã có videoData từ lần fetch trước, giữ nguyên để tránh tạo "video ảo"
         if (!videoData) {
-          console.log("[Video Detail] 📦 No existing videoData, using fallback from params");
           const fallbackData = {
             _id: videoId,
             url: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
@@ -166,19 +150,14 @@ export default function AdminVideoDetailScreen() {
             views: parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "0"),
           };
           setVideoData(fallbackData);
-        } else {
-          // Đã có videoData, giữ nguyên để đảm bảo data chính xác từ danh sách videos
-          console.log("[Video Detail] ℹ️ Keeping existing videoData (from videos list) to ensure data accuracy");
         }
       }
     } catch (error: any) {
       // Xử lý lỗi network hoặc các lỗi khác một cách graceful
-      console.warn("[Video Detail] ⚠️ Error fetching video (network or other error):", error.message);
       
       // Chỉ dùng fallback data nếu chưa có videoData (lần đầu load)
       // Nếu đã có videoData, giữ nguyên để tránh tạo "video ảo"
       if (!videoData) {
-        console.warn("[Video Detail] ⚠️ No existing videoData, using fallback from params");
         const fallbackData = {
           _id: videoId,
           url: (Array.isArray(params.videoUrl) ? params.videoUrl[0] : params.videoUrl) || "",
@@ -190,9 +169,7 @@ export default function AdminVideoDetailScreen() {
           },
           views: parseInt((Array.isArray(params.views) ? params.views[0] : params.views) || "0"),
         };
-        setVideoData(fallbackData);
-      } else {
-        console.log("[Video Detail] ℹ️ Keeping existing videoData to avoid creating fake video");
+          setVideoData(fallbackData);
       }
     } finally {
       setIsLoadingVideo(false);
@@ -231,7 +208,7 @@ export default function AdminVideoDetailScreen() {
             player.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
           }
         } catch (error) {
-          console.log("[Video Detail] Player already released, skipping pause");
+          // Player already released
         }
       };
     }, [player])
@@ -283,10 +260,6 @@ export default function AdminVideoDetailScreen() {
         moderationStatus: "approved"
       };
       
-      console.log("[Approve Video] 🎬 Updating video status...");
-      console.log("[Approve Video] URL:", statusUrl);
-      console.log("[Approve Video] Body:", statusBody);
-      
       const response = await fetch(statusUrl, {
         method: "PUT",
         headers: {
@@ -298,7 +271,6 @@ export default function AdminVideoDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Approve Video] ✅ Video approved:", data);
         
         // Cập nhật status vào videoData ngay lập tức
         if (videoData) {
@@ -313,7 +285,7 @@ export default function AdminVideoDetailScreen() {
         try {
           await fetchVideoData();
         } catch (error) {
-          console.warn("[Approve Video] ⚠️ Failed to refresh from server, but status already updated in local state");
+          // Failed to refresh from server, but status already updated in local state
         }
         
         Alert.alert("Thành công", "Video đã được đánh dấu là hợp lệ và sẽ hiển thị cho tất cả người dùng.", [
@@ -331,7 +303,6 @@ export default function AdminVideoDetailScreen() {
         
         try {
           const responseText = await response.text();
-          console.error(`[Approve Video] ❌ Error response (${response.status}):`, responseText);
           
           if (contentType && contentType.includes("application/json")) {
             try {
@@ -350,7 +321,6 @@ export default function AdminVideoDetailScreen() {
         Alert.alert("Lỗi", errorMessage);
       }
     } catch (error: any) {
-      console.error("[Approve Video] ❌ Error:", error);
       Alert.alert("Lỗi", error.message || "Không thể cập nhật trạng thái video. Vui lòng thử lại.");
     }
   };
@@ -390,10 +360,6 @@ export default function AdminVideoDetailScreen() {
         reason: reportReason,
       };
       
-      console.log("[Violation] 📝 Creating report...");
-      console.log("[Violation] URL:", reportUrl);
-      console.log("[Violation] Body:", reportBody);
-      
       const reportResponse = await fetch(reportUrl, {
         method: "POST",
         headers: {
@@ -403,9 +369,6 @@ export default function AdminVideoDetailScreen() {
         body: JSON.stringify(reportBody),
       });
 
-      console.log("[Violation] Report response status:", reportResponse.status);
-      console.log("[Violation] Report response ok:", reportResponse.ok);
-
       if (!reportResponse.ok) {
         const contentType = reportResponse.headers.get("content-type");
         let errorMessage = "Không thể tạo báo cáo";
@@ -414,16 +377,13 @@ export default function AdminVideoDetailScreen() {
         // Response body chỉ có thể đọc một lần, nên cần clone hoặc đọc text trước
         try {
           responseText = await reportResponse.text();
-          console.error(`[Violation] ❌ Error response (${reportResponse.status}):`, responseText);
           
           if (contentType && contentType.includes("application/json")) {
             try {
               const errorData = JSON.parse(responseText);
               errorMessage = errorData.message || errorMessage;
-              console.error("[Violation] ❌ Error data:", errorData);
             } catch (e) {
               // Nếu không parse được JSON, dùng text hoặc status code
-              console.error("[Violation] ❌ Failed to parse JSON error:", e);
               if (reportResponse.status === 404) {
                 errorMessage = `API không tìm thấy (404). URL: ${reportUrl}`;
               } else {
@@ -432,7 +392,6 @@ export default function AdminVideoDetailScreen() {
             }
           } else {
             // Server trả về HTML (404 page) hoặc text
-            console.error("[Violation] ❌ Non-JSON response:", responseText.substring(0, 200));
             if (reportResponse.status === 404) {
               errorMessage = `API không tìm thấy (404). URL: ${reportUrl}. Response: ${responseText.substring(0, 100)}`;
             } else {
@@ -441,7 +400,6 @@ export default function AdminVideoDetailScreen() {
           }
         } catch (e) {
           // Nếu không đọc được response, dùng status code
-          console.error("[Violation] ❌ Failed to read response:", e);
           if (reportResponse.status === 404) {
             errorMessage = `API không tìm thấy (404). URL: ${reportUrl}`;
           } else {
@@ -452,15 +410,10 @@ export default function AdminVideoDetailScreen() {
       }
       
       const reportData = await reportResponse.json();
-      console.log("[Violation] ✅ Report created:", reportData);
 
       // 2. Cập nhật video status thành "violation"
       const statusUrl = `${API_BASE_URL}/admin/videos/${videoId}/status`;
       const statusBody = { status: "violation" };
-      
-      console.log("[Violation] 🎬 Updating video status...");
-      console.log("[Violation] URL:", statusUrl);
-      console.log("[Violation] Body:", statusBody);
       
       let statusUpdateSuccess = false;
       try {
@@ -473,19 +426,13 @@ export default function AdminVideoDetailScreen() {
           body: JSON.stringify(statusBody),
         });
 
-        console.log("[Violation] Status response:", statusResponse.status);
-        console.log("[Violation] Status response ok:", statusResponse.ok);
-
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
-          console.log("[Violation] ✅ Video status updated:", statusData);
           statusUpdateSuccess = true;
         } else {
-          // Nếu API không tồn tại (404), chỉ log warning và tiếp tục
+          // Nếu API không tồn tại (404), chỉ tiếp tục
           if (statusResponse.status === 404) {
-            console.warn("[Violation] ⚠️ Update status API not available (404). Report was created successfully.");
-            console.warn("[Violation] ⚠️ This is expected if server hasn't deployed the route yet.");
-            // Không throw error, chỉ báo cáo đã tạo thành công
+            // Update status API not available (404). Report was created successfully.
             statusUpdateSuccess = false;
           } else {
             // Các lỗi khác (500, 403, etc.) vẫn throw error
@@ -495,7 +442,6 @@ export default function AdminVideoDetailScreen() {
             
             try {
               responseText = await statusResponse.text();
-              console.error(`[Violation] ❌ Status error response (${statusResponse.status}):`, responseText);
               
               if (contentType && contentType.includes("application/json")) {
                 try {
@@ -518,8 +464,7 @@ export default function AdminVideoDetailScreen() {
         if (error.message && !error.message.includes("404")) {
           throw error;
         }
-        // Nếu là 404, chỉ log và tiếp tục
-        console.warn("[Violation] ⚠️ Status update failed but report was created:", error.message);
+        // Nếu là 404, chỉ tiếp tục
       }
 
       // Cập nhật status vào videoData ngay lập tức nếu update thành công
@@ -529,7 +474,6 @@ export default function AdminVideoDetailScreen() {
           ...videoData,
           status: "violation",
         });
-        console.log("[Violation] ✅ Updated video status to 'violation' in local state immediately");
       }
       
       // Refresh video data từ server để đảm bảo sync (nếu API available)
@@ -538,8 +482,7 @@ export default function AdminVideoDetailScreen() {
         try {
           await fetchVideoData();
         } catch (error) {
-          console.warn("[Violation] ⚠️ Failed to refresh from server, but status already updated in local state");
-          // Không cần làm gì, vì đã cập nhật status vào state rồi
+          // Failed to refresh from server, but status already updated in local state
         }
       }
       
@@ -559,7 +502,6 @@ export default function AdminVideoDetailScreen() {
         },
       ]);
     } catch (error: any) {
-      console.error("Error reporting violation:", error);
       Alert.alert("Lỗi", error.message || "Không thể báo cáo vi phạm. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);

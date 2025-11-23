@@ -56,7 +56,6 @@ export default function AdminAdsScreen() {
         setSelectedImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error("Error picking image:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
     }
   };
@@ -82,7 +81,6 @@ export default function AdminAdsScreen() {
         },
       ]);
     } catch (error) {
-      console.error("Error uploading ad:", error);
       Alert.alert("Lỗi", "Không thể đăng tải quảng cáo. Vui lòng thử lại.");
     } finally {
       setIsUploading(false);

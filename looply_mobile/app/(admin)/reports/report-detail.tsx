@@ -102,7 +102,7 @@ export default function AdminReportDetailScreen() {
             videoPlayer.muted = true; // Tắt tiếng để đảm bảo không còn âm thanh
           }
         } catch (error) {
-          console.log("[Report Detail] Video player already released, skipping pause");
+          // Video player already released
         }
       };
     }, [videoPlayer])
@@ -128,6 +128,15 @@ export default function AdminReportDetailScreen() {
     }
   }, [reportId, token]);
 
+  // Reload khi quay lại trang
+  useFocusEffect(
+    React.useCallback(() => {
+      if (reportId && token) {
+        fetchReport();
+      }
+    }, [reportId, token])
+  );
+
   // Fetch comment or video content when report is loaded (chỉ khi chưa có content data)
   useEffect(() => {
     if (report && token) {
@@ -137,24 +146,13 @@ export default function AdminReportDetailScreen() {
         (report.reportedType === "video" && videoData) ||
         (report.reportedType === "user" && userData);
       
-      console.log("[Report Detail] useEffect check:", {
-        reportedType: report.reportedType,
-        hasCommentData: !!commentData,
-        hasVideoData: !!videoData,
-        hasUserData: !!userData,
-        hasContent: hasContent,
-      });
-      
       if (hasContent) {
-        console.log("[Report Detail] Content data already available, skipping fetch");
         return;
       }
       
       // Nếu chưa có content data, fetch riêng
       // Đặc biệt quan trọng khi API getReportWithContent không trả về content
       if (report.reportedType && report.reportedId) {
-        console.log("[Report Detail] Content data not found, fetching separately...");
-        console.log("[Report Detail] Reported type:", report.reportedType, "Reported ID:", report.reportedId);
         fetchReportedContent();
       }
     }
@@ -162,13 +160,11 @@ export default function AdminReportDetailScreen() {
 
   const fetchReportedContent = async () => {
     if (!report || !token) {
-      console.warn("[Report Detail] Missing report or token");
       return;
     }
 
     try {
       setIsLoadingContent(true);
-      console.log(`[Report Detail] Fetching content for ${report.reportedType}: ${report.reportedId}`);
 
       // Reset tất cả content data trước khi fetch
       setCommentData(null);
@@ -179,7 +175,6 @@ export default function AdminReportDetailScreen() {
       if (report.reportedType === "comment") {
         // Fetch comment data
         const commentUrl = `${API_BASE_URL}/comments/id/${report.reportedId}`;
-        console.log(`[Report Detail] Fetching comment from: ${commentUrl}`);
         
         const commentResponse = await fetch(commentUrl, {
           headers: {
@@ -188,17 +183,8 @@ export default function AdminReportDetailScreen() {
           },
         });
 
-        console.log(`[Report Detail] Comment response status: ${commentResponse.status}`);
-
         if (commentResponse.ok) {
           const data = await commentResponse.json();
-          console.log(`[Report Detail] ✅ Comment data received:`, {
-            _id: data._id,
-            hasText: !!data.text,
-            textLength: data.text?.length || 0,
-            hasUserId: !!data.userId,
-            hasVideoId: !!data.videoId,
-          });
           setCommentData(data);
         } else {
           const contentType = commentResponse.headers.get("content-type");
@@ -206,26 +192,21 @@ export default function AdminReportDetailScreen() {
           
           try {
             errorText = await commentResponse.text();
-            console.error(`[Report Detail] ❌ Failed to fetch comment: ${commentResponse.status}`);
-            console.error(`[Report Detail] Error response:`, errorText.substring(0, 200));
             
             if (contentType && contentType.includes("application/json")) {
               try {
                 const errorData = JSON.parse(errorText);
-                console.error(`[Report Detail] Error details:`, errorData);
               } catch (e) {
                 // Not JSON - có thể là HTML error page
-                console.error(`[Report Detail] Non-JSON error response (likely 404 HTML page)`);
               }
             }
           } catch (e) {
-            console.error("[Report Detail] Error reading comment response:", e);
+            // Error reading comment response
           }
           
           // Nếu route không tồn tại (404), thử dùng API getReportWithContent đã có
           if (commentResponse.status === 404) {
-            console.warn("[Report Detail] Comment route 404, but we should have gotten content from getReportWithContent");
-            // Không set null ngay, có thể API getReportWithContent đã trả về data
+            // Comment route 404, but we should have gotten content from getReportWithContent
           } else {
             // Set commentData to null để hiển thị error state
             setCommentData(null);
@@ -234,9 +215,6 @@ export default function AdminReportDetailScreen() {
       } else if (report.reportedType === "video") {
         // Fetch video data - sử dụng route /api/videos/:videoId (KHÔNG phải /api/admin/videos)
         const videoUrl = `${API_BASE_URL}/videos/${report.reportedId}`;
-        console.log(`[Report Detail] 🎬 Fetching video from: ${videoUrl}`);
-        console.log(`[Report Detail] 🎬 Video ID: ${report.reportedId}`);
-        console.log(`[Report Detail] 🎬 Using route: /api/videos/:id (NOT /api/admin/videos)`);
         
         const videoResponse = await fetch(videoUrl, {
           headers: {
@@ -245,50 +223,25 @@ export default function AdminReportDetailScreen() {
           },
         });
 
-        console.log(`[Report Detail] Video response status: ${videoResponse.status}`);
-        console.log(`[Report Detail] Video response URL: ${videoResponse.url || videoUrl}`);
-
         if (videoResponse.ok) {
           const data = await videoResponse.json();
-          console.log("[Report Detail] ✅ Video data received:", {
-            _id: data._id,
-            hasTitle: !!data.title,
-            title: data.title,
-            hasThumbnail: !!data.thumbnail,
-            thumbnail: data.thumbnail,
-            hasUser: !!data.user,
-            user: data.user,
-            status: data.status,
-            fullData: JSON.stringify(data).substring(0, 500),
-          });
-          console.log("[Report Detail] Setting videoData state...");
           setVideoData(data);
-          console.log("[Report Detail] videoData state set completed");
         } else {
           const contentType = videoResponse.headers.get("content-type");
           let errorText = "";
           
           try {
             errorText = await videoResponse.text();
-            console.error(`[Report Detail] ❌ Failed to fetch video: ${videoResponse.status}`);
-            console.error(`[Report Detail] Error response:`, errorText.substring(0, 200));
             
             if (contentType && contentType.includes("application/json")) {
               try {
                 const errorData = JSON.parse(errorText);
-                console.error(`[Report Detail] Error details:`, errorData);
               } catch (e) {
-                console.error(`[Report Detail] Non-JSON error response`);
+                // Non-JSON error response
               }
             }
-            
-            // Log rõ ràng để báo server
-            if (videoResponse.status === 404) {
-              console.error(`[Report Detail] 🚨 Route GET /api/videos/:videoId không tồn tại hoặc video không tìm thấy`);
-              console.error(`[Report Detail] 🚨 Video ID cần fetch: ${report.reportedId}`);
-            }
           } catch (e) {
-            console.error("[Report Detail] Error reading video response:", e);
+            // Error reading video response
           }
           
           // Set videoData to null để hiển thị error state
@@ -306,12 +259,10 @@ export default function AdminReportDetailScreen() {
         if (userResponse.ok) {
           const data = await userResponse.json();
           setUserData(data);
-        } else {
-          console.error("Failed to fetch user:", userResponse.status);
         }
       }
     } catch (error) {
-      console.error("Error fetching reported content:", error);
+      // Error fetching reported content
     } finally {
       setIsLoadingContent(false);
     }
@@ -321,7 +272,6 @@ export default function AdminReportDetailScreen() {
     try {
       setIsLoading(true);
       if (!token) {
-        console.warn("No token available");
         return;
       }
 
@@ -335,64 +285,33 @@ export default function AdminReportDetailScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[Report Detail] 📋 Report with content received:", {
-          hasReportedContent: !!data.reportedContent,
-          reportedType: data.reportedType,
-          reportedId: data.reportedId,
-          reportedContentType: data.reportedContent ? typeof data.reportedContent : "null",
-        });
         setReport(data);
         
         // Reset tất cả content data trước khi set mới
-        console.log("[Report Detail] Resetting all content data...");
         setCommentData(null);
         setVideoData(null);
         setUserData(null);
         
         // Set content data từ reportedContent nếu có - CHỈ set đúng loại tương ứng
         if (data.reportedContent) {
-          console.log("[Report Detail] 📦 Setting content from reportedContent:", {
-            type: data.reportedType,
-            hasText: data.reportedType === "comment" ? !!data.reportedContent.text : false,
-            hasTitle: data.reportedType === "video" ? !!data.reportedContent.title : false,
-            hasThumbnail: data.reportedType === "video" ? !!data.reportedContent.thumbnail : false,
-            reportedContentKeys: data.reportedContent ? Object.keys(data.reportedContent) : [],
-          });
-          
           // CHỈ set data cho loại được report, không set các loại khác
           if (data.reportedType === "comment") {
-            console.log("[Report Detail] Setting commentData...");
             setCommentData(data.reportedContent);
             setIsLoadingContent(false);
           } else if (data.reportedType === "video") {
-            console.log("[Report Detail] 🎬 Setting video data from reportedContent");
-            console.log("[Report Detail] Video reportedContent full:", JSON.stringify(data.reportedContent).substring(0, 1000));
-            console.log("[Report Detail] Video reportedContent keys:", Object.keys(data.reportedContent || {}));
-            console.log("[Report Detail] Video reportedContent:", {
-              _id: data.reportedContent?._id,
-              title: data.reportedContent?.title,
-              thumbnail: data.reportedContent?.thumbnail,
-              hasUser: !!data.reportedContent?.user,
-              user: data.reportedContent?.user,
-            });
-            console.log("[Report Detail] Calling setVideoData...");
             setVideoData(data.reportedContent);
-            console.log("[Report Detail] setVideoData called, setting isLoadingContent = false");
             setIsLoadingContent(false);
           } else if (data.reportedType === "user") {
-            console.log("[Report Detail] Setting userData...");
             setUserData(data.reportedContent);
             setIsLoadingContent(false);
           }
         } else {
           // Nếu không có reportedContent, sẽ fetch riêng trong useEffect
-          console.warn("[Report Detail] ⚠️ No reportedContent in response, will fetch separately");
           // Set isLoadingContent = true để hiển thị loading khi fetch riêng
           setIsLoadingContent(true);
         }
       } else {
         // Fallback: Nếu API with-content không hoạt động, dùng API thông thường
-        console.warn("⚠️ getReportWithContent failed, using fallback");
         const fallbackResponse = await fetch(`${API_BASE_URL}/reports/${reportId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -409,12 +328,10 @@ export default function AdminReportDetailScreen() {
           }
         } else {
           const errorText = await fallbackResponse.text();
-          console.error("Failed to fetch report:", fallbackResponse.status, errorText);
           Alert.alert("Lỗi", "Không thể tải thông tin báo cáo");
         }
       }
     } catch (error) {
-      console.error("Error fetching report:", error);
       Alert.alert("Lỗi", "Không thể tải thông tin báo cáo");
     } finally {
       setIsLoading(false);
@@ -431,7 +348,6 @@ export default function AdminReportDetailScreen() {
       setIsUpdating(newStatus); // Set which action is updating
 
       // 1. Cập nhật report status
-      console.log(`[Report Detail] 📝 Updating report status to: ${newStatus}`);
       const response = await fetch(`${API_BASE_URL}/reports/${reportId}/status`, {
         method: "PUT",
         headers: {
@@ -450,16 +366,12 @@ export default function AdminReportDetailScreen() {
 
       const updatedReport = await response.json();
       setReport(updatedReport.report);
-      console.log(`[Report Detail] ✅ Report status updated to: ${newStatus}`);
 
       // 2. Nếu resolve report (chấp nhận báo cáo), đánh dấu vi phạm cho đúng loại được report
       if (newStatus === "resolved") {
-        console.log(`[Report Detail] 🔍 Report resolved, marking violation for: ${report.reportedType}`);
-        
         // CHỈ xử lý đúng loại được report, không xử lý cả 2
         if (report.reportedType === "comment") {
           // Xử lý comment: đánh dấu comment vi phạm (ẩn comment)
-          console.log(`[Report Detail] 💬 Marking comment as violation: ${report.reportedId}`);
           try {
             const commentStatusResponse = await fetch(
               `${API_BASE_URL}/admin/comments/${report.reportedId}/status`,
@@ -480,7 +392,6 @@ export default function AdminReportDetailScreen() {
               if (contentType && contentType.includes("application/json")) {
                 try {
                   const commentData = await commentStatusResponse.json();
-                  console.log(`[Report Detail] ✅ Comment marked as violation:`, commentData);
                   // Cập nhật commentData trong state để hiển thị trạng thái vi phạm
                   if (commentData.comment) {
                     setCommentData({
@@ -489,11 +400,10 @@ export default function AdminReportDetailScreen() {
                     });
                   }
                 } catch (parseError) {
-                  console.error(`[Report Detail] ❌ Failed to parse JSON response:`, parseError);
+                  // Failed to parse JSON response
                 }
               } else {
                 const textResponse = await commentStatusResponse.text();
-                console.warn(`[Report Detail] ⚠️ Non-JSON response:`, textResponse.substring(0, 200));
               }
             } else {
               // Xử lý error response
@@ -504,27 +414,24 @@ export default function AdminReportDetailScreen() {
                 if (contentType && contentType.includes("application/json")) {
                   const errorData = await commentStatusResponse.json();
                   errorMessage = errorData.message || errorMessage;
-                  console.error(`[Report Detail] ❌ Failed to mark comment as violation:`, errorData);
                 } else {
                   // Server trả về HTML (404 page) hoặc text
                   const textResponse = await commentStatusResponse.text();
-                  console.error(`[Report Detail] ❌ Non-JSON error response (${commentStatusResponse.status}):`, textResponse.substring(0, 200));
                   if (commentStatusResponse.status === 404) {
                     errorMessage = "API không tìm thấy route hoặc comment không tồn tại";
                   }
                 }
               } catch (e) {
-                console.error(`[Report Detail] ❌ Error reading error response:`, e);
+                // Error reading error response
               }
               // Không throw error, vì report đã được resolve thành công
             }
           } catch (error: any) {
-            console.error(`[Report Detail] ❌ Error marking comment as violation:`, error);
+            // Error marking comment as violation
             // Không throw error, vì report đã được resolve thành công
           }
         } else if (report.reportedType === "video") {
           // Xử lý video: đánh dấu video vi phạm
-          console.log(`[Report Detail] 🎬 Marking video as violation: ${report.reportedId}`);
           try {
             const videoStatusResponse = await fetch(
               `${API_BASE_URL}/admin/videos/${report.reportedId}/status`,
@@ -542,7 +449,6 @@ export default function AdminReportDetailScreen() {
 
             if (videoStatusResponse.ok) {
               const videoStatusData = await videoStatusResponse.json();
-              console.log(`[Report Detail] ✅ Video marked as violation:`, videoStatusData);
               // Cập nhật videoData trong state
               if (videoStatusData.video) {
                 setVideoData({
@@ -552,16 +458,14 @@ export default function AdminReportDetailScreen() {
               }
             } else {
               const errorData = await videoStatusResponse.json();
-              console.error(`[Report Detail] ❌ Failed to mark video as violation:`, errorData);
               // Không throw error, vì report đã được resolve thành công
             }
           } catch (error: any) {
-            console.error(`[Report Detail] ❌ Error marking video as violation:`, error);
+            // Error marking video as violation
             // Không throw error, vì report đã được resolve thành công
           }
         } else if (report.reportedType === "user") {
           // Xử lý user: có thể khóa tài khoản hoặc cập nhật status
-          console.log(`[Report Detail] 👤 User report resolved, user ID: ${report.reportedId}`);
           // TODO: Implement user status update if needed
         }
 
@@ -574,7 +478,6 @@ export default function AdminReportDetailScreen() {
         Alert.alert("Thành công", `Đã cập nhật trạng thái thành "${getStatusText(newStatus)}"`);
       }
     } catch (error: any) {
-      console.error("Error updating report status:", error);
       Alert.alert("Lỗi", error.message || "Không thể cập nhật trạng thái");
     } finally {
       setIsUpdating(null); // Reset updating state

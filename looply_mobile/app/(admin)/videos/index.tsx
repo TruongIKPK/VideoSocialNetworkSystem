@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,6 +47,7 @@ export default function AdminVideosScreen() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [allVideos, setAllVideos] = useState<Video[]>([]); // Lưu tất cả videos để filter
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
   
   // Create dynamic styles based on theme
@@ -66,17 +68,26 @@ export default function AdminVideosScreen() {
     }, [token])
   );
 
-  const fetchVideos = async () => {
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    if (token) {
+      await fetchVideos(false); // Không hiển thị loading screen khi refresh
+    }
+    setRefreshing(false);
+  }, [token]);
+
+  const fetchVideos = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       if (!token) {
-        console.warn("No token available");
         return;
       }
 
       // Thử fetch từ admin route trước
       let url = `${API_BASE_URL}/videos/moderation/flagged-rejected`;
-      console.log(`[Admin Videos] Fetching from: ${url}`);
       
       let response = await fetch(url, {
         headers: {
@@ -85,11 +96,8 @@ export default function AdminVideosScreen() {
         },
       });
       
-      console.log(`[Admin Videos] Response status: ${response.status}`);
-      
       // Fallback: Nếu admin route trả về 404, dùng route videos thông thường
       if (response.status === 404) {
-        console.warn("⚠️ Admin videos route not found, using fallback: /api/videos");
         url = `${API_BASE_URL}/videos`;
         response = await fetch(url, {
           headers: {
@@ -97,15 +105,12 @@ export default function AdminVideosScreen() {
             "Content-Type": "application/json",
           },
         });
-        console.log(`[Admin Videos] Fallback response status: ${response.status}`);
       }
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`[Admin Videos] Data received:`, data);
         // API trả về { total, page, limit, videos: [...] } hoặc array trực tiếp
         const videoList = Array.isArray(data) ? data : (data.videos || []);
-        console.log(`[Admin Videos] Video list length: ${videoList.length}`);
         setAllVideos(videoList); // Lưu tất cả videos
         applyFilter(videoList, filter); // Áp dụng filter hiện tại
       } else {
@@ -114,19 +119,17 @@ export default function AdminVideosScreen() {
         
         try {
           errorText = await response.text();
-          console.error(`[Admin Videos] Failed to fetch videos: ${response.status}`, errorText);
           
           // Try to parse error message if it's JSON
           if (contentType && contentType.includes("application/json")) {
             try {
               const errorData = JSON.parse(errorText);
-              console.error(`[Admin Videos] Error details:`, errorData);
             } catch (e) {
               // Not JSON, just log the text
             }
           }
         } catch (e) {
-          console.error("[Admin Videos] Error reading response:", e);
+          // Error reading response
         }
         
         // Set empty array nếu không fetch được
@@ -134,11 +137,12 @@ export default function AdminVideosScreen() {
         setVideos([]);
       }
     } catch (error) {
-      console.error("[Admin Videos] Error fetching videos:", error);
       setAllVideos([]);
       setVideos([]);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -204,6 +208,13 @@ export default function AdminVideosScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>

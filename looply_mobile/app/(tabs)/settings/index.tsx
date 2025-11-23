@@ -104,9 +104,7 @@ export default function SettingsScreen() {
       type: "toggle",
       value: darkModeEnabled,
       onPress: async () => {
-        console.log(`[Settings] Dark mode toggle pressed. Current: ${darkModeEnabled ? "dark" : "light"}`);
         await toggleTheme();
-        console.log(`[Settings] Dark mode toggle completed. New: ${!darkModeEnabled ? "dark" : "light"}`);
       },
     },
     {

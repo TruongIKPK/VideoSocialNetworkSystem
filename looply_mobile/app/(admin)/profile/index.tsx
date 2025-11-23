@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Typography, Spacing } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";

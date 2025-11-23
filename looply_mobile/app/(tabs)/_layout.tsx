@@ -12,11 +12,9 @@ export default function TabLayout() {
   useEffect(() => {
     // Chỉ kết nối socket cho user thường, không phải admin
     if (token && user?._id && user?.role !== "admin") {
-      console.log("🔄 Đang kết nối Socket từ TabLayout...");
       socketService.connect(token);
     } else if (user?.role === "admin") {
       // Nếu là admin, disconnect socket
-      console.log("🔌 Admin user detected, disconnecting socket");
       socketService.disconnect();
     }
 
@@ -49,7 +47,7 @@ export default function TabLayout() {
           title: "Home",
           tabBarIcon: ({ focused }) => (
             <Ionicons
-              name="home"
+              name={focused ? "home" : "home-outline"}
               size={28}
               color={focused ? "#fff" : "#B5B5B5"}
             />
