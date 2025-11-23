@@ -62,3 +62,35 @@ export const checkOwnership = (req, res, next) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+// Middleware check video ownership (user chỉ có thể xóa video của chính mình)
+export const checkVideoOwnership = async (req, res, next) => {
+  try {
+    const Video = (await import("../models/Video.js")).default;
+    const { id } = req.params;
+    
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const video = await Video.findById(id);
+    
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+    
+    // Kiểm tra user là owner của video
+    const videoOwnerId = video.user?._id?.toString() || video.user?._id;
+    const userId = req.user._id.toString();
+    
+    if (videoOwnerId !== userId && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied. You can only delete your own videos" });
+    }
+    
+    // Attach video to request for use in controller
+    req.video = video;
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};

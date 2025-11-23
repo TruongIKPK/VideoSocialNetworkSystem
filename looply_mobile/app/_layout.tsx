@@ -61,6 +61,9 @@ export default function RootLayout() {
           {/* Tabs có header riêng */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
+          {/* Admin tabs */}
+          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+
           <Stack.Screen
             name="modal"
             options={{ presentation: "modal", title: "Modal" }}

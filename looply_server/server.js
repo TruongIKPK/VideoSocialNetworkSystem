@@ -1,5 +1,21 @@
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Get current file directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from .env file in the server directory
+const envResult = dotenv.config({ path: join(__dirname, ".env") });
+
+if (envResult.error) {
+  console.warn("⚠️  Could not load .env file:", envResult.error.message);
+  console.warn("   Trying to load from default location...");
+  dotenv.config(); // Try default location
+} else {
+  console.log(`✅ Environment variables loaded from: ${join(__dirname, ".env")}`);
+}
 
 import express from "express";
 import http from "http";
@@ -27,7 +43,12 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import saveRoutes from "./routes/saveRoutes.js";
+
+// Import moderation services
+import { initializeCollection } from "./services/qdrantService.js";
+import { startModerationPolling } from "./services/moderationProcessor.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -37,6 +58,17 @@ const io = new Server(server, {
 
 // Connect to database
 connectDB();
+
+// Initialize Qdrant collection and start moderation polling after DB connection
+setTimeout(async () => {
+  try {
+    await initializeCollection();
+    // Start polling for moderation jobs every 30 seconds
+    startModerationPolling(30000);
+  } catch (error) {
+    console.error("Error initializing moderation system:", error);
+  }
+}, 3000);
 
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
@@ -55,19 +87,22 @@ const createDefaultAdmin = async () => {
         role: "admin",
         status: "active",
       });
-      console.log("Default admin user created successfully");
+      console.log("✅ Default admin user created successfully");
+      console.log(`   Email: ${adminEmail}`);
+      console.log(`   Password: ${adminPassword}`);
     } else {
-      console.log("Admin user already exists");
+      console.log("ℹ️  Admin user already exists");
     }
   } catch (error) {
-    console.error("Error creating default admin:", error);
+    console.error("❌ Error creating default admin:", error);
   }
 };
 
-// Wait for DB connection then create admin
-setTimeout(async () => {
+// Create admin after DB connection is established
+mongoose.connection.once('connected', async () => {
+  console.log("📦 Database connected, initializing admin user...");
   await createDefaultAdmin();
-}, 2000);
+});
 
 // Security middleware
 app.use(helmet()); // Adds various HTTP headers for security
@@ -107,6 +142,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
@@ -123,6 +159,8 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Something went wrong!" });
 });
+
+const PORT = process.env.PORT || 5000;
 
 // Store connected users: userId -> socketId
 const connectedUsers = {};
@@ -166,31 +204,6 @@ io.on("connection", (socket) => {
     console.log("⚠️ Kết nối không có userId hợp lệ");
     // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
   }
-
-  // Join event - User đăng nhập vào hệ thống
-  // socket.on("join", (data) => {
-  //   try {
-  //     if (!userId) {
-  //       return socket.emit("error-message", {
-  //         message: "User ID không hợp lệ",
-  //       });
-  //     }
-
-  //     // Lưu userId -> socketId mapping
-  //     connectedUsers[userId] = socket.id;
-
-  //     // Broadcast user online to all other users
-  //     socket.broadcast.emit("user-online", { userId });
-
-  //     console.log(
-  //       `User ${userId} joined. Total connected: ${
-  //         Object.keys(connectedUsers).length
-  //       }`
-  //     );
-  //   } catch (error) {
-  //     socket.emit("error-message", { message: "Lỗi khi join hệ thống" });
-  //   }
-  // });
 
   // Send message event - Relay tin nhắn giữa 2 users
   socket.on("send-message", (data) => {
@@ -350,7 +363,6 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });

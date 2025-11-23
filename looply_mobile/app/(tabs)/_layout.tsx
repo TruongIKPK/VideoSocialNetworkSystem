@@ -101,6 +101,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          href: null, 
+        }}
+      />
+      <Tabs.Screen
+        name="profile/[userId]"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+        }}
+      />
+
+      <Tabs.Screen
         name="settings/index"
         options={{
           href: null,

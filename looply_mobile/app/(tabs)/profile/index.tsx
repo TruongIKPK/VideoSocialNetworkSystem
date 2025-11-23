@@ -8,6 +8,8 @@ import {
   Dimensions,
   RefreshControl,
   FlatList,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -20,7 +22,6 @@ import {
   Typography,
   Spacing,
   BorderRadius,
-  Shadows,
 } from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
@@ -37,363 +38,6 @@ interface VideoPost {
   likes?: number;
   views?: number;
   type?: 'video' | 'image';
-}
-
-export default function Profile() {
-  const { user: currentUser, isAuthenticated } = useCurrentUser();
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const targetUserId = params.userId as string | undefined;
-  const targetUsername = params.username as string | undefined;
-  const uploaded = params.uploaded as string | undefined;
-
-  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
-  const isViewingOtherProfile =
-    targetUserId && targetUserId !== currentUser?._id;
-  const [profileUser, setProfileUser] = useState<any>(currentUser);
-
-  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
-    "video"
-  );
-  const [videos, setVideos] = useState<VideoPost[]>([]);
-  const [favorites, setFavorites] = useState<VideoPost[]>([]);
-  const [liked, setLiked] = useState<VideoPost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [totalLikes, setTotalLikes] = useState(0);
-
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      // Hiển thị profile của user hiện tại
-      setProfileUser(currentUser);
-      fetchProfileData();
-      if (uploaded === "true") {
-        // Xóa tham số khỏi URL để lần sau không tải lại
-        router.setParams({ uploaded: undefined });
-      } else {
-        setIsLoading(false);
-      }
-    }
-  }, [
-    isAuthenticated,
-    currentUser,
-    activeTab,
-    targetUserId,
-    isViewingOtherProfile,
-    uploaded,
-  ]);
-
-  const fetchOtherUserProfile = async (userId: string) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-      if (response.ok) {
-        const userData = await response.json();
-        setProfileUser(userData);
-        // Fetch videos của user đó
-        const videosResponse = await fetch(
-          `${API_BASE_URL}/videos/user/${userId}`
-        );
-        if (videosResponse.ok) {
-          const videosData = await videosResponse.json();
-          setVideos(
-            Array.isArray(videosData.videos || videosData)
-              ? videosData.videos || videosData
-              : []
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching other user profile:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchProfileData = async () => {
-    try {
-      setIsLoading(true);
-      const token = await require("@/utils/tokenStorage").getToken();
-
-      if (!token || !currentUser?._id) return;
-
-      // Fetch user videos
-      const videosResponse = await fetch(
-        `${API_BASE_URL}/videos/user/${currentUser._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Fetch total likes received
-      const totalLikesResponse = await fetch(
-        `${API_BASE_URL}/users/${currentUser._id}/total-likes`
-      );
-      if (totalLikesResponse.ok) {
-        const totalLikesData = await totalLikesResponse.json();
-        setTotalLikes(totalLikesData.totalLikes || 0);
-      }
-
-      if (videosResponse.ok) {
-        const videosData = await videosResponse.json();
-        setVideos(
-          Array.isArray(videosData.videos || videosData)
-            ? videosData.videos || videosData
-            : []
-        );
-      }
-
-      // For now, use empty arrays for favorites and liked
-      // These would need separate API endpoints
-      setFavorites([]);
-      setLiked([]);
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchProfileData();
-  };
-
-  const renderVideoItem = ({ item }: { item: VideoPost }) => (
-    <TouchableOpacity
-      style={styles.videoItem}
-      onPress={() => router.push("/(tabs)/home")}
-      activeOpacity={0.8}
-    >
-      <Image
-        source={getAvatarUri(item.thumbnail)}
-        style={styles.videoThumbnail}
-        contentFit="cover"
-      />
-      <View style={styles.videoOverlay}>
-        <View style={styles.videoStats}>
-          <Ionicons name="eye-outline" size={12} color={Colors.white} />
-          <Text style={styles.videoStatsText}>
-            {formatNumber(item.views || 0)}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (!isAuthenticated || !currentUser) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.notLoggedInContainer}>
-          <Ionicons
-            name="person-circle-outline"
-            size={80}
-            color={Colors.gray[400]}
-          />
-          <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
-          <Button
-            title="Đăng nhập"
-            onPress={() => router.push("/login")}
-            variant="primary"
-            style={{ marginTop: Spacing.lg }}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (isLoading && videos.length === 0) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Loading
-          message="Loading profile..."
-          color={Colors.primary}
-          fullScreen
-        />
-      </SafeAreaView>
-    );
-  }
-
-  const currentVideos =
-    activeTab === "video"
-      ? videos
-      : activeTab === "favorites"
-      ? favorites
-      : liked;
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.primary}
-          />
-        }
-      >
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
-          <Image
-            source={getAvatarUri(profileUser?.avatar)}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-
-          <Text style={styles.username}>
-            {profileUser?.name || profileUser?.username || "User"}
-          </Text>
-          {profileUser?.bio && (
-            <Text style={styles.bio}>{profileUser.bio}</Text>
-          )}
-
-          <View style={styles.buttonContainer}>
-            <Button
-              title="Chỉnh sửa"
-              onPress={() => router.push("/(tabs)/settings")}
-              variant="outline"
-              size="sm"
-            />
-            <Button
-              title="Chia sẻ"
-              onPress={() => {}}
-              variant="ghost"
-              size="sm"
-            />
-          </View>
-
-          {/* Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {formatNumber(profileUser?.following || 0)}
-              </Text>
-              <Text style={styles.statLabel}>Đang follow</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {formatNumber(profileUser?.followers || 0)}
-              </Text>
-              <Text style={styles.statLabel}>Follower</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {formatNumber(
-                  videos.reduce((sum, v) => sum + (v.likes || 0), 0)
-                )}
-              </Text>
-              <Text style={styles.statLabel}>Lượt thích</Text>
-            </View>
-          </View>
-
-          {/* Tab Bar */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "video" && styles.activeTab]}
-              onPress={() => setActiveTab("video")}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="grid"
-                size={16}
-                color={
-                  activeTab === "video" ? Colors.primary : Colors.gray[400]
-                }
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "video" && styles.activeTabText,
-                ]}
-              >
-                Video
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "favorites" && styles.activeTab,
-              ]}
-              onPress={() => setActiveTab("favorites")}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="bookmark-outline"
-                size={16}
-                color={
-                  activeTab === "favorites" ? Colors.primary : Colors.gray[400]
-                }
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "favorites" && styles.activeTabText,
-                ]}
-              >
-                Yêu thích
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "liked" && styles.activeTab]}
-              onPress={() => setActiveTab("liked")}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="heart-outline"
-                size={16}
-                color={
-                  activeTab === "liked" ? Colors.primary : Colors.gray[400]
-                }
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "liked" && styles.activeTabText,
-                ]}
-              >
-                Đã thích
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Content based on active tab */}
-        {currentVideos.length > 0 ? (
-          <View style={styles.videoGrid}>
-            {currentVideos.map((item) => (
-              <View key={item._id} style={styles.videoItemWrapper}>
-                {renderVideoItem({ item })}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons
-              name={
-                activeTab === "video"
-                  ? "videocam-off-outline"
-                  : "bookmark-outline"
-              }
-              size={64}
-              color={Colors.gray[400]}
-            />
-            <Text style={styles.emptyText}>
-              {activeTab === "video"
-                ? "Chưa có video nào"
-                : activeTab === "favorites"
-                ? "Chưa có video yêu thích"
-                : "Chưa có video đã thích"}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -503,13 +147,33 @@ const styles = StyleSheet.create({
     marginHorizontal: 2.5,
     marginBottom: Spacing.sm,
   },
+  videoItemContainer: {
+    position: "relative",
+    width: "100%",
+  },
   videoItem: {
     width: "100%",
     height: itemWidth * 1.4,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     backgroundColor: Colors.gray[200],
-    ...Shadows.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  deleteButton: {
+    position: "absolute",
+    top: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: "rgba(255, 0, 0, 0.7)",
+    borderRadius: BorderRadius.round,
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
   videoThumbnail: {
     width: "100%",
@@ -559,3 +223,628 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
 });
+
+export default function Profile() {
+  const { user: currentUser, isAuthenticated } = useCurrentUser();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  
+  // Log tất cả params để debug - params có thể là string hoặc string[]
+  useEffect(() => {
+    console.log(`[Profile] 📥 All params received:`, params);
+    console.log(`[Profile] 📥 Params type:`, {
+      userId: typeof params.userId,
+      username: typeof params.username,
+      userIdValue: params.userId,
+      usernameValue: params.username
+    });
+  }, [params]);
+  
+  // Xử lý params - expo-router có thể trả về string hoặc string[]
+  const targetUserId = Array.isArray(params.userId) 
+    ? params.userId[0] 
+    : (params.userId as string | undefined);
+  const targetUsername = Array.isArray(params.username) 
+    ? params.username[0] 
+    : (params.username as string | undefined);
+  
+  // Log params đã parse để debug
+  useEffect(() => {
+    console.log(`[Profile] 📥 Parsed params:`, { 
+      userId: targetUserId, 
+      username: targetUsername,
+      currentUserId: currentUser?._id,
+      hasTargetUserId: !!targetUserId,
+      targetUserIdType: typeof targetUserId,
+      willViewOtherProfile: targetUserId && targetUserId !== currentUser?._id
+    });
+  }, [targetUserId, targetUsername, currentUser?._id]);
+  
+  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
+  const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
+  const [profileUser, setProfileUser] = useState<any>(currentUser);
+
+  const [activeTab, setActiveTab] = useState<"video" | "saved" | "liked">(
+    "video"
+  );
+  const [videos, setVideos] = useState<VideoPost[]>([]);
+  const [saved, setSaved] = useState<VideoPost[]>([]);
+  const [liked, setLiked] = useState<VideoPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [totalLikes, setTotalLikes] = useState(0);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log(`[Profile] 🔄 useEffect triggered:`, {
+      targetUserId,
+      isViewingOtherProfile,
+      isAuthenticated,
+      hasCurrentUser: !!currentUser
+    });
+
+    // Reset state khi params thay đổi
+    setVideos([]);
+    setLiked([]);
+
+    if (isViewingOtherProfile && targetUserId) {
+      console.log(`[Profile] 👤 Fetching other user profile:`, targetUserId);
+      // Fetch profile của user khác
+      fetchOtherUserProfile(targetUserId);
+    } else if (isAuthenticated && currentUser) {
+      console.log(`[Profile] 👤 Showing current user profile`);
+      // Hiển thị profile của user hiện tại
+      setProfileUser(currentUser);
+      fetchProfileData();
+    } else {
+      console.log(`[Profile] ⚠️ No user data available`);
+      setIsLoading(false);
+    }
+  }, [
+    isAuthenticated,
+    currentUser,
+    activeTab,
+    targetUserId,
+    isViewingOtherProfile,
+  ]);
+
+  const fetchOtherUserProfile = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      console.log(`[Profile] 🔍 Fetching user profile for ID:`, userId);
+      
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+      console.log(`[Profile] 📡 User API response status:`, response.status);
+      
+      if (response.ok) {
+        const userData = await response.json();
+        console.log(`[Profile] ✅ User data received:`, {
+          id: userData._id,
+          name: userData.name,
+          username: userData.username
+        });
+        setProfileUser(userData);
+        
+        // Fetch videos của user đó
+        console.log(`[Profile] 🔍 Fetching videos for user:`, userId);
+        const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+        console.log(`[Profile] 📡 Videos API response status:`, videosResponse.status);
+        
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          const videosArray = Array.isArray(videosData.videos || videosData) 
+            ? (videosData.videos || videosData) 
+            : [];
+          console.log(`[Profile] ✅ Videos received:`, videosArray.length);
+          setVideos(videosArray);
+        } else {
+          console.warn(`[Profile] ⚠️ Failed to fetch videos:`, videosResponse.status);
+          setVideos([]);
+        }
+      } else {
+        console.error(`[Profile] ❌ Failed to fetch user profile:`, response.status);
+        setProfileUser(null);
+      }
+    } catch (error) {
+      console.error("[Profile] ❌ Error fetching other user profile:", error);
+      setProfileUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTabData = async () => {
+    try {
+      const token = await require("@/utils/tokenStorage").getToken();
+      if (!token || !currentUser?._id) return;
+
+      if (activeTab === "video") {
+        const videosResponse = await fetch(
+          `${API_BASE_URL}/videos/user/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setVideos(
+            Array.isArray(videosData.videos || videosData)
+              ? videosData.videos || videosData
+              : []
+          );
+        }
+
+      } else if (activeTab === "saved") {
+        const savedResponse = await fetch(
+          `${API_BASE_URL}/videos/saved/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (savedResponse.ok) {
+          const savedData = await savedResponse.json();
+          setSaved(
+            Array.isArray(savedData.videos || savedData)
+              ? savedData.videos || savedData
+              : []
+          );
+        }
+      } else if (activeTab === "liked") {
+        const likedResponse = await fetch(
+          `${API_BASE_URL}/videos/liked/${currentUser._id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (likedResponse.ok) {
+          const likedData = await likedResponse.json();
+          setLiked(
+            Array.isArray(likedData.videos || likedData)
+              ? likedData.videos || likedData
+              : []
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tab data:", error);
+      console.error("Error fetching other user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchProfileData = async () => {
+    try {
+      setIsLoading(true);
+      const token = await require("@/utils/tokenStorage").getToken();
+
+      if (!token || !currentUser?._id) return;
+
+      // Fetch user videos
+      const videosResponse = await fetch(
+        `${API_BASE_URL}/videos/user/${currentUser._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Fetch total likes received
+      const totalLikesResponse = await fetch(
+        `${API_BASE_URL}/users/${currentUser._id}/total-likes`
+      );
+      if (totalLikesResponse.ok) {
+        const totalLikesData = await totalLikesResponse.json();
+        setTotalLikes(totalLikesData.totalLikes || 0);
+      }
+
+      if (videosResponse.ok) {
+        const videosData = await videosResponse.json();
+        setVideos(
+          Array.isArray(videosData.videos || videosData)
+            ? videosData.videos || videosData
+            : []
+        );
+      }
+
+
+      // Fetch saved videos
+      const savedResponse = await fetch(
+        `${API_BASE_URL}/videos/saved/${currentUser._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (savedResponse.ok) {
+        const savedData = await savedResponse.json();
+        setSaved(
+          Array.isArray(savedData.videos || savedData)
+            ? savedData.videos || savedData
+            : []
+        );
+      }
+
+      // Fetch liked videos
+      const likedResponse = await fetch(
+        `${API_BASE_URL}/videos/liked/${currentUser._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (likedResponse.ok) {
+        const likedData = await likedResponse.json();
+        setLiked(
+          Array.isArray(likedData.videos || likedData)
+            ? likedData.videos || likedData
+            : []
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    if (isViewingOtherProfile && targetUserId) {
+      fetchOtherUserProfile(targetUserId).then(() => {
+        setRefreshing(false);
+      });
+    } else {
+      fetchProfileData();
+    }
+  };
+
+  const handleDeleteVideo = async (videoId: string) => {
+    Alert.alert(
+      "Xóa video",
+      "Bạn có chắc chắn muốn xóa video này?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingVideoId(videoId);
+              const token = await require("@/utils/tokenStorage").getToken();
+              if (!token) {
+                Alert.alert("Lỗi", "Vui lòng đăng nhập để xóa video");
+                return;
+              }
+
+              const response = await fetch(
+                `${API_BASE_URL}/videos/${videoId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+
+              if (response.ok) {
+                // Xóa video khỏi tất cả các danh sách (videos, saved, liked)
+                setVideos((prev) => prev.filter((v) => v._id !== videoId));
+                setSaved((prev) => prev.filter((v) => v._id !== videoId));
+                setLiked((prev) => prev.filter((v) => v._id !== videoId));
+                
+                Alert.alert("Thành công", "Đã xóa video");
+              } else {
+                const errorData = await response.json().catch(() => ({ message: "Không thể xóa video" }));
+                const errorMessage = errorData.message || `Lỗi: ${response.status}`;
+                
+                if (response.status === 403) {
+                  Alert.alert("Không có quyền", "Bạn chỉ có thể xóa video của chính mình");
+                } else if (response.status === 404) {
+                  Alert.alert("Không tìm thấy", "Video không tồn tại hoặc đã bị xóa");
+                } else {
+                  Alert.alert("Lỗi", errorMessage);
+                }
+              }
+            } catch (error) {
+              console.error("[Profile] ❌ Error deleting video:", error);
+              Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa video. Vui lòng thử lại.");
+            } finally {
+              setDeletingVideoId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderVideoItem = ({ item }: { item: VideoPost }) => {
+    const isOwnVideo = activeTab === "video" && !isViewingOtherProfile;
+    
+    return (
+      <View style={styles.videoItemContainer}>
+        <TouchableOpacity
+          style={styles.videoItem}
+          onPress={() => router.push("/(tabs)/home")}
+          activeOpacity={0.8}
+        >
+          <Image
+            source={getAvatarUri(item.thumbnail || item.url)}
+            style={styles.videoThumbnail}
+            contentFit="cover"
+          />
+          <View style={styles.videoOverlay}>
+            <View style={styles.videoStats}>
+              <Ionicons name="eye-outline" size={12} color={Colors.white} />
+              <Text style={styles.videoStatsText}>
+                {formatNumber(item.views || 0)}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        {isOwnVideo && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteVideo(item._id)}
+            disabled={deletingVideoId === item._id}
+          >
+            {deletingVideoId === item._id ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Ionicons name="trash-outline" size={16} color={Colors.white} />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  // Chỉ yêu cầu đăng nhập nếu đang xem profile của chính mình
+  // Cho phép xem profile của người khác mà không cần đăng nhập
+  if (!isViewingOtherProfile && (!isAuthenticated || !currentUser)) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.notLoggedInContainer}>
+          <Ionicons
+            name="person-circle-outline"
+            size={80}
+            color={Colors.gray[400]}
+          />
+          <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
+          <Button
+            title="Đăng nhập"
+            onPress={() => router.push("/login")}
+            variant="primary"
+            style={{ marginTop: Spacing.lg }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Hiển thị loading khi đang fetch data
+  if (isLoading && !profileUser) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Loading
+          message="Loading profile..."
+          color={Colors.primary}
+          fullScreen
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const currentVideos =
+    activeTab === "video"
+      ? videos
+      : activeTab === "saved"
+      ? saved
+      : liked;
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
+      >
+        {/* Profile Info */}
+        <View style={styles.profileSection}>
+          <Image
+            source={getAvatarUri(profileUser?.avatar)}
+            style={styles.avatar}
+            contentFit="cover"
+          />
+
+          <Text style={styles.username}>
+            {profileUser?.name || profileUser?.username || "User"}
+          </Text>
+          {profileUser?.bio && (
+            <Text style={styles.bio}>{profileUser.bio}</Text>
+          )}
+
+          <View style={styles.buttonContainer}>
+            {isViewingOtherProfile ? (
+              <>
+                <Button
+                  title="Follow"
+                  onPress={() => {
+                    // TODO: Implement follow functionality
+                    console.log("Follow user:", targetUserId);
+                  }}
+                  variant="primary"
+                  size="sm"
+                />
+                <Button
+                  title="Chia sẻ"
+                  onPress={() => {}}
+                  variant="ghost"
+                  size="sm"
+                />
+              </>
+            ) : (
+              <>
+                <Button
+                  title="Chỉnh sửa"
+                  onPress={() => router.push("/(tabs)/settings")}
+                  variant="outline"
+                  size="sm"
+                />
+                <Button
+                  title="Chia sẻ"
+                  onPress={() => {}}
+                  variant="ghost"
+                  size="sm"
+                />
+              </>
+            )}
+          </View>
+
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {formatNumber(profileUser?.following || 0)}
+              </Text>
+              <Text style={styles.statLabel}>Đang follow</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {formatNumber(profileUser?.followers || 0)}
+              </Text>
+              <Text style={styles.statLabel}>Follower</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {formatNumber(
+                  videos.reduce((sum, v) => sum + (v.likes || 0), 0)
+                )}
+              </Text>
+              <Text style={styles.statLabel}>Lượt thích</Text>
+            </View>
+          </View>
+
+          {/* Tab Bar */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "video" && styles.activeTab]}
+              onPress={() => setActiveTab("video")}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="grid"
+                size={16}
+                color={
+                  activeTab === "video" ? Colors.primary : Colors.gray[400]
+                }
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "video" && styles.activeTabText,
+                ]}
+              >
+                Video
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === "saved" && styles.activeTab,
+              ]}
+              onPress={() => setActiveTab("saved")}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="bookmark-outline"
+                size={16}
+                color={
+                  activeTab === "saved" ? Colors.primary : Colors.gray[400]
+                }
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "saved" && styles.activeTabText,
+                ]}
+              >
+                Đã lưu
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "liked" && styles.activeTab]}
+              onPress={() => setActiveTab("liked")}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="heart-outline"
+                size={16}
+                color={
+                  activeTab === "liked" ? Colors.primary : Colors.gray[400]
+                }
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "liked" && styles.activeTabText,
+                ]}
+              >
+                Đã thích
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Content based on active tab */}
+        {currentVideos.length > 0 ? (
+          <View style={styles.videoGrid}>
+            {currentVideos.map((item) => (
+              <View key={item._id} style={styles.videoItemWrapper}>
+                {renderVideoItem({ item })}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name={
+                activeTab === "video"
+                  ? "videocam-off-outline"
+                  : "bookmark-outline"
+              }
+              size={64}
+              color={Colors.gray[400]}
+            />
+            <Text style={styles.emptyText}>
+              {activeTab === "video"
+                ? "Chưa có video nào"
+                : activeTab === "saved"
+                ? "Chưa có video đã lưu"
+                : "Chưa có video đã thích"}
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
