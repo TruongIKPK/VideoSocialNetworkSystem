@@ -14,7 +14,7 @@ import fs from "fs";
  * Excludes: flagged, rejected, and violation status videos
  * @returns {Object} MongoDB query filter
  */
-const getApprovedVideosFilter = () => {
+export const getApprovedVideosFilter = () => {
   return {
     $and: [
       // Exclude flagged and rejected videos
