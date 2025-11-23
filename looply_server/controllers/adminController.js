@@ -252,6 +252,8 @@ export const getAllVideos = async (req, res) => {
 };
 
 // Update video status (mark as violation)
+// Khi video được đánh dấu vi phạm, nó sẽ tự động bị ẩn khỏi tất cả danh sách video của user
+// vì tất cả các route lấy video đều filter: status: { $ne: "violation" }
 export const updateVideoStatus = async (req, res) => {
   try {
     console.log("🎬 updateVideoStatus controller called");
@@ -277,8 +279,22 @@ export const updateVideoStatus = async (req, res) => {
     }
 
     console.log("✅ Video status updated successfully:", video._id, "->", status);
+    
+    // Log nghiệp vụ: Khi video được đánh dấu vi phạm, nó sẽ tự động bị ẩn
+    if (status === "violation") {
+      console.log("🚫 Video vi phạm sẽ bị ẩn khỏi tất cả danh sách video của user");
+      console.log("🚫 Video sẽ không hiển thị trong:");
+      console.log("   - Danh sách video chung (getAllVideos)");
+      console.log("   - Danh sách video của user (getVideosByUserId)");
+      console.log("   - Danh sách video đã thích (getLikedVideosByUserId)");
+      console.log("   - Danh sách video đã lưu (getSavedVideosByUserId)");
+      console.log("   - Video ngẫu nhiên (getRandomVideos)");
+      console.log("   - Video mới nhất (getLatestVideos)");
+      console.log("   - Kết quả tìm kiếm (searchVideos, searchVideosByHashtags)");
+    }
+    
     res.json({
-      message: `Video đã được đánh dấu là ${status === "violation" ? "vi phạm" : "hoạt động"}`,
+      message: `Video đã được đánh dấu là ${status === "violation" ? "vi phạm" : "hoạt động"}. ${status === "violation" ? "Video sẽ bị ẩn khỏi tất cả danh sách video của user." : ""}`,
       video,
     });
   } catch (error) {
@@ -352,6 +368,30 @@ export const updateCommentStatus = async (req, res) => {
       comment,
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete comment (admin only)
+export const deleteComment = async (req, res) => {
+  try {
+    console.log("🗑️ deleteComment controller called");
+    console.log("🗑️ Comment ID:", req.params.commentId);
+    const { commentId } = req.params;
+
+    const comment = await Comment.findByIdAndDelete(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Không tìm thấy comment" });
+    }
+
+    console.log("✅ Comment deleted successfully:", commentId);
+    res.json({
+      message: "Comment đã được xóa thành công",
+      commentId: commentId,
+    });
+  } catch (error) {
+    console.error("❌ Error deleting comment:", error);
     res.status(500).json({ message: error.message });
   }
 };

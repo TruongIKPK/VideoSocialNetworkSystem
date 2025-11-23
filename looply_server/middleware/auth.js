@@ -85,6 +85,43 @@ export const requireAdmin = (req, res, next) => {
   }
 };
 
+// Middleware optional authentication - không bắt buộc token, nhưng nếu có thì set req.user
+export const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; 
+
+    if (!token) {
+      // Không có token, tiếp tục nhưng không set req.user
+      return next();
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId).select("-password");
+      
+      if (user) {
+        req.user = {
+          ...user.toObject(),
+          role: user.role || "user",
+          status: user.status || "active",
+          followingList: user.followingList || [],
+          followersList: user.followersList || [],
+        };
+        console.log(`[optionalAuth] ✅ User authenticated: ${user.username} (${user.role})`);
+      }
+    } catch (error) {
+      // Token không hợp lệ, nhưng vẫn tiếp tục (không bắt buộc)
+      console.log(`[optionalAuth] ⚠️ Invalid token, continuing without auth`);
+    }
+    
+    next();
+  } catch (error) {
+    // Lỗi khác, vẫn tiếp tục
+    next();
+  }
+};
+
 // Middleware check owner (user chỉ có thể sửa profile của chính mình)
 export const checkOwnership = (req, res, next) => {
   try {

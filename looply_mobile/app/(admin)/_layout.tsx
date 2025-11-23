@@ -1,8 +1,20 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { socketService } from "../../service/socketService";
 
 export default function AdminTabLayout() {
+  // Admin không cần socket, disconnect khi vào admin
+  useEffect(() => {
+    console.log("🔌 Admin layout: Disconnecting socket (admin doesn't need socket)");
+    socketService.disconnect();
+    
+    return () => {
+      // Cleanup: không reconnect khi rời admin
+      console.log("🔌 Admin layout cleanup: Socket remains disconnected");
+    };
+  }, []);
+
   return (
     <Tabs
       screenOptions={{

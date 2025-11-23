@@ -464,7 +464,10 @@ export const getVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,
@@ -530,7 +533,10 @@ export const getLikedVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,
@@ -595,7 +601,10 @@ export const getSavedVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,

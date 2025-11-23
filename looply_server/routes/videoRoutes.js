@@ -42,7 +42,8 @@ router.get("/latest", getLatestVideos);
 router.get("/user/:userId", optionalAuthenticate, getVideosByUserId); // Lấy video theo userId (optional auth để owner xem tất cả)
 router.get("/liked/:userId", getLikedVideosByUserId); // Lấy video đã thích
 router.get("/saved/:userId", getSavedVideosByUserId); // Lấy video đã save
-router.get("/", getAllVideos);                              
-router.get("/:id", getVideoById);                       
+router.get("/", getAllVideos);
+// Route get video by ID - optional auth (nếu có token và là admin thì có thể xem video vi phạm)
+router.get("/:id", optionalAuth, getVideoById);                       
 
 export default router;
