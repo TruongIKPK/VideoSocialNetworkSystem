@@ -3,13 +3,16 @@ import { getModerationJobStatus, evaluateModerationResults } from "./rekognition
 import { makeVideoPublic, getPublicIdFromUrl } from "../config/cloudinary.js";
 import { generateEmbeddingFromLabels } from "./embeddingService.js";
 import { upsertVideoEmbedding } from "./qdrantService.js";
+import { emitModerationNotification } from "../utils/socketHelper.js";
 
 /**
  * Process a single moderation job
  * @param {string} videoId - Video ID
+ * @param {Object} io - Socket.IO instance (optional)
+ * @param {Object} connectedUsers - Connected users map (optional)
  * @returns {Promise<void>}
  */
-export async function processModerationJob(videoId) {
+export async function processModerationJob(videoId, io = null, connectedUsers = null) {
   try {
     const video = await Video.findById(videoId);
     
@@ -40,6 +43,18 @@ export async function processModerationJob(videoId) {
           status: jobStatus.status,
         },
       });
+      
+      // Emit notification for rejected status
+      if (io && connectedUsers && video.user?._id) {
+        emitModerationNotification(
+          io,
+          connectedUsers,
+          video.user._id.toString(),
+          videoId,
+          "rejected",
+          video.title
+        );
+      }
       return;
     }
 
@@ -120,6 +135,19 @@ export async function processModerationJob(videoId) {
     console.log(
       `Moderation completed for video ${videoId}: ${evaluation.decision}`
     );
+
+    // Emit notification after status update
+    if (io && connectedUsers && video.user?._id) {
+      const finalStatus = updateData.moderationStatus;
+      emitModerationNotification(
+        io,
+        connectedUsers,
+        video.user._id.toString(),
+        videoId,
+        finalStatus,
+        video.title
+      );
+    }
   } catch (error) {
     console.error(`Error processing moderation job for video ${videoId}:`, error);
     
@@ -131,6 +159,18 @@ export async function processModerationJob(videoId) {
           error: error.message,
         },
       });
+      
+      // Emit notification for rejected status on error
+      if (video && io && connectedUsers && video.user?._id) {
+        emitModerationNotification(
+          io,
+          connectedUsers,
+          video.user._id.toString(),
+          videoId,
+          "rejected",
+          video.title
+        );
+      }
     } catch (updateError) {
       console.error(`Error updating video status: ${updateError.message}`);
     }
@@ -140,8 +180,10 @@ export async function processModerationJob(videoId) {
 /**
  * Poll and process all pending moderation jobs
  * This should be called periodically (e.g., every 30 seconds)
+ * @param {Object} io - Socket.IO instance (optional)
+ * @param {Object} connectedUsers - Connected users map (optional)
  */
-export async function processPendingModerationJobs() {
+export async function processPendingModerationJobs(io = null, connectedUsers = null) {
   try {
     // Find all videos with pending moderation
     const pendingVideos = await Video.find({
@@ -153,7 +195,7 @@ export async function processPendingModerationJobs() {
 
     // Process each video
     for (const video of pendingVideos) {
-      await processModerationJob(video._id.toString());
+      await processModerationJob(video._id.toString(), io, connectedUsers);
       // Small delay to avoid rate limiting
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
@@ -165,16 +207,18 @@ export async function processPendingModerationJobs() {
 /**
  * Start background polling for moderation jobs
  * @param {number} intervalMs - Polling interval in milliseconds (default: 30000 = 30 seconds)
+ * @param {Object} io - Socket.IO instance (optional)
+ * @param {Object} connectedUsers - Connected users map (optional)
  */
-export function startModerationPolling(intervalMs = 30000) {
+export function startModerationPolling(intervalMs = 30000, io = null, connectedUsers = null) {
   console.log(`Starting moderation polling every ${intervalMs}ms`);
   
   // Process immediately on start
-  processPendingModerationJobs();
+  processPendingModerationJobs(io, connectedUsers);
   
   // Then process periodically
   setInterval(() => {
-    processPendingModerationJobs();
+    processPendingModerationJobs(io, connectedUsers);
   }, intervalMs);
 }
 

@@ -64,7 +64,8 @@ setTimeout(async () => {
   try {
     await initializeCollection();
     // Start polling for moderation jobs every 30 seconds
-    startModerationPolling(30000);
+    // Pass io and connectedUsers so moderation processor can emit notifications
+    startModerationPolling(30000, io, connectedUsers);
   } catch (error) {
     console.error("Error initializing moderation system:", error);
   }
@@ -164,6 +165,9 @@ const PORT = process.env.PORT || 5000;
 
 // Store connected users: userId -> socketId
 const connectedUsers = {};
+
+// Export io and connectedUsers for use in other modules
+export { io, connectedUsers };
 
 // Socket authentication middleware
 io.use(async (socket, next) => {
