@@ -36,7 +36,7 @@ interface VideoPost {
   title: string;
   likes?: number;
   views?: number;
-  type?: 'video' | 'image';
+  type?: "video" | "image";
 }
 
 export default function Profile() {
@@ -61,17 +61,21 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      // Hiển thị profile của user hiện tại
-      setProfileUser(currentUser);
-      fetchProfileData();
+    if (isAuthenticated) {
+      if (isViewingOtherProfile && targetUserId) {
+        // Nếu đang xem profile người khác -> Fetch data người đó
+        fetchOtherUserProfile(targetUserId);
+      } else if (currentUser) {
+        // Nếu là profile mình -> Dùng data currentUser
+        setProfileUser(currentUser);
+        fetchProfileData();
+      }
+
       if (uploaded === "true") {
-        // Xóa tham số khỏi URL để lần sau không tải lại
         router.setParams({ uploaded: undefined });
-      } else {
-        setIsLoading(false);
       }
     }
   }, [
@@ -82,6 +86,26 @@ export default function Profile() {
     isViewingOtherProfile,
     uploaded,
   ]);
+
+  const handleFollow = async () => {
+    // TODO: Gọi API Follow tại đây
+    // const response = await fetch(...)
+    setIsFollowing(!isFollowing); // Giả lập update UI
+  };
+
+  const handleMessage = () => {
+    if (!isAuthenticated) return router.push("/login");
+
+    router.push({
+      pathname: "/(tabs)/inbox/[id]", 
+      params: { 
+        id: profileUser._id,
+        receiverId: profileUser._id,
+        name: profileUser.name || profileUser.username,
+        avatar: profileUser.avatar
+      }
+    });
+  };
 
   const fetchOtherUserProfile = async (userId: string) => {
     try {
@@ -253,18 +277,43 @@ export default function Profile() {
           )}
 
           <View style={styles.buttonContainer}>
-            <Button
-              title="Chỉnh sửa"
-              onPress={() => router.push("/(tabs)/settings")}
-              variant="outline"
-              size="sm"
-            />
-            <Button
-              title="Chia sẻ"
-              onPress={() => {}}
-              variant="ghost"
-              size="sm"
-            />
+            {isViewingOtherProfile ? (
+              // Giao diện khi xem User KHÁC: Follow & Nhắn tin
+              <>
+                <Button
+                  title={isFollowing ? "Đang Follow" : "Follow"}
+                  onPress={handleFollow}
+                  variant={isFollowing ? "outline" : "primary"}
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Nhắn tin"
+                  onPress={handleMessage}
+                  variant="outline"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
+              </>
+            ) : (
+              // Giao diện khi xem User CỦA MÌNH: Chỉnh sửa & Chia sẻ
+              <>
+                <Button
+                  title="Chỉnh sửa"
+                  onPress={() => router.push("/(tabs)/settings")}
+                  variant="outline"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Chia sẻ"
+                  onPress={() => {}}
+                  variant="ghost"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
+              </>
+            )}
           </View>
 
           {/* Stats */}
@@ -437,6 +486,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
+    width: "60%", 
+    justifyContent: "center",
   },
   statsContainer: {
     flexDirection: "row",

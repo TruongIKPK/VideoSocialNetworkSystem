@@ -5,10 +5,13 @@ const db = SQLite.openDatabaseSync('msg.db');
 // 1. Khởi tạo bảng
 export const initDB = () => {
   try {
+    // Mẹo: Nếu muốn reset db lúc dev thì bỏ comment dòng dưới
+    // db.execSync('DROP TABLE IF EXISTS messages;'); 
+
     db.execSync(`
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        messageId TEXT NOT NULL, 
+        messageId TEXT UNIQUE NOT NULL,  -- 👈 QUAN TRỌNG: Đã thêm UNIQUE
         chatId TEXT NOT NULL,
         content TEXT NOT NULL,
         sender TEXT NOT NULL,
@@ -28,19 +31,17 @@ export const saveMessageToDB = (arg1: any, arg2?: string, arg3?: string) => {
   try {
     let messageId, chatId, content, sender, type, timestamp;
 
-    // Xử lý 2 kiểu gọi hàm:
-    // Kiểu 1: saveMessageToDB(object) -> Dành cho Socket/Full data
+    // Xử lý 2 kiểu gọi hàm
     if (typeof arg1 === 'object') {
       const msg = arg1;
+      // Ưu tiên dùng messageId từ server, nếu không có mới tự tạo
       messageId = msg.messageId || Date.now().toString(); 
       chatId = msg.chatId;
       content = msg.content;
       sender = msg.sender;
       type = msg.type || 'text';
       timestamp = msg.timestamp || Date.now();
-    } 
-    // Kiểu 2: saveMessageToDB(chatId, content, sender) -> Dành cho Test/Chat đơn giản
-    else {
+    } else {
       messageId = Date.now().toString() + Math.random().toString().slice(2, 5); 
       chatId = arg1;
       content = arg2;
@@ -54,12 +55,12 @@ export const saveMessageToDB = (arg1: any, arg2?: string, arg3?: string) => {
       return;
     }
 
+    // INSERT OR IGNORE sẽ hoạt động đúng nhờ 'messageId TEXT UNIQUE' ở trên
     db.runSync(
-      `INSERT INTO messages (messageId, chatId, content, sender, type, timestamp, status) 
+      `INSERT OR IGNORE INTO messages (messageId, chatId, content, sender, type, timestamp, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [messageId, chatId, content, sender, type, timestamp, 'sent']
     );
-    console.log("💾 Đã lưu tin nhắn:", content);
 
   } catch (error) {
     console.error("❌ Lỗi saveMessageToDB:", error);
@@ -72,7 +73,6 @@ export const updateMessageStatus = (messageId: string, status: string) => {
       'UPDATE messages SET status = ? WHERE messageId = ?',
       [status, messageId]
     );
-    // console.log(`Updated msg ${messageId} to ${status}`);
   } catch (error) {
     console.error("Lỗi update status:", error);
   }
@@ -115,5 +115,18 @@ export const debugCheckDB = () => {
   } catch (error) {
     console.error("❌ Lỗi đọc DB:", error);
     return [];
+  }
+};
+
+// Đánh dấu tất cả tin nhắn của chatId đó là "seen"
+export const markMessagesAsSeen = (chatId: string) => {
+  try {
+    db.runSync(
+      `UPDATE messages SET status = 'seen' WHERE chatId = ? AND status = 'received'`,
+      [chatId]
+    );
+    console.log(`✅ Đã đánh dấu đã đọc cho chat: ${chatId}`);
+  } catch (error) {
+    console.error("Lỗi markMessagesAsSeen:", error);
   }
 };

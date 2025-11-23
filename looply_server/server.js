@@ -154,6 +154,9 @@ io.on("connection", (socket) => {
   if (userId) {
     connectedUsers[userId] = socket.id;
 
+    const onlineUserIds = Object.keys(connectedUsers);
+    socket.emit("get-online-users", onlineUserIds);
+
     // Broadcast user online
     socket.broadcast.emit("user-online", { userId });
 
@@ -166,31 +169,6 @@ io.on("connection", (socket) => {
     console.log("⚠️ Kết nối không có userId hợp lệ");
     // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
   }
-
-  // Join event - User đăng nhập vào hệ thống
-  // socket.on("join", (data) => {
-  //   try {
-  //     if (!userId) {
-  //       return socket.emit("error-message", {
-  //         message: "User ID không hợp lệ",
-  //       });
-  //     }
-
-  //     // Lưu userId -> socketId mapping
-  //     connectedUsers[userId] = socket.id;
-
-  //     // Broadcast user online to all other users
-  //     socket.broadcast.emit("user-online", { userId });
-
-  //     console.log(
-  //       `User ${userId} joined. Total connected: ${
-  //         Object.keys(connectedUsers).length
-  //       }`
-  //     );
-  //   } catch (error) {
-  //     socket.emit("error-message", { message: "Lỗi khi join hệ thống" });
-  //   }
-  // });
 
   // Send message event - Relay tin nhắn giữa 2 users
   socket.on("send-message", (data) => {
