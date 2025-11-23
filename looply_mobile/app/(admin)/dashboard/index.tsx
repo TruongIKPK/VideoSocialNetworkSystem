@@ -379,7 +379,7 @@ export default function AdminDashboardScreen() {
           {/* Recent Videos */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Video gần đây</Text>
+              <Text style={styles.sectionTitle}>Video vi phạm</Text>
               <TouchableOpacity onPress={() => router.push("/(admin)/videos")}>
                 <Text style={styles.viewAllLink}>Xem tất cả</Text>
               </TouchableOpacity>
