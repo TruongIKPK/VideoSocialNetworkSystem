@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useUser } from "@/contexts/UserContext";
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -33,11 +33,20 @@ export default function AdminEditProfileScreen() {
   const [avatarFile, setAvatarFile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
+  // Hàm reset form về dữ liệu ban đầu từ user context
+  const resetFormToUserData = React.useCallback(() => {
     if (user) {
+      console.log("[Edit Profile] Resetting form to user data:", {
+        name: user.name,
+        username: user.username,
+        bio: user.bio,
+        hasAvatar: !!user.avatar,
+      });
       setName(user.name || "");
       setUsername(user.username || "");
       setBio(user.bio || "");
+      // Reset avatarFile khi reset form (xóa các thay đổi chưa lưu)
+      setAvatarFile(null);
       // getAvatarUri trả về object { uri: string }, cần lấy uri
       if (user.avatar) {
         const avatarUri = getAvatarUri(user.avatar);
@@ -47,6 +56,20 @@ export default function AdminEditProfileScreen() {
       }
     }
   }, [user]);
+
+  // Reset form mỗi khi vào trang (khi focus)
+  // Điều này đảm bảo nếu user thay đổi nhưng chưa lưu và rời khỏi trang,
+  // khi quay lại form sẽ về lại dữ liệu ban đầu
+  useFocusEffect(
+    React.useCallback(() => {
+      resetFormToUserData();
+    }, [resetFormToUserData])
+  );
+
+  // Load dữ liệu khi user thay đổi (lần đầu mount hoặc khi user được update từ context)
+  useEffect(() => {
+    resetFormToUserData();
+  }, [resetFormToUserData]);
 
   const pickImage = async () => {
     try {
