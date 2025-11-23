@@ -167,12 +167,8 @@ export default function AdminEditProfileScreen() {
         await login(updatedUserData, token);
       }
       
-      Alert.alert("Thành công", "Cập nhật hồ sơ thành công!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/(admin)/profile"),
-        },
-      ]);
+      // Quay lại trang profile, trang profile sẽ tự refresh dữ liệu
+      router.replace("/(admin)/profile");
     } catch (error: any) {
       console.error("Error updating profile:", error);
       Alert.alert("Lỗi", error.message || "Cập nhật thất bại. Vui lòng thử lại!");
