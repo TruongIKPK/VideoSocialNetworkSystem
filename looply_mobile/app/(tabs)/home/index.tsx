@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { VideoItem } from "@/components/home/VideoItem";
 import { LoadingScreen } from "@/components/home/LoadingScreen";
@@ -24,10 +25,14 @@ export default function HomeScreen() {
   const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const hasScrolledToVideoRef = useRef(false);
   const lastFetchedIndexRef = useRef(-1); // Track index đã fetch để tránh fetch nhiều lần
   const lastVideosLengthRef = useRef(0); // Track số lượng video để phát hiện khi có video mới
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   // Video list management
   const {
@@ -273,26 +278,28 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  searchButton: {
-    position: "absolute",
-    top: 50,
-    right: Spacing.md,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-});
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.black,
+    },
+    searchButton: {
+      position: "absolute",
+      top: 50,
+      right: Spacing.md,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(0, 0, 0, 0.4)",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 100,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+  });
+};

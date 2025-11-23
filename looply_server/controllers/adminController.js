@@ -260,7 +260,7 @@ export const updateVideoStatus = async (req, res) => {
     console.log("🎬 Video ID:", req.params.videoId);
     console.log("🎬 Request body:", req.body);
     const { videoId } = req.params;
-    const { status } = req.body;
+    const { status, moderationStatus } = req.body;
 
     if (!status || !["active", "violation"].includes(status)) {
       return res.status(400).json({
@@ -268,9 +268,18 @@ export const updateVideoStatus = async (req, res) => {
       });
     }
 
+    // Build update object
+    const updateData = { status };
+    
+    // Nếu có moderationStatus, thêm vào update
+    if (moderationStatus && ["pending", "approved", "flagged", "rejected"].includes(moderationStatus)) {
+      updateData.moderationStatus = moderationStatus;
+      console.log("🎬 Also updating moderationStatus to:", moderationStatus);
+    }
+
     const video = await Video.findByIdAndUpdate(
       videoId,
-      { status },
+      updateData,
       { new: true }
     );
 
@@ -279,6 +288,9 @@ export const updateVideoStatus = async (req, res) => {
     }
 
     console.log("✅ Video status updated successfully:", video._id, "->", status);
+    if (moderationStatus) {
+      console.log("✅ Video moderationStatus updated to:", moderationStatus);
+    }
     
     // Log nghiệp vụ: Khi video được đánh dấu vi phạm, nó sẽ tự động bị ẩn
     if (status === "violation") {
