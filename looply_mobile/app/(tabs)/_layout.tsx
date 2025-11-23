@@ -1,13 +1,71 @@
 import { Tabs } from "expo-router";
 import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { View, ActivityIndicator, Animated, StyleSheet } from "react-native";
 import { CustomHeader } from "../_layout";
 
 import { useUser } from "@/contexts/UserContext";
+import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { socketService } from "../../service/socketService";
 
 export default function TabLayout() {
   const { user, token } = useUser();
+  const { isReloading, triggerReload } = useHomeReload();
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const lastTabPressTimeRef = React.useRef<number>(0);
+  const TAB_PRESS_DEBOUNCE_MS = 300; // Debounce 0.3 giây (giảm từ 1s để nhanh hơn)
+  
+  // Debug: Log reloading state
+  useEffect(() => {
+    console.log(`[TabLayout] 🔄 isReloading changed: ${isReloading}`);
+  }, [isReloading]);
+  
+  // Animation cho vòng tròn reload
+  const animationRef = React.useRef<Animated.CompositeAnimation | null>(null);
+  
+  useEffect(() => {
+    if (isReloading) {
+      console.log(`[TabLayout] 🎬 Starting reload animation`);
+      // Dừng animation cũ nếu có
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+      // Reset giá trị về 0
+      rotateAnim.setValue(0);
+      // Bắt đầu animation quay mới
+      animationRef.current = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      );
+      animationRef.current.start();
+    } else {
+      console.log(`[TabLayout] ⏹️ Stopping reload animation`);
+      // Dừng animation nếu đang chạy
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+      // Reset giá trị về 0
+      rotateAnim.setValue(0);
+    }
+    
+    // Cleanup khi component unmount
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+    };
+  }, [isReloading, rotateAnim]);
+  
+  const rotation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   useEffect(() => {
     // Chỉ kết nối socket cho user thường, không phải admin
@@ -45,15 +103,57 @@ export default function TabLayout() {
         name="home/index"
         options={{
           title: "Home",
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={28}
-              color={focused ? "#fff" : "#B5B5B5"}
-            />
-          ),
+          tabBarIcon: ({ focused }) => {
+            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}`);
+            return (
+              <View style={styles.iconContainer}>
+                <Ionicons
+                  name={focused ? "home" : "home-outline"}
+                  size={28}
+                  color={focused ? "#fff" : "#B5B5B5"}
+                />
+                {isReloading && (
+                  <Animated.View
+                    style={[
+                      styles.reloadCircle,
+                      {
+                        transform: [{ rotate: rotation }],
+                      },
+                    ]}
+                  >
+                    <View style={styles.circleBorder}>
+                      <Ionicons name="arrow-forward" size={12} color="#fff" style={styles.arrowIcon} />
+                    </View>
+                  </Animated.View>
+                )}
+              </View>
+            );
+          },
           headerShown: true,
           header: () => <CustomHeader />,
+        }}
+        listeners={{
+          tabPress: (e) => {
+            const now = Date.now();
+            const timeSinceLastPress = now - lastTabPressTimeRef.current;
+            
+            console.log(`[TabLayout] 👆 Tab press detected on home tab! isReloading: ${isReloading}, timeSinceLastPress: ${timeSinceLastPress}ms`);
+            
+            // Ngăn trigger nếu đang reload hoặc vừa mới press gần đây
+            if (isReloading) {
+              console.log(`[TabLayout] ⚠️ Already reloading, skipping`);
+              return;
+            }
+            
+            if (timeSinceLastPress < TAB_PRESS_DEBOUNCE_MS) {
+              console.log(`[TabLayout] ⚠️ Tab press too soon (${timeSinceLastPress}ms < ${TAB_PRESS_DEBOUNCE_MS}ms), skipping`);
+              return;
+            }
+            
+            lastTabPressTimeRef.current = now;
+            console.log(`[TabLayout] ✅ Triggering reload`);
+            triggerReload();
+          },
         }}
       />
       <Tabs.Screen
@@ -144,3 +244,37 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 36,
+    height: 36,
+  },
+  reloadCircle: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  circleBorder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2.5,
+    borderColor: "#fff",
+    borderTopColor: "transparent",
+    borderRightColor: "transparent",
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  arrowIcon: {
+    position: "absolute",
+    top: -1,
+    right: 6,
+  },
+});
