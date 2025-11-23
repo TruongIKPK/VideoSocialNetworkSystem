@@ -1,5 +1,5 @@
-import { Tabs } from "expo-router";
-import React, { useEffect } from "react";
+import { Tabs, usePathname, useSegments } from "expo-router";
+import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { View, ActivityIndicator, Animated, StyleSheet } from "react-native";
 import { CustomHeader } from "../_layout";
@@ -11,9 +11,27 @@ import { socketService } from "../../service/socketService";
 export default function TabLayout() {
   const { user, token } = useUser();
   const { isReloading, triggerReload } = useHomeReload();
+  const pathname = usePathname();
+  const segments = useSegments();
+  const [isHomeFocused, setIsHomeFocused] = useState(false);
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const lastTabPressTimeRef = React.useRef<number>(0);
   const TAB_PRESS_DEBOUNCE_MS = 300; // Debounce 0.3 giây (giảm từ 1s để nhanh hơn)
+  
+  // Track home tab focus state - sử dụng pathname/segments để track
+  // Không thể setState trong render, nên dùng useEffect
+  useEffect(() => {
+    const isOnHome = 
+      pathname?.includes('home/index') || 
+      (segments && segments.length > 0 && segments[segments.length - 1] === 'home') ||
+      pathname === '/(tabs)/home/index' || 
+      pathname === '/home/index' || 
+      pathname === 'home/index' ||
+      (segments && segments.includes('home') && !segments.includes('comments'));
+    
+    setIsHomeFocused(isOnHome);
+    console.log(`[TabLayout] 📍 Pathname: ${pathname}, Segments: ${JSON.stringify(segments)}, isHomeFocused: ${isOnHome}`);
+  }, [pathname, segments]);
   
   // Debug: Log reloading state
   useEffect(() => {
@@ -104,7 +122,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ focused }) => {
-            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}`);
+            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}, isHomeFocused: ${isHomeFocused}`);
             return (
               <View style={styles.iconContainer}>
                 <Ionicons
@@ -137,7 +155,24 @@ export default function TabLayout() {
             const now = Date.now();
             const timeSinceLastPress = now - lastTabPressTimeRef.current;
             
-            console.log(`[TabLayout] 👆 Tab press detected on home tab! isReloading: ${isReloading}, timeSinceLastPress: ${timeSinceLastPress}ms`);
+            console.log(`[TabLayout] 👆 Tab press detected on home tab!`);
+            console.log(`[TabLayout] Current pathname: ${pathname}`);
+            console.log(`[TabLayout] Current segments: ${JSON.stringify(segments)}`);
+            console.log(`[TabLayout] isHomeFocused: ${isHomeFocused}`);
+            console.log(`[TabLayout] isReloading: ${isReloading}`);
+            console.log(`[TabLayout] timeSinceLastPress: ${timeSinceLastPress}ms`);
+            
+            // Nếu đang ở tab khác, chỉ navigate về home (không reload)
+            // Để expo-router tự động navigate, không prevent default
+            if (!isHomeFocused) {
+              console.log(`[TabLayout] 📍 Currently on different tab, navigating to home (no reload)`);
+              // Không prevent default, để expo-router tự động navigate về home
+              return;
+            }
+            
+            // Nếu đang ở home tab, prevent default navigation và trigger reload
+            console.log(`[TabLayout] 🏠 Currently on home tab, preventing default and triggering reload`);
+            e.preventDefault();
             
             // Ngăn trigger nếu đang reload hoặc vừa mới press gần đây
             if (isReloading) {
