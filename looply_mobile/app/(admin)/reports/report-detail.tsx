@@ -971,19 +971,7 @@ export default function AdminReportDetailScreen() {
             ) : (
               <View style={styles.errorContentContainer}>
                 <Ionicons name="alert-circle" size={24} color={Colors.text.secondary} />
-                <Text style={styles.noContentText}>Không thể tải thông tin video</Text>
-                <Text style={styles.errorDetailText}>
-                  Video ID: {report.reportedId}
-                </Text>
-                <Text style={styles.errorDetailText}>
-                  Vui lòng kiểm tra lại API hoặc video có tồn tại không
-                </Text>
-                <Text style={styles.errorDetailText}>
-                  isLoadingContent: {isLoadingContent ? "true" : "false"}
-                </Text>
-                <Text style={styles.errorDetailText}>
-                  videoData: {videoData ? "exists" : "null"}
-                </Text>
+                <Text style={styles.noContentText}>Không thể tải thông tin video và video vi phạm đã bị xóa</Text>
               </View>
             )}
             </View>
