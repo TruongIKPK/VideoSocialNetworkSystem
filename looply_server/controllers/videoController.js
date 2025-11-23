@@ -4,7 +4,37 @@ import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
 import Save from "../models/Save.js";
 import Comment from "../models/Comment.js";
-import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
+import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl } from "../config/cloudinary.js";
+import { uploadVideoToS3 } from "../services/s3Service.js";
+import { startContentModeration } from "../services/rekognitionService.js";
+import fs from "fs";
+
+/**
+ * Helper function to build query filter for approved videos only
+ * Excludes: flagged, rejected, and violation status videos
+ * @returns {Object} MongoDB query filter
+ */
+const getApprovedVideosFilter = () => {
+  return {
+    $and: [
+      // Exclude flagged and rejected videos
+      // Include videos without moderationStatus (backward compatibility) or approved videos
+      {
+        $or: [
+          { moderationStatus: "approved" },
+          { moderationStatus: { $exists: false } }
+        ]
+      },
+      // Exclude violation status (old system)
+      {
+        $or: [
+          { status: { $ne: "violation" } },
+          { status: { $exists: false } }
+        ]
+      }
+    ]
+  };
+};
 
 export const uploadVideo = async (req, res) => {
   try {
@@ -20,19 +50,32 @@ export const uploadVideo = async (req, res) => {
       return res.status(401).json({ message: "Không tìm thấy thông tin user" });
     }
 
-    const result = await cloudinary.uploader.upload(file.path, {
-      resource_type: "video",
-      folder: "videos"
-    });
-
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
 
+    // Step 1: Upload to Cloudinary as private (authenticated access)
+    const cloudinaryResult = await cloudinary.uploader.upload(file.path, {
+      resource_type: "video",
+      folder: "videos",
+      access_mode: "authenticated", // Private access
+    });
+
+    // Step 2: Generate thumbnail URL using Cloudinary transformation
+    const thumbnailUrl = generateThumbnailUrl(
+      cloudinaryResult.secure_url,
+      cloudinaryResult.public_id,
+      { width: 320, height: 240, offset: 1 }
+    );
+
+    // Step 3: Create video record with pending moderation status
     const video = await Video.create({
       title,
       description,
-      url: result.secure_url,
-      thumbnail: result.secure_url.replace(".mp4", ".jpg"),
+      url: cloudinaryResult.secure_url,
+      thumbnail: thumbnailUrl || cloudinaryResult.secure_url, // Fallback to video URL if thumbnail generation fails
+      cloudinaryPublicId: cloudinaryResult.public_id,
+      cloudinaryTempUrl: cloudinaryResult.secure_url,
+      moderationStatus: "pending",
       user: {
         _id: user._id,
         name: user.name,
@@ -40,15 +83,59 @@ export const uploadVideo = async (req, res) => {
       }
     });
 
-    res.status(201).json(video);
+    // Step 3: Upload to S3 as private (for Rekognition)
+    // Only upload to S3 if file still exists
+    const s3Key = `${userId}/${video._id}.mp4`;
+    if (fs.existsSync(file.path)) {
+      const uploadedS3Key = await uploadVideoToS3(file.path, s3Key);
+      if (uploadedS3Key) {
+        video.s3Key = uploadedS3Key;
+        await video.save();
+      }
+      // If uploadVideoToS3 returns null, it means S3 is not configured or upload failed
+      // Continue without S3 - video is still saved to Cloudinary
+    } else {
+      console.warn(`File not found for S3 upload: ${file.path}. Skipping S3 upload.`);
+    }
+
+    // Step 4: Start Rekognition moderation job
+    if (video.s3Key) {
+      try {
+        const jobId = await startContentModeration(video.s3Key);
+        video.rekognitionJobId = jobId;
+        await video.save();
+      } catch (rekognitionError) {
+        console.error("Error starting Rekognition job:", rekognitionError);
+        // Continue even if Rekognition fails - video is still saved
+      }
+    }
+
+    // Clean up temporary file (only if it exists)
+    if (fs.existsSync(file.path)) {
+      try {
+        fs.unlinkSync(file.path);
+        console.log(`Temporary file deleted: ${file.path}`);
+      } catch (unlinkError) {
+        console.error("Error deleting temp file:", unlinkError.message || unlinkError);
+      }
+    }
+
+    // Step 5: Return immediate response with pending status
+    res.status(201).json({
+      ...video.toObject(),
+      message: "Video đang được kiểm duyệt. Bạn sẽ được thông báo khi video được duyệt."
+    });
   } catch (error) {
+    console.error("Upload video error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
 export const getAllVideos = async (req, res) => {
   try {
-    const videos = await Video.find({ status: { $ne: "violation" } }).sort({ createdAt: -1 });
+    // Only show approved videos, exclude flagged, rejected, and violation videos
+    const videos = await Video.find(getApprovedVideosFilter())
+      .sort({ createdAt: -1 });
     res.json(videos);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -60,14 +147,25 @@ export const getVideoById = async (req, res) => {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: "Không tìm thấy video" });
     
-    // Nếu video có status "violation", chỉ cho phép admin xem
-    if (video.status === "violation") {
-      // Kiểm tra nếu user là admin (req.user được set bởi authenticateToken middleware)
-      if (!req.user || req.user.role !== "admin") {
-        return res.status(403).json({ message: "Video này đã bị vi phạm" });
-      }
-      // Admin có thể xem video vi phạm
-      console.log(`[getVideoById] Admin ${req.user.username} viewing violation video: ${video._id}`);
+    // Check moderation status - exclude flagged, rejected, and violation videos
+    if (video.moderationStatus === "rejected" || video.moderationStatus === "flagged") {
+      return res.status(403).json({ 
+        message: "Video này đang chờ kiểm duyệt hoặc đã bị từ chối",
+        moderationStatus: video.moderationStatus
+      });
+    }
+    
+    // Backward compatibility with old status field
+    if (video.status === "violation" && !video.moderationStatus) {
+      return res.status(403).json({ message: "Video này đã bị vi phạm" });
+    }
+    
+    // Only return approved videos
+    if (video.moderationStatus && video.moderationStatus !== "approved") {
+      return res.status(403).json({ 
+        message: "Video này không khả dụng",
+        moderationStatus: video.moderationStatus
+      });
     }
     
     res.json(video);
@@ -78,10 +176,54 @@ export const getVideoById = async (req, res) => {
 
 export const deleteVideo = async (req, res) => {
   try {
-    await Video.findByIdAndDelete(req.params.id);
-    res.json({ message: "Đã xoá video" });
+    const videoId = req.params.id;
+    const video = req.video; // Video đã được kiểm tra ownership trong middleware
+    
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    // 1. Xóa video từ Cloudinary nếu có cloudinaryPublicId
+    if (video.cloudinaryPublicId) {
+      try {
+        configureCloudinary();
+        await cloudinary.uploader.destroy(video.cloudinaryPublicId, {
+          resource_type: "video"
+        });
+        console.log(`[DeleteVideo] ✅ Deleted video from Cloudinary: ${video.cloudinaryPublicId}`);
+      } catch (cloudinaryError) {
+        console.error(`[DeleteVideo] ⚠️ Error deleting from Cloudinary:`, cloudinaryError);
+        // Tiếp tục xóa dù Cloudinary có lỗi
+      }
+    }
+
+    // 2. Thumbnail không cần xóa vì nó được tạo động từ video URL
+    // Thumbnail URL được generate từ video public ID, không phải file riêng
+    // Khi video bị xóa, thumbnail URL sẽ tự động không còn hoạt động
+
+    // 3. Xóa tất cả likes liên quan đến video
+    await Like.deleteMany({ 
+      targetType: "video", 
+      targetId: videoId 
+    });
+
+    // 4. Xóa tất cả comments liên quan đến video
+    await Comment.deleteMany({ videoId: videoId });
+
+    // 5. Xóa tất cả saves liên quan đến video
+    await Save.deleteMany({ videoId: videoId });
+
+    // 6. Xóa tất cả video views liên quan đến video
+    await VideoView.deleteMany({ videoId: videoId });
+
+    // 7. Xóa video từ database
+    await Video.findByIdAndDelete(videoId);
+
+    console.log(`[DeleteVideo] ✅ Successfully deleted video: ${videoId}`);
+    res.json({ message: "Đã xoá video thành công" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("[DeleteVideo] ❌ Error deleting video:", error);
+    res.status(500).json({ message: error.message || "Lỗi khi xóa video" });
   }
 };
 
@@ -93,13 +235,18 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
-    // Tìm kiếm trong cả title và description, loại bỏ video vi phạm
+    // Tìm kiếm trong cả title và description, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
-      $or: [
-        { title: { $regex: q, $options: 'i' } },
-        { description: { $regex: q, $options: 'i' } }
-      ],
-      status: { $ne: "violation" }
+      $and: [
+        {
+          $or: [
+            { title: { $regex: q, $options: 'i' } },
+            { description: { $regex: q, $options: 'i' } }
+          ]
+        },
+        approvedFilter
+      ]
     }).sort({ createdAt: -1 });
 
     // Lấy thông tin views và likes cho từng video
@@ -139,9 +286,12 @@ export const getRandomVideos = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 3;
     
-    // Lấy video ngẫu nhiên, loại bỏ video vi phạm
+    // Lấy video ngẫu nhiên, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.aggregate([
-      { $match: { status: { $ne: "violation" } } },
+      { 
+        $match: approvedFilter
+      },
       { $sample: { size: limit } }
     ]);
     
@@ -156,7 +306,8 @@ export const getRandomVideos = async (req, res) => {
 
 export const getLatestVideos = async (req, res) => {
   try {
-    const videos = await Video.find({ status: { $ne: "violation" } })
+    // Lấy video mới nhất, loại bỏ video flagged, rejected, và violation
+    const videos = await Video.find(getApprovedVideosFilter())
       .sort({ createdAt: -1 })
       .limit(3);
     
@@ -204,9 +355,13 @@ export const searchVideosByHashtags = async (req, res) => {
       const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regexPattern = new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i');
       
+      // Loại bỏ video flagged, rejected, và violation
+      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
-        description: { $regex: regexPattern },
-        status: { $ne: "violation" }
+        $and: [
+          { description: { $regex: regexPattern } },
+          approvedFilter
+        ]
       }).sort({ createdAt: -1 });
     } else {
       // Nếu có nhiều hashtags, tìm video chứa TẤT CẢ các hashtags
@@ -216,10 +371,12 @@ export const searchVideosByHashtags = async (req, res) => {
         return { description: { $regex: new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i') } };
       });
       
+      // Loại bỏ video flagged, rejected, và violation
+      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
         $and: [
           ...regexConditions,
-          { status: { $ne: "violation" } }
+          approvedFilter
         ]
       }).sort({ createdAt: -1 });
     }
@@ -272,11 +429,30 @@ export const getVideosByUserId = async (req, res) => {
       return res.status(400).json({ message: "Thiếu userId" });
     }
 
-    // Tìm tất cả video do user này đăng tải, loại bỏ video vi phạm
-    const videos = await Video.find({
-      "user._id": userId,
-      status: { $ne: "violation" }
-    })
+    // Kiểm tra xem user đang request có phải là chủ sở hữu không
+    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+    const isOwner = currentUserId && currentUserId === userId;
+
+    let query;
+
+    if (isOwner) {
+      // Nếu là chủ sở hữu: hiển thị TẤT CẢ video (pending, approved, flagged, rejected, violation)
+      // Không filter gì cả, chỉ lấy video của user này
+      query = {
+        "user._id": userId
+      };
+    } else {
+      // Nếu không phải chủ sở hữu: chỉ hiển thị video approved
+      const approvedFilter = getApprovedVideosFilter();
+      query = {
+        $and: [
+          { "user._id": userId },
+          approvedFilter
+        ]
+      };
+    }
+
+    const videos = await Video.find(query)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -338,10 +514,13 @@ export const getLikedVideosByUserId = async (req, res) => {
       });
     }
 
-    // Lấy thông tin video, loại bỏ video vi phạm
+    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
-      _id: { $in: videoIds },
-      status: { $ne: "violation" }
+      $and: [
+        { _id: { $in: videoIds } },
+        approvedFilter
+      ]
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -403,10 +582,13 @@ export const getSavedVideosByUserId = async (req, res) => {
       });
     }
 
-    // Lấy thông tin video, loại bỏ video vi phạm
+    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
+    const approvedFilter = getApprovedVideosFilter();
     const videos = await Video.find({
-      _id: { $in: videoIds },
-      status: { $ne: "violation" }
+      $and: [
+        { _id: { $in: videoIds } },
+        approvedFilter
+      ]
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -443,3 +625,180 @@ export const getSavedVideosByUserId = async (req, res) => {
   }
 };
 
+// Admin Review Endpoints
+
+/**
+ * Get pending moderation videos (flagged, rejected, or pending)
+ * Admin only
+ */
+export const getPendingModerationVideos = async (req, res) => {
+  try {
+    const videos = await Video.find({
+      moderationStatus: { $in: ["flagged", "rejected", "pending"] }
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({
+      total: videos.length,
+      videos: videos
+    });
+  } catch (error) {
+    console.error("Get pending moderation videos error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get flagged or rejected videos only (excludes pending)
+ * Admin only
+ */
+export const getFlaggedOrRejectedVideos = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build query - only flagged or rejected
+    const query = {
+      moderationStatus: { $in: ["flagged", "rejected"] }
+    };
+
+    // Optional: filter by specific status if provided
+    if (status && (status === "flagged" || status === "rejected")) {
+      query.moderationStatus = status;
+    }
+
+    // Get total count for pagination
+    const total = await Video.countDocuments(query);
+
+    // Get videos with pagination
+    const videos = await Video.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean();
+
+    // Get additional stats for each video
+    const videosWithStats = await Promise.all(
+      videos.map(async (video) => {
+        const views = await VideoView.countDocuments({ videoId: video._id });
+        const likes = await Like.countDocuments({ 
+          targetType: "video", 
+          targetId: video._id 
+        });
+        const comments = await Comment.countDocuments({ videoId: video._id });
+
+        return {
+          ...video,
+          views: views,
+          likes: likes,
+          comments: comments
+        };
+      })
+    );
+
+    res.json({
+      total: total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      videos: videosWithStats
+    });
+  } catch (error) {
+    console.error("Get flagged or rejected videos error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Admin approve a flagged/rejected video
+ * Admin only
+ */
+export const approveVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const video = await Video.findById(id);
+
+    if (!video) {
+      return res.status(404).json({ message: "Không tìm thấy video" });
+    }
+
+    // Make Cloudinary video public
+    if (video.cloudinaryPublicId) {
+      try {
+        const { makeVideoPublic } = await import("../config/cloudinary.js");
+        await makeVideoPublic(video.cloudinaryPublicId);
+      } catch (cloudinaryError) {
+        console.error("Error making video public:", cloudinaryError);
+      }
+    }
+
+    // Update video status and regenerate thumbnail URL
+    video.moderationStatus = "approved";
+    video.url = video.cloudinaryTempUrl || video.url;
+    
+    // Regenerate thumbnail URL using the updated video URL
+    if (video.url && video.cloudinaryPublicId) {
+      const newThumbnailUrl = generateThumbnailUrl(
+        video.url,
+        video.cloudinaryPublicId,
+        { width: 320, height: 240, offset: 1 }
+      );
+      if (newThumbnailUrl) {
+        video.thumbnail = newThumbnailUrl;
+      }
+    }
+    
+    await video.save();
+
+    res.json({
+      message: "Video đã được duyệt thành công",
+      video: video
+    });
+  } catch (error) {
+    console.error("Approve video error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Admin reject a video
+ * Admin only
+ */
+export const rejectVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const existingVideo = await Video.findById(id);
+    if (!existingVideo) {
+      return res.status(404).json({ message: "Không tìm thấy video" });
+    }
+
+    const video = await Video.findByIdAndUpdate(
+      id,
+      {
+        moderationStatus: "rejected",
+        moderationResults: {
+          ...(existingVideo.moderationResults || {}),
+          adminRejection: {
+            reason: reason || "Video không phù hợp với quy định cộng đồng",
+            rejectedAt: new Date(),
+            rejectedBy: req.user?._id || req.user?.id
+          }
+        }
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Video đã bị từ chối",
+      video: video
+    });
+  } catch (error) {
+    console.error("Reject video error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

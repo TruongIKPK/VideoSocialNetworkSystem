@@ -38,8 +38,7 @@ router.get("/", authenticateToken, getAllUsers);
 router.get("/me", authenticateToken, getMe);
 router.get("/check-follow", authenticateToken, checkFollow); // Kiểm tra đã follow chưa
 router.put("/profile/:id", authenticateToken, checkOwnership, upload.single("avatar"), updateProfile);
-router.put("/:id/status", authenticateToken, requireAdmin, updateUserStatus);
 router.post("/:id/follow", authenticateToken, followUser);
 router.delete("/:id/follow", authenticateToken, unfollowUser);
-router.get("/:id", getUserById);
+router.put("/:id/status", authenticateToken, requireAdmin, updateUserStatus);
 export default router;
