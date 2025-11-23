@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Typography, Spacing, BorderRadius } from "@/constants/theme";
@@ -79,6 +80,7 @@ export default function AdminDashboardScreen() {
   const [recentVideoReports, setRecentVideoReports] = useState<RecentReport[]>([]);
   const [recentCommentReports, setRecentCommentReports] = useState<RecentReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -86,12 +88,31 @@ export default function AdminDashboardScreen() {
     }
   }, [token]);
 
-  const fetchDashboardData = async () => {
+  // Reload khi quay lại trang
+  useFocusEffect(
+    React.useCallback(() => {
+      if (token) {
+        fetchDashboardData();
+      }
+    }, [token])
+  );
+
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    if (token) {
+      await fetchDashboardData(false); // Không hiển thị loading screen khi refresh
+    }
+    setRefreshing(false);
+  }, [token]);
+
+  const fetchDashboardData = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       
       if (!token) {
-        console.warn("No token available");
         // Set fallback data
         setStats({
           total: { users: 0, videos: 0, reports: 0 },
@@ -105,7 +126,6 @@ export default function AdminDashboardScreen() {
       
       // Fetch stats
       const statsUrl = `${API_BASE_URL}/admin/dashboard/stats`;
-      console.log("📊 Fetching stats from:", statsUrl);
       const statsResponse = await fetch(statsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -114,13 +134,9 @@ export default function AdminDashboardScreen() {
       
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        console.log("✅ Dashboard stats:", statsData);
         setStats(statsData);
       } else {
         const errorText = await statsResponse.text();
-        console.error(`❌ Failed to fetch stats: ${statsResponse.status} ${statsResponse.statusText}`);
-        console.error(`❌ Error response:`, errorText);
-        console.error(`❌ Request URL:`, statsUrl);
         
         // Set fallback stats
         setStats({
@@ -135,7 +151,6 @@ export default function AdminDashboardScreen() {
       // Fetch recent videos - mặc định hiển thị 3 video mới nhất
       // Thử route admin trước, nếu fail thì dùng route videos/latest làm fallback
       const videosUrl = `${API_BASE_URL}/videos/moderation/flagged-rejected?page=1&limit=3`;
-      console.log("📹 Fetching recent videos from:", videosUrl);
       let videosResponse = await fetch(videosUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -145,8 +160,6 @@ export default function AdminDashboardScreen() {
       // Fallback: Nếu admin route không hoạt động (404), dùng route videos/latest
       if (videosResponse.status === 404) {
         const errorText = await videosResponse.text();
-        console.warn("⚠️ Admin route not found (404), using fallback: /api/videos/latest");
-        console.warn("⚠️ Error response:", errorText);
         videosResponse = await fetch(`${API_BASE_URL}/videos/latest`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -156,7 +169,6 @@ export default function AdminDashboardScreen() {
       
       if (videosResponse.ok) {
         const videosData = await videosResponse.json();
-        console.log("✅ Recent videos response:", videosData);
         let videosList = videosData.videos || videosData || [];
         
         // Nếu dùng fallback route, limit 3 videos
@@ -164,20 +176,15 @@ export default function AdminDashboardScreen() {
           videosList = videosList.slice(0, 3);
         }
         
-        console.log("✅ Recent videos list:", videosList);
-        console.log("✅ Recent videos count:", videosList.length);
         setRecentVideos(Array.isArray(videosList) ? videosList : []);
       } else {
         const errorText = await videosResponse.text();
-        console.error("❌ Failed to fetch videos:", videosResponse.status);
-        console.error("❌ Error details:", errorText);
         // Keep empty array, will show "Chưa có video nào"
         setRecentVideos([]);
       }
 
       // Fetch recent VIDEO reports - mặc định hiển thị 3 video reports mới nhất
       const videoReportsUrl = `${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=video`;
-      console.log("🚩 Fetching video reports from:", videoReportsUrl);
       let videoReportsResponse = await fetch(videoReportsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -186,8 +193,6 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (videoReportsResponse.status === 404) {
-        // Chỉ log một lần, không log error response để tránh spam
-        console.log("ℹ️ Admin recent-reports route not available (404), using fallback: /api/reports");
         videoReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -206,16 +211,13 @@ export default function AdminDashboardScreen() {
             .slice(0, 3);
         }
         
-        console.log("✅ Recent video reports:", reportsList.length);
         setRecentVideoReports(Array.isArray(reportsList) ? reportsList : []);
       } else {
-        console.error("❌ Failed to fetch video reports:", videoReportsResponse.status);
         setRecentVideoReports([]);
       }
 
       // Fetch recent COMMENT reports - mặc định hiển thị 3 comment reports mới nhất
       const commentReportsUrl = `${API_BASE_URL}/admin/dashboard/recent-reports?limit=3&type=comment`;
-      console.log("🚩 Fetching comment reports from:", commentReportsUrl);
       let commentReportsResponse = await fetch(commentReportsUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -224,8 +226,6 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (commentReportsResponse.status === 404) {
-        // Chỉ log một lần, không log error response để tránh spam
-        console.log("ℹ️ Admin recent-reports route not available (404), using fallback: /api/reports");
         commentReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -244,14 +244,11 @@ export default function AdminDashboardScreen() {
             .slice(0, 3);
         }
         
-        console.log("✅ Recent comment reports:", reportsList.length);
         setRecentCommentReports(Array.isArray(reportsList) ? reportsList : []);
       } else {
-        console.error("❌ Failed to fetch comment reports:", commentReportsResponse.status);
         setRecentCommentReports([]);
       }
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
       // Set fallback data on error
       setStats({
         total: { users: 0, videos: 0, reports: 0 },
@@ -261,7 +258,9 @@ export default function AdminDashboardScreen() {
         reports: { pending: 0, resolved: 0 },
       });
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -320,6 +319,13 @@ export default function AdminDashboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
@@ -399,7 +405,7 @@ export default function AdminDashboardScreen() {
                         style={styles.videoThumbnailImage}
                         resizeMode="cover"
                         onError={() => {
-                          console.log(`[Dashboard] Failed to load thumbnail for video: ${video._id}`);
+                          // Failed to load thumbnail
                         }}
                       />
                     ) : (

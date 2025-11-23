@@ -88,7 +88,7 @@ export default function OtherUserProfile() {
         }
       }
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      // Error fetching user profile
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +109,7 @@ export default function OtherUserProfile() {
         setIsFollowing(data.isFollowing || data.followed || false);
       }
     } catch (error) {
-      console.error("Error checking follow status:", error);
+      // Error checking follow status
     }
   };
 
@@ -149,7 +149,6 @@ export default function OtherUserProfile() {
         }));
       }
     } catch (error) {
-      console.error("Follow error:", error);
       // Revert on error
       setIsFollowing(wasFollowing);
     } finally {

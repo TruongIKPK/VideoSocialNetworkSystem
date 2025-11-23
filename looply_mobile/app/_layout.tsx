@@ -13,6 +13,7 @@ import { AppState, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserProvider } from "@/contexts/UserContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { HomeReloadProvider } from "@/contexts/HomeReloadContext";
 import { initDB } from "@/utils/database";
 
 export const unstable_settings = {
@@ -83,7 +84,9 @@ export default function RootLayout() {
   return (
     <UserProvider>
       <ThemeProvider>
-        <RootLayoutContent />
+        <HomeReloadProvider>
+          <RootLayoutContent />
+        </HomeReloadProvider>
       </ThemeProvider>
     </UserProvider>
   );
