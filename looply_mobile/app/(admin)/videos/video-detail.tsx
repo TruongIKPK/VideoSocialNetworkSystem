@@ -674,23 +674,20 @@ export default function AdminVideoDetailScreen() {
           >
             <Text style={styles.skipButtonText}>Bỏ qua</Text>
           </TouchableOpacity>
-          {videoData?.status === "violation" ? (
-            <TouchableOpacity
-              style={styles.approveButton}
-              onPress={handleApprove}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.approveButtonText}>Hợp lệ</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.violationButton}
-              onPress={handleViolation}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.violationButtonText}>Vi phạm</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.violationButton}
+            onPress={handleViolation}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.violationButtonText}>Vi phạm</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.approveButton}
+            onPress={handleApprove}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.approveButtonText}>Hợp lệ</Text>
+          </TouchableOpacity>
         </View>
         </View>
       </View>
