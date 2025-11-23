@@ -201,7 +201,7 @@ export default function AdminReportsScreen() {
         {/* New Reports Section */}
         <View style={styles.reportsCard}>
           <View style={styles.reportsCardContent}>
-          <Text style={styles.reportsTitle}>Báo cáo mới</Text>
+          <Text style={styles.reportsTitle}>Danh sách báo cáo</Text>
           
           {isLoading ? (
             <View style={styles.loadingContainer}>

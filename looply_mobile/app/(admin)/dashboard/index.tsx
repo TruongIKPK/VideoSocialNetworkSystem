@@ -456,7 +456,7 @@ export default function AdminDashboardScreen() {
           {/* Video Reports - Hiển thị tối đa 3 video reports mới nhất */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Báo cáo video</Text>
+              <Text style={styles.sectionTitle}>Báo cáo</Text>
               <TouchableOpacity 
                 onPress={() => router.push("/(admin)/reports")}
                 activeOpacity={0.7}

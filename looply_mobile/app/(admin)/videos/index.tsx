@@ -75,7 +75,7 @@ export default function AdminVideosScreen() {
       }
 
       // Thử fetch từ admin route trước
-      let url = `${API_BASE_URL}/admin/videos`;
+      let url = `${API_BASE_URL}/videos/moderation/flagged-rejected`;
       console.log(`[Admin Videos] Fetching from: ${url}`);
       
       let response = await fetch(url, {
