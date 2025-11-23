@@ -525,7 +525,10 @@ export default function Profile() {
             try {
               setDeletingVideoId(videoId);
               const token = await require("@/utils/tokenStorage").getToken();
-              if (!token) return;
+              if (!token) {
+                Alert.alert("Lỗi", "Vui lòng đăng nhập để xóa video");
+                return;
+              }
 
               const response = await fetch(
                 `${API_BASE_URL}/videos/${videoId}`,
@@ -538,16 +541,27 @@ export default function Profile() {
               );
 
               if (response.ok) {
-                // Xóa video khỏi danh sách
+                // Xóa video khỏi tất cả các danh sách (videos, saved, liked)
                 setVideos((prev) => prev.filter((v) => v._id !== videoId));
+                setSaved((prev) => prev.filter((v) => v._id !== videoId));
+                setLiked((prev) => prev.filter((v) => v._id !== videoId));
+                
                 Alert.alert("Thành công", "Đã xóa video");
               } else {
-                const errorData = await response.json();
-                Alert.alert("Lỗi", errorData.message || "Không thể xóa video");
+                const errorData = await response.json().catch(() => ({ message: "Không thể xóa video" }));
+                const errorMessage = errorData.message || `Lỗi: ${response.status}`;
+                
+                if (response.status === 403) {
+                  Alert.alert("Không có quyền", "Bạn chỉ có thể xóa video của chính mình");
+                } else if (response.status === 404) {
+                  Alert.alert("Không tìm thấy", "Video không tồn tại hoặc đã bị xóa");
+                } else {
+                  Alert.alert("Lỗi", errorMessage);
+                }
               }
             } catch (error) {
-              console.error("Error deleting video:", error);
-              Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa video");
+              console.error("[Profile] ❌ Error deleting video:", error);
+              Alert.alert("Lỗi", "Đã xảy ra lỗi khi xóa video. Vui lòng thử lại.");
             } finally {
               setDeletingVideoId(null);
             }

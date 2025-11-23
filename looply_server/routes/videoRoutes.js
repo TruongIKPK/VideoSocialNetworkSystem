@@ -17,14 +17,14 @@ import {
   rejectVideo,
   updateVideoStatus,
 } from "../controllers/videoController.js";
-import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin, checkVideoOwnership } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
 
 // Protected routes - require authentication
 router.post("/upload", authenticateToken, upload.single("file"), uploadVideo); 
-router.delete("/:id", authenticateToken, deleteVideo);
+router.delete("/:id", authenticateToken, checkVideoOwnership, deleteVideo);
 
 // Admin moderation routes
 router.get("/moderation/pending", authenticateToken, requireAdmin, getPendingModerationVideos);

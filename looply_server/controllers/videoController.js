@@ -139,10 +139,65 @@ export const getVideoById = async (req, res) => {
 
 export const deleteVideo = async (req, res) => {
   try {
-    await Video.findByIdAndDelete(req.params.id);
-    res.json({ message: "Đã xoá video" });
+    const videoId = req.params.id;
+    const video = req.video; // Video đã được kiểm tra ownership trong middleware
+    
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    // 1. Xóa video từ Cloudinary nếu có cloudinaryPublicId
+    if (video.cloudinaryPublicId) {
+      try {
+        configureCloudinary();
+        await cloudinary.uploader.destroy(video.cloudinaryPublicId, {
+          resource_type: "video"
+        });
+        console.log(`[DeleteVideo] ✅ Deleted video from Cloudinary: ${video.cloudinaryPublicId}`);
+      } catch (cloudinaryError) {
+        console.error(`[DeleteVideo] ⚠️ Error deleting from Cloudinary:`, cloudinaryError);
+        // Tiếp tục xóa dù Cloudinary có lỗi
+      }
+    }
+
+    // 2. Xóa thumbnail từ Cloudinary nếu có
+    if (video.thumbnail) {
+      try {
+        const thumbnailPublicId = getPublicIdFromUrl(video.thumbnail);
+        if (thumbnailPublicId) {
+          await cloudinary.uploader.destroy(thumbnailPublicId, {
+            resource_type: "image"
+          });
+          console.log(`[DeleteVideo] ✅ Deleted thumbnail from Cloudinary: ${thumbnailPublicId}`);
+        }
+      } catch (thumbnailError) {
+        console.error(`[DeleteVideo] ⚠️ Error deleting thumbnail:`, thumbnailError);
+      }
+    }
+
+    // 3. Xóa tất cả likes liên quan đến video
+    await Like.deleteMany({ 
+      targetType: "video", 
+      targetId: videoId 
+    });
+
+    // 4. Xóa tất cả comments liên quan đến video
+    await Comment.deleteMany({ videoId: videoId });
+
+    // 5. Xóa tất cả saves liên quan đến video
+    await Save.deleteMany({ videoId: videoId });
+
+    // 6. Xóa tất cả video views liên quan đến video
+    await VideoView.deleteMany({ videoId: videoId });
+
+    // 7. Xóa video từ database
+    await Video.findByIdAndDelete(videoId);
+
+    console.log(`[DeleteVideo] ✅ Successfully deleted video: ${videoId}`);
+    res.json({ message: "Đã xoá video thành công" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("[DeleteVideo] ❌ Error deleting video:", error);
+    res.status(500).json({ message: error.message || "Lỗi khi xóa video" });
   }
 };
 
