@@ -72,6 +72,38 @@ export function getPublicIdFromUrl(url) {
 }
 
 /**
+ * Make thumbnail (derived asset) public in Cloudinary
+ * @param {string} thumbnailUrl - Cloudinary thumbnail URL from eager transformation
+ * @returns {Promise<string>} - Public thumbnail URL
+ */
+export async function makeThumbnailPublic(thumbnailUrl) {
+  try {
+    configureCloudinary();
+    
+    // Extract public ID from thumbnail URL
+    const thumbnailPublicId = getPublicIdFromUrl(thumbnailUrl);
+    if (!thumbnailPublicId) {
+      console.warn('[makeThumbnailPublic] Could not extract public ID from thumbnail URL');
+      return thumbnailUrl;
+    }
+
+    // Make thumbnail public using explicit API
+    const result = await cloudinary.uploader.explicit(thumbnailPublicId, {
+      type: 'upload',
+      resource_type: 'image',
+      access_mode: 'public',
+    });
+
+    // Return the public URL
+    return result.secure_url || thumbnailUrl;
+  } catch (error) {
+    console.error('Error making thumbnail public:', error);
+    // Return original URL as fallback
+    return thumbnailUrl;
+  }
+}
+
+/**
  * Generate thumbnail URL from video URL using Cloudinary transformation
  * This creates a dynamic thumbnail URL without storing a separate file
  * @param {string} videoUrl - Cloudinary video URL
