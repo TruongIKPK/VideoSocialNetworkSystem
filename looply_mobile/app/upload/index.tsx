@@ -16,14 +16,13 @@ import {
 import { VideoView, useVideoPlayer } from "expo-video";
 import { AntDesign } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getToken } from "@/utils/tokenStorage";
+import { uploadVideoAsync } from "@/services/uploadService";
 
 export default function UploadScreen() {
   const { uri, type } = useLocalSearchParams();
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
 
-  const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [error, setError] = useState("");
@@ -69,8 +68,6 @@ export default function UploadScreen() {
     }
   }, [mediaUri, isVideo]);
 
-  const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
-
   const handleUpload = async () => {
     // Validation
     if (isUploading || !mediaUri) return;
@@ -96,106 +93,40 @@ export default function UploadScreen() {
       return;
     }
 
-    setIsUploading(true);
-    setProgress(0);
+    // Clear any previous errors
     setError("");
+    setIsUploading(true);
 
-    const formData = new FormData();
-    formData.append("title", trimmedTitle);
-    formData.append("description", desc.trim());
-
-    // Determine file type and name based on URI
+    // Determine file extension
     const fileExtension = mediaUri.split('.').pop()?.toLowerCase() || 'mp4';
-    const mimeType = fileExtension === 'mov' ? 'video/quicktime' : 'video/mp4';
-    const fileName = `upload.${fileExtension}`;
 
-    formData.append("file", {
-      uri: mediaUri,
-      type: mimeType,
-      name: fileName,
-    } as any);
+    // Show confirmation alert before starting upload
+    Alert.alert(
+      "Đang tải lên",
+      "Video đang được tải lên vui lòng đợi",
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            // Start upload asynchronously (don't await)
+            uploadVideoAsync({
+              title: trimmedTitle,
+              description: desc,
+              mediaUri,
+              fileExtension,
+            }).catch((err) => {
+              // Error is already handled in uploadService and notification is sent
+              console.error("Upload service error:", err);
+            });
 
-    try {
-      const token = await getToken();
-      
-      if (!token) {
-        Alert.alert("Lỗi", "Vui lòng đăng nhập lại");
-        router.replace("/(tabs)/profile");
-        setIsUploading(false);
-        return;
-      }
-
-      // Simulate progress (since fetch doesn't support real progress)
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) return 90; // Don't go to 100 until upload completes
-          return prev + 2;
-        });
-      }, 300);
-
-      const response = await fetch(`${API_BASE_URL}/videos/upload`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Accept": "application/json",
-        },
-        body: formData,
-      });
-
-      clearInterval(interval);
-
-      if (response.ok) {
-        setProgress(100);
-        const data = await response.json();
-        
-        // Check moderation status
-        const moderationStatus = data.moderationStatus || "pending";
-        let alertTitle = "Thành công";
-        let alertMessage = "Video đã được đăng!";
-        
-        if (moderationStatus === "pending") {
-          alertTitle = "Video đang được kiểm duyệt";
-          alertMessage = data.message || "Video của bạn đang được kiểm duyệt. Bạn sẽ được thông báo khi video được duyệt.";
-        } else if (moderationStatus === "flagged" || moderationStatus === "rejected") {
-          alertTitle = "Video cần xem xét";
-          alertMessage = "Video của bạn cần được xem xét bởi quản trị viên trước khi được hiển thị.";
-        }
-        
-        Alert.alert(alertTitle, alertMessage, [
-          {
-            text: "OK",
-            onPress: () => {
-              router.replace({ 
-                pathname: "/(tabs)/profile", 
-                params: { uploaded: "true" }
-              });
-            },
+            // Navigate away after user confirms
+            // Upload will continue in background and notification will be sent when complete
+            router.replace("/(tabs)/profile");
           },
-        ]);
-      } else {
-        const errorText = await response.text();
-        let errorMessage = "Lỗi khi upload video";
-        
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.message || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-
-        setError(errorMessage);
-        setProgress(0);
-        Alert.alert("Lỗi Server", errorMessage);
-      }
-
-    } catch (err: any) {
-      console.error("Upload error:", err);
-      setError("Lỗi kết nối. Vui lòng kiểm tra internet và thử lại.");
-      setProgress(0);
-      Alert.alert("Lỗi Mạng", "Kiểm tra kết nối internet");
-    } finally {
-      setIsUploading(false);
-    }
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   if (!mediaUri || !isVideo) {
@@ -313,18 +244,6 @@ export default function UploadScreen() {
           </View>
 
           <View style={styles.bottomSection}>
-            {(isUploading || progress > 0) && (
-              <View style={styles.progressContainer}>
-                <Text style={styles.fileName}>video_recording.mp4</Text>
-                <View style={styles.progressBarBackground}>
-                  <View
-                    style={[styles.progressBarFill, { width: `${progress}%` }]}
-                  />
-                </View>
-                <Text style={styles.progressText}>{Math.round(progress)}%</Text>
-              </View>
-            )}
-
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={[
@@ -479,26 +398,6 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   bottomSection: { marginTop: 20, marginBottom: 20 },
-  progressContainer: { marginBottom: 20 },
-  fileName: { fontWeight: "600", marginBottom: 8, color: "#111" },
-  progressBarBackground: {
-    width: "100%",
-    height: 8,
-    backgroundColor: "#c7d3d4",
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    backgroundColor: "#3b5557",
-    borderRadius: 10,
-  },
-  progressText: {
-    alignSelf: "flex-end",
-    fontSize: 12,
-    color: "#666",
-    marginTop: 4,
-  },
   buttonRow: { flexDirection: "row", justifyContent: "center", gap: 20 },
   uploadBtn: {
     backgroundColor: "#ff4d5a",
