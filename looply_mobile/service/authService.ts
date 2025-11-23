@@ -1,0 +1,351 @@
+import { saveToken, getToken, removeToken } from "@/utils/tokenStorage";
+
+// Validators
+export const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+export const validatePassword = (password: string): boolean => {
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const isLongEnough = password.length >= 8;
+  return hasUpperCase && hasLowerCase && hasNumbers && isLongEnough;
+};
+
+// Types
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+}
+
+export interface User {
+  _id: string;
+  name: string;
+  username: string;
+  email: string;
+  bio: string;
+  avatar: string;
+  role?: string;
+  status?: string;
+  followers: number;
+  followersList: string[];
+  following: number;
+  followingList: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  token?: string;
+  user?: User;
+}
+
+export interface ValidationErrors {
+  [key: string]: string;
+}
+
+// Validation Functions
+export const validateLoginForm = (
+  email: string,
+  password: string
+): ValidationErrors => {
+  const errors: ValidationErrors = {};
+
+  if (!email.trim()) {
+    errors.email = "Email không được để trống";
+  } else if (!validateEmail(email)) {
+    errors.email = "Email không hợp lệ";
+  }
+
+  if (!password.trim()) {
+    errors.password = "Mật khẩu không được để trống";
+  } else if (password.length < 5) {
+    errors.password = "Mật khẩu phải có ít nhất 5 ký tự";
+  }
+
+  return errors;
+};
+
+export const validateRegisterForm = (
+  fullName: string,
+  email: string,
+  password: string,
+  confirmPassword: string,
+  agreeTerms: boolean
+): ValidationErrors => {
+  const errors: ValidationErrors = {};
+
+  // Validate Full Name
+  if (!fullName.trim()) {
+    errors.fullName = "Họ và tên không được để trống";
+  } else if (fullName.trim().length < 3) {
+    errors.fullName = "Họ và tên phải có ít nhất 3 ký tự";
+  }
+
+  // Validate Email
+  if (!email.trim()) {
+    errors.email = "Email không được để trống";
+  } else if (!validateEmail(email)) {
+    errors.email = "Email không hợp lệ";
+  }
+
+  // Validate Password
+  if (!password.trim()) {
+    errors.password = "Mật khẩu không được để trống";
+  } else if (password.length < 5) {
+    errors.password = "Mật khẩu phải có ít nhất 5 ký tự";
+  }
+
+  // Validate Confirm Password
+  if (!confirmPassword.trim()) {
+    errors.confirmPassword = "Xác nhận mật khẩu không được để trống";
+  } else if (password !== confirmPassword) {
+    errors.confirmPassword = "Mật khẩu xác nhận không trùng khớp";
+  }
+
+  // Validate Terms
+  if (!agreeTerms) {
+    errors.terms = "Bạn phải đồng ý với điều khoản sử dụng";
+  }
+
+  return errors;
+};
+
+// API Service
+export const authService = {
+  API_BASE_URL: "https://videosocialnetworksystem.onrender.com/api",
+
+  /**
+   * Đăng nhập
+   */
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/users/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: credentials.email,
+          password: credentials.password,
+        }),
+      });
+
+      // Kiểm tra Content-Type và parse JSON an toàn
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      
+      // Clone response để có thể đọc nhiều lần nếu cần
+      const responseClone = response.clone();
+      
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("JSON parse error:", parseError);
+          // Nếu không parse được JSON, lấy text response từ clone
+          try {
+            const textResponse = await responseClone.text();
+            console.error("Response text:", textResponse);
+            return {
+              success: false,
+              message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+            };
+          } catch (textError) {
+            return {
+              success: false,
+              message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+            };
+          }
+        }
+      } else {
+        // Nếu không phải JSON, lấy text response
+        try {
+          const textResponse = await response.text();
+          console.error("Non-JSON response:", textResponse);
+          return {
+            success: false,
+            message: textResponse || "Đăng nhập thất bại. Vui lòng thử lại!",
+          };
+        } catch (textError) {
+          return {
+            success: false,
+            message: "Đăng nhập thất bại. Vui lòng thử lại!",
+          };
+        }
+      }
+
+      if (response.status === 200) {
+        // Extract token từ API response (có thể từ data.token hoặc data là token string)
+        const token = data.token || (typeof data === "string" ? data : null);
+        
+        // Extract user data (có thể từ data.user hoặc data chính là user object)
+        const userData = data.user || (typeof data === "object" && !data.token ? data : null);
+        
+        // Lưu token vào secure store nếu có
+        if (token) {
+          await saveToken(token);
+        }
+
+        return {
+          success: true,
+          message: "Đăng nhập thành công",
+          token: token || undefined,
+          user: userData || undefined,
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || "Đăng nhập thất bại",
+        };
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      return {
+        success: false,
+        message: "Không thể kết nối đến máy chủ. Vui lòng thử lại!",
+      };
+    }
+  },
+
+  /**
+   * Đăng kí
+   */
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      const response = await fetch(`${this.API_BASE_URL}/users/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: credentials.fullName,
+          username: credentials.fullName,
+          email: credentials.email,
+          password: credentials.password,
+        }),
+      });
+
+      // Kiểm tra Content-Type và parse JSON an toàn
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("JSON parse error:", parseError);
+          // Nếu không parse được JSON, lấy text response
+          const textResponse = await response.text();
+          console.error("Response text:", textResponse);
+          return {
+            success: false,
+            message: "Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại!",
+          };
+        }
+      } else {
+        // Nếu không phải JSON, lấy text response
+        const textResponse = await response.text();
+        console.error("Non-JSON response:", textResponse);
+        return {
+          success: false,
+          message: textResponse || "Đăng kí thất bại. Vui lòng thử lại!",
+        };
+      }
+
+      if (response.status === 201) {
+        // Extract token từ API response nếu có (có thể từ data.token hoặc data là token string)
+        const token = data.token || (typeof data === "string" ? data : null);
+        
+        // Extract user data (có thể từ data.user hoặc data chính là user object)
+        const userData = data.user || (typeof data === "object" && !data.token ? data : null);
+        
+        // Lưu token vào secure store nếu có
+        if (token) {
+          await saveToken(token);
+        }
+
+        return {
+          success: true,
+          message: "Đăng kí tài khoản thành công! Vui lòng đăng nhập.",
+          token: token || undefined,
+          user: userData || undefined,
+        };
+      } else if (response.status === 400) {
+        return {
+          success: false,
+          message: data.message || "Email đã được sử dụng",
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || "Đăng kí thất bại",
+        };
+      }
+    } catch (error) {
+      console.error("Register error:", error);
+      return {
+        success: false,
+        message: "Không thể kết nối đến máy chủ. Vui lòng thử lại!",
+      };
+    }
+  },
+
+  /**
+   * Đăng xuất
+   */
+  async logout(): Promise<void> {
+    try {
+      // Xóa token khỏi storage
+      await removeToken();
+      console.log("Logged out");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  },
+
+  /**
+   * Lấy token đã lưu từ storage
+   */
+  async getStoredToken(): Promise<string | null> {
+    try {
+      return await getToken();
+    } catch (error) {
+      console.error("Error getting stored token:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Lấy headers với Authorization Bearer token để dùng trong các API calls
+   * @returns Promise với headers object chứa Authorization Bearer token nếu có
+   */
+  async getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const token = await getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Error getting token for headers:", error);
+    }
+
+    return headers;
+  },
+};
+
+export default authService;

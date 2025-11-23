@@ -1,0 +1,7 @@
+npm install -g pnpm
+pnpm install       
+pnpm add formidable
+git pull origin main
+pnpm install mongodb
+pnpm install streamifier
+pnpm install cloudinary
