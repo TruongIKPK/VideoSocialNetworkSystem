@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
@@ -50,6 +51,7 @@ export default function AdminReportDetailScreen() {
   const params = useLocalSearchParams();
   const { user } = useCurrentUser();
   const { token } = useUser();
+  const Colors = useColors(); // Get theme-aware colors
   
   const [report, setReport] = useState<Report | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +60,9 @@ export default function AdminReportDetailScreen() {
   const [videoData, setVideoData] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const reportId = Array.isArray(params.reportId) ? params.reportId[0] : params.reportId;
 
@@ -1119,11 +1124,12 @@ export default function AdminReportDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1737,5 +1743,6 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};
 
