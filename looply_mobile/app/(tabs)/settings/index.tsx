@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
@@ -29,8 +31,13 @@ interface SettingItem {
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, logout } = useUser();
+  const { theme, toggleTheme } = useTheme();
+  const Colors = useColors(); // Get theme-aware colors
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const darkModeEnabled = theme === "dark";
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -93,11 +100,15 @@ export default function SettingsScreen() {
     {
       id: "dark-mode",
       title: "Chế độ tối",
-      subtitle: "Bật/tắt chế độ tối",
-      icon: "moon-outline",
+      subtitle: darkModeEnabled ? "Đang bật" : "Đang tắt",
+      icon: darkModeEnabled ? "moon" : "moon-outline",
       type: "toggle",
       value: darkModeEnabled,
-      onPress: () => setDarkModeEnabled(!darkModeEnabled),
+      onPress: async () => {
+        console.log(`[Settings] Dark mode toggle pressed. Current: ${darkModeEnabled ? "dark" : "light"}`);
+        await toggleTheme();
+        console.log(`[Settings] Dark mode toggle completed. New: ${!darkModeEnabled ? "dark" : "light"}`);
+      },
     },
     {
       id: "language",
@@ -261,11 +272,12 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
   },
@@ -364,4 +376,5 @@ const styles = StyleSheet.create({
     color: Colors.text.tertiary,
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};
