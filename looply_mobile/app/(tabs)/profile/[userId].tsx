@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 import { logger } from "@/utils/logger";
@@ -37,6 +38,7 @@ export default function UserProfile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const Colors = useColors(); // Get theme-aware colors
   
   // Lấy userId từ dynamic route [userId]
   // Trong expo-router, dynamic route params có thể là string hoặc string[]
@@ -62,6 +64,9 @@ export default function UserProfile() {
   const [liked, setLiked] = useState<VideoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     if (targetUserId) {
@@ -366,11 +371,12 @@ export default function UserProfile() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.light,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.light,
+    },
   scrollView: {
     flex: 1,
   },
@@ -528,5 +534,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};
 

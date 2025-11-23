@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,11 +18,11 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
 import {
-  Colors,
   Typography,
   Spacing,
   BorderRadius,
 } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 
@@ -40,20 +40,33 @@ interface VideoPost {
   type?: 'video' | 'image';
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.light,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   profileSection: {
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
     backgroundColor: Colors.white,
+    marginHorizontal: 0,
+    marginBottom: Spacing.md,
+    borderRadius: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
   },
   avatar: {
     width: 100,
@@ -138,9 +151,9 @@ const styles = StyleSheet.create({
   videoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   videoItemWrapper: {
     width: itemWidth,
@@ -222,12 +235,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};
 
 export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const Colors = useColors(); // Get theme-aware colors
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   
   // Log tất cả params để debug - params có thể là string hoặc string[]
   useEffect(() => {
@@ -656,10 +674,11 @@ export default function Profile() {
       : liked;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

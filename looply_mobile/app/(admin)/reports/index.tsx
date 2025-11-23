@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri } from "@/utils/imageHelpers";
@@ -46,8 +47,12 @@ export default function AdminReportsScreen() {
   const router = useRouter();
   const { token } = useUser();
   const { user } = useCurrentUser();
+  const Colors = useColors(); // Get theme-aware colors
   const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     fetchReports();
@@ -263,11 +268,12 @@ export default function AdminReportsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
     marginHorizontal: 0,
@@ -441,5 +447,6 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};
 
