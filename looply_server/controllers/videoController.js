@@ -4,7 +4,7 @@ import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
 import Save from "../models/Save.js";
 import Comment from "../models/Comment.js";
-import cloudinary, { configureCloudinary, getPublicIdFromUrl } from "../config/cloudinary.js";
+import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl } from "../config/cloudinary.js";
 import { uploadVideoToS3 } from "../services/s3Service.js";
 import { startContentModeration } from "../services/rekognitionService.js";
 import fs from "fs";
@@ -33,12 +33,19 @@ export const uploadVideo = async (req, res) => {
       access_mode: "authenticated", // Private access
     });
 
-    // Step 2: Create video record with pending moderation status
+    // Step 2: Generate thumbnail URL using Cloudinary transformation
+    const thumbnailUrl = generateThumbnailUrl(
+      cloudinaryResult.secure_url,
+      cloudinaryResult.public_id,
+      { width: 320, height: 240, offset: 1 }
+    );
+
+    // Step 3: Create video record with pending moderation status
     const video = await Video.create({
       title,
       description,
       url: cloudinaryResult.secure_url,
-      thumbnail: cloudinaryResult.secure_url.replace(".mp4", ".jpg"),
+      thumbnail: thumbnailUrl || cloudinaryResult.secure_url, // Fallback to video URL if thumbnail generation fails
       cloudinaryPublicId: cloudinaryResult.public_id,
       cloudinaryTempUrl: cloudinaryResult.secure_url,
       moderationStatus: "pending",
@@ -160,20 +167,9 @@ export const deleteVideo = async (req, res) => {
       }
     }
 
-    // 2. Xóa thumbnail từ Cloudinary nếu có
-    if (video.thumbnail) {
-      try {
-        const thumbnailPublicId = getPublicIdFromUrl(video.thumbnail);
-        if (thumbnailPublicId) {
-          await cloudinary.uploader.destroy(thumbnailPublicId, {
-            resource_type: "image"
-          });
-          console.log(`[DeleteVideo] ✅ Deleted thumbnail from Cloudinary: ${thumbnailPublicId}`);
-        }
-      } catch (thumbnailError) {
-        console.error(`[DeleteVideo] ⚠️ Error deleting thumbnail:`, thumbnailError);
-      }
-    }
+    // 2. Thumbnail không cần xóa vì nó được tạo động từ video URL
+    // Thumbnail URL được generate từ video public ID, không phải file riêng
+    // Khi video bị xóa, thumbnail URL sẽ tự động không còn hoạt động
 
     // 3. Xóa tất cả likes liên quan đến video
     await Like.deleteMany({ 
@@ -636,9 +632,22 @@ export const approveVideo = async (req, res) => {
       }
     }
 
-    // Update video status
+    // Update video status and regenerate thumbnail URL
     video.moderationStatus = "approved";
     video.url = video.cloudinaryTempUrl || video.url;
+    
+    // Regenerate thumbnail URL using the updated video URL
+    if (video.url && video.cloudinaryPublicId) {
+      const newThumbnailUrl = generateThumbnailUrl(
+        video.url,
+        video.cloudinaryPublicId,
+        { width: 320, height: 240, offset: 1 }
+      );
+      if (newThumbnailUrl) {
+        video.thumbnail = newThumbnailUrl;
+      }
+    }
+    
     await video.save();
 
     res.json({

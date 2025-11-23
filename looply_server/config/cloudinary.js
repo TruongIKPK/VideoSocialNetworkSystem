@@ -71,4 +71,63 @@ export function getPublicIdFromUrl(url) {
   }
 }
 
+/**
+ * Generate thumbnail URL from video URL using Cloudinary transformation
+ * This creates a dynamic thumbnail URL without storing a separate file
+ * @param {string} videoUrl - Cloudinary video URL
+ * @param {string} publicId - Cloudinary public ID (optional, will be extracted from URL if not provided)
+ * @param {Object} options - Transformation options
+ * @param {number} options.width - Thumbnail width (default: 320)
+ * @param {number} options.height - Thumbnail height (default: 240)
+ * @param {number} options.offset - Time offset in seconds to capture frame (default: 1, takes frame at 1 second)
+ * @returns {string} - Thumbnail URL
+ */
+export function generateThumbnailUrl(videoUrl, publicId = null, options = {}) {
+  if (!videoUrl) return null;
+
+  try {
+    configureCloudinary();
+    
+    // Extract public ID from URL if not provided
+    const videoPublicId = publicId || getPublicIdFromUrl(videoUrl);
+    if (!videoPublicId) {
+      // If not a Cloudinary URL, return null or fallback
+      return null;
+    }
+
+    const {
+      width = 320,
+      height = 240,
+      offset = 1, // Capture frame at 1 second
+    } = options;
+
+    // Generate thumbnail URL using Cloudinary transformation
+    // Transformation: w_320,h_240,c_fill,q_auto,f_jpg,so_1
+    // - w_320, h_240: width and height
+    // - c_fill: crop mode fill
+    // - q_auto: automatic quality
+    // - f_jpg: format JPEG
+    // - so_1: start offset 1 second (capture frame at 1 second)
+    const thumbnailUrl = cloudinary.url(videoPublicId, {
+      resource_type: 'video',
+      transformation: [
+        {
+          width: width,
+          height: height,
+          crop: 'fill',
+          quality: 'auto',
+          format: 'jpg',
+          start_offset: offset,
+        }
+      ]
+    });
+
+    return thumbnailUrl;
+  } catch (error) {
+    console.error('Error generating thumbnail URL:', error);
+    // Fallback: return null or original video URL
+    return null;
+  }
+}
+
 export default cloudinary;
