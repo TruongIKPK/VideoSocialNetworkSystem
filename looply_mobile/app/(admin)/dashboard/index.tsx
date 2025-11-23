@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { formatNumber, getAvatarUri } from "@/utils/imageHelpers";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface StatsData {
   total: {
@@ -316,21 +318,24 @@ export default function AdminDashboardScreen() {
       >
         {/* Admin Info Card */}
         <View style={styles.adminCard}>
-          <Image
-            source={getAvatarUri(user?.avatar)}
-            style={styles.avatar}
-          />
-          <View style={styles.adminTextContainer}>
-            <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
-            <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
-            {user?.email && (
-              <Text style={styles.adminEmail}>{user.email}</Text>
-            )}
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              <Text style={styles.adminRole}>Bảng quản trị | Mobile</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Dashboard Content */}
         <View style={styles.dashboardCard}>
+          <View style={styles.dashboardCardContent}>
             {/* Quick Overview */}
           {stats && (
             <View style={styles.section}>
@@ -388,8 +393,8 @@ export default function AdminDashboardScreen() {
                     <Image source={{ uri: video.thumbnail }} style={styles.videoThumbnailImage} />
                   </View>
                   <View style={styles.videoInfo}>
-                    <Text style={styles.videoTitle}>{video.title}</Text>
-                    <Text style={styles.videoMeta}>
+                    <Text style={styles.videoTitle} numberOfLines={1} ellipsizeMode="tail">{video.title}</Text>
+                    <Text style={styles.videoMeta} numberOfLines={1} ellipsizeMode="tail">
                       {video.user?.name || video.user?.username || "Unknown"} • {formatNumber(video.views || 0)} lượt xem
                     </Text>
                   </View>
@@ -507,6 +512,7 @@ export default function AdminDashboardScreen() {
               </View>
             )}
           </View>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -520,9 +526,13 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0, 
   },
   scrollContent: {
-    paddingBottom: 120, // Đủ space cho tab bar
+    paddingBottom: 120, 
+    paddingHorizontal: 0, 
+    marginHorizontal: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -531,14 +541,12 @@ const styles = StyleSheet.create({
   },
   adminCard: {
     backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginHorizontal: 0, 
+    marginTop: 0, 
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
+    borderRadius: 0, 
+    paddingVertical: Spacing.md, 
+    paddingHorizontal: 0,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -548,6 +556,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  adminCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md, // Padding để text không bị tràn
+    flex: 1,
+  },
   avatar: {
     width: 50,
     height: 50,
@@ -556,12 +571,14 @@ const styles = StyleSheet.create({
   },
   adminTextContainer: {
     flex: 1,
+    minWidth: 0, // Đảm bảo flex shrink hoạt động
   },
   adminName: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1, // Cho phép text co lại nếu cần
   },
   adminRole: {
     fontSize: Typography.fontSize.sm,
@@ -577,10 +594,15 @@ const styles = StyleSheet.create({
   },
   dashboardCard: {
     backgroundColor: "#E5E5E5",
-    marginHorizontal: Spacing.lg,
+    marginHorizontal: 0, // Full màn hình - sát nép cạnh
     marginBottom: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+    borderRadius: 0, // Full màn hình
+    paddingVertical: Spacing.md, // Chỉ padding trên dưới
+    paddingHorizontal: 0, // Sát nép cạnh trái phải
+  },
+  dashboardCardContent: {
+    paddingHorizontal: Spacing.md, // Padding để text không bị tràn
+    width: "100%", // Đảm bảo không vượt quá màn hình
   },
   dashboardTitle: {
     fontSize: Typography.fontSize.xxl,
@@ -612,13 +634,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
     marginTop: Spacing.sm,
+    width: "100%", // Đảm bảo không vượt quá màn hình
   },
   statCard: {
     flex: 1,
     backgroundColor: "#D1D1D1",
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    padding: Spacing.sm, // Giảm padding để vừa màn hình nhỏ
     alignItems: "center",
+    minWidth: 0, // Đảm bảo flex shrink hoạt động
   },
   statLabel: {
     fontSize: Typography.fontSize.sm,
@@ -680,6 +704,7 @@ const styles = StyleSheet.create({
   videoInfo: {
     flex: 1,
     marginLeft: Spacing.sm,
+    minWidth: 0, // Đảm bảo flex shrink hoạt động
   },
   videoTitle: {
     fontSize: Typography.fontSize.md,
@@ -687,6 +712,7 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.medium,
     marginBottom: 2,
+    flexShrink: 1, // Cho phép text co lại nếu cần
   },
   videoMeta: {
     fontSize: Typography.fontSize.sm,
@@ -696,12 +722,14 @@ const styles = StyleSheet.create({
   videoActions: {
     flexDirection: "row",
     gap: Spacing.xs,
+    flexShrink: 0, // Buttons không co lại
   },
   viewButton: {
     backgroundColor: "#D1D1D1",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm, // Giảm padding để vừa màn hình nhỏ
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
+    minWidth: 50, // Đảm bảo button có kích thước tối thiểu
   },
   viewButtonText: {
     fontSize: Typography.fontSize.sm,
@@ -711,9 +739,10 @@ const styles = StyleSheet.create({
   },
   violationButton: {
     backgroundColor: "#EF4444",
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm, // Giảm padding để vừa màn hình nhỏ
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
+    minWidth: 60, // Đảm bảo button có kích thước tối thiểu
   },
   violationButtonText: {
     fontSize: Typography.fontSize.sm,
