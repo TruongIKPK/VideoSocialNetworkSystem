@@ -59,9 +59,17 @@ export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: "Không tìm thấy video" });
+    
+    // Nếu video có status "violation", chỉ cho phép admin xem
     if (video.status === "violation") {
-      return res.status(403).json({ message: "Video này đã bị vi phạm" });
+      // Kiểm tra nếu user là admin (req.user được set bởi authenticateToken middleware)
+      if (!req.user || req.user.role !== "admin") {
+        return res.status(403).json({ message: "Video này đã bị vi phạm" });
+      }
+      // Admin có thể xem video vi phạm
+      console.log(`[getVideoById] Admin ${req.user.username} viewing violation video: ${video._id}`);
     }
+    
     res.json(video);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -280,7 +288,10 @@ export const getVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,
@@ -343,7 +354,10 @@ export const getLikedVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,
@@ -405,7 +419,10 @@ export const getSavedVideosByUserId = async (req, res) => {
           targetType: "video", 
           targetId: video._id 
         });
-        const comments = await Comment.countDocuments({ videoId: video._id });
+        const comments = await Comment.countDocuments({ 
+          videoId: video._id,
+          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
+        });
 
         return {
           ...video,

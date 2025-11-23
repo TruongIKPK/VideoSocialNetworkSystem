@@ -8,6 +8,7 @@ import {
   updateVideoStatus,
   getAllComments,
   updateCommentStatus,
+  deleteComment,
   getRecentVideos,
   getRecentReports,
 } from "../controllers/adminController.js";
@@ -102,6 +103,7 @@ router.get("/videos/:videoId", (req, res, next) => {
 // Comment Management
 router.get("/comments", getAllComments);
 router.put("/comments/:commentId/status", updateCommentStatus);
+router.delete("/comments/:commentId", deleteComment);
 
 // Catch-all route handler for debugging - should be last
 router.use((req, res) => {

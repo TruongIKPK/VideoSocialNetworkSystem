@@ -14,7 +14,7 @@ import {
   getLikedVideosByUserId,
   getSavedVideosByUserId
 } from "../controllers/videoController.js";
-import { authenticateToken, checkOwnership, requireAdmin } from "../middleware/auth.js";
+import { authenticateToken, checkOwnership, requireAdmin, optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -32,7 +32,8 @@ router.get("/latest", getLatestVideos);
 router.get("/user/:userId", getVideosByUserId); // Lấy video theo userId
 router.get("/liked/:userId", getLikedVideosByUserId); // Lấy video đã thích
 router.get("/saved/:userId", getSavedVideosByUserId); // Lấy video đã save
-router.get("/", getAllVideos);                              
-router.get("/:id", getVideoById);                       
+router.get("/", getAllVideos);
+// Route get video by ID - optional auth (nếu có token và là admin thì có thể xem video vi phạm)
+router.get("/:id", optionalAuth, getVideoById);                       
 
 export default router;
