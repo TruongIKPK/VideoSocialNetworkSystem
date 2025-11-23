@@ -228,7 +228,6 @@ export default function Profile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
-
   
   // Log tất cả params để debug - params có thể là string hoặc string[]
   useEffect(() => {
@@ -312,7 +311,6 @@ export default function Profile() {
   const fetchOtherUserProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-
       console.log(`[Profile] 🔍 Fetching user profile for ID:`, userId);
       
       const response = await fetch(`${API_BASE_URL}/users/${userId}`);
@@ -502,7 +500,6 @@ export default function Profile() {
 
   const onRefresh = () => {
     setRefreshing(true);
-
     if (isViewingOtherProfile && targetUserId) {
       fetchOtherUserProfile(targetUserId).then(() => {
         setRefreshing(false);

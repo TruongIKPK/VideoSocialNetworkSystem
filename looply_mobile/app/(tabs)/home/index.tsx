@@ -131,7 +131,6 @@ export default function HomeScreen() {
       console.error(`[Home] ❌ Error fetching specific video:`, error);
     }
   };
-
   // Xử lý scroll đến video khi có videoId từ params
   useEffect(() => {
     const videoId = params.videoId as string | undefined;

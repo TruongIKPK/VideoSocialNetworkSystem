@@ -1,4 +1,3 @@
-
 import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { format, isToday, isYesterday, isThisYear } from "date-fns";
