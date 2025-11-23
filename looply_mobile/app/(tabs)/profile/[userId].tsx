@@ -15,15 +15,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  Shadows,
-} from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
+import { logger } from "@/utils/logger";
 
 const { width } = Dimensions.get("window");
 const itemWidth = (width - 60) / 3;
@@ -36,187 +31,132 @@ interface VideoPost {
   title: string;
   likes?: number;
   views?: number;
-  type?: 'video' | 'image';
 }
 
-export default function Profile() {
+export default function UserProfile() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
   const router = useRouter();
   const params = useLocalSearchParams();
   
-  // Log tất cả params để debug - params có thể là string hoặc string[]
-  useEffect(() => {
-    console.log(`[Profile] 📥 All params received:`, params);
-    console.log(`[Profile] 📥 Params type:`, {
-      userId: typeof params.userId,
-      username: typeof params.username,
-      userIdValue: params.userId,
-      usernameValue: params.username
-    });
-  }, [params]);
-  
-  // Xử lý params - expo-router có thể trả về string hoặc string[]
+  // Lấy userId từ dynamic route [userId]
+  // Trong expo-router, dynamic route params có thể là string hoặc string[]
   const targetUserId = Array.isArray(params.userId) 
     ? params.userId[0] 
     : (params.userId as string | undefined);
-  const targetUsername = Array.isArray(params.username) 
-    ? params.username[0] 
-    : (params.username as string | undefined);
   
-  // Log params đã parse để debug
-  useEffect(() => {
-    console.log(`[Profile] 📥 Parsed params:`, { 
-      userId: targetUserId, 
-      username: targetUsername,
-      currentUserId: currentUser?._id,
-      hasTargetUserId: !!targetUserId,
-      targetUserIdType: typeof targetUserId,
-      willViewOtherProfile: targetUserId && targetUserId !== currentUser?._id
-    });
-  }, [targetUserId, targetUsername, currentUser?._id]);
+  // Lấy user data từ params (fallback từ search results)
+  const fallbackUserData = params.userName ? {
+    _id: targetUserId,
+    name: Array.isArray(params.userName) ? params.userName[0] : params.userName,
+    username: Array.isArray(params.userUsername) ? params.userUsername[0] : params.userUsername,
+    avatar: Array.isArray(params.userAvatar) ? params.userAvatar[0] : params.userAvatar,
+    bio: Array.isArray(params.userBio) ? params.userBio[0] : params.userBio,
+    followers: parseInt(Array.isArray(params.userFollowers) ? params.userFollowers[0] : params.userFollowers || '0'),
+    following: parseInt(Array.isArray(params.userFollowing) ? params.userFollowing[0] : params.userFollowing || '0'),
+  } : null;
   
-  // Nếu có userId từ params, hiển thị profile của user đó, nếu không thì hiển thị profile của user hiện tại
-  const isViewingOtherProfile = targetUserId && targetUserId !== currentUser?._id;
-  const [profileUser, setProfileUser] = useState<any>(currentUser);
-
-  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
-    "video"
-  );
+  const [profileUser, setProfileUser] = useState<any>(fallbackUserData);
+  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
   const [liked, setLiked] = useState<VideoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [totalLikes, setTotalLikes] = useState(0);
 
   useEffect(() => {
-    console.log(`[Profile] 🔄 useEffect triggered:`, {
-      targetUserId,
-      isViewingOtherProfile,
-      isAuthenticated,
-      hasCurrentUser: !!currentUser
-    });
-
-    // Reset state khi params thay đổi
-    setVideos([]);
-    setFavorites([]);
-    setLiked([]);
-
-    if (isViewingOtherProfile && targetUserId) {
-      console.log(`[Profile] 👤 Fetching other user profile:`, targetUserId);
-      // Fetch profile của user khác
+    if (targetUserId) {
       fetchOtherUserProfile(targetUserId);
-    } else if (isAuthenticated && currentUser) {
-      console.log(`[Profile] 👤 Showing current user profile`);
-      // Hiển thị profile của user hiện tại
-      setProfileUser(currentUser);
-      fetchProfileData();
     } else {
-      console.log(`[Profile] ⚠️ No user data available`);
+      logger.warn(`[UserProfile] No userId provided`);
       setIsLoading(false);
     }
-  }, [isAuthenticated, currentUser?._id, activeTab, targetUserId, isViewingOtherProfile]);
+  }, [targetUserId]);
 
   const fetchOtherUserProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-      console.log(`[Profile] 🔍 Fetching user profile for ID:`, userId);
+      const url = `${API_BASE_URL}/users/${userId}`;
+      logger.debug(`[UserProfile] Fetching user profile:`, userId);
       
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-      console.log(`[Profile] 📡 User API response status:`, response.status);
+      const response = await fetch(url);
       
       if (response.ok) {
         const userData = await response.json();
-        console.log(`[Profile] ✅ User data received:`, {
-          id: userData._id,
-          name: userData.name,
-          username: userData.username
-        });
         setProfileUser(userData);
         
         // Fetch videos của user đó
-        console.log(`[Profile] 🔍 Fetching videos for user:`, userId);
         const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
-        console.log(`[Profile] 📡 Videos API response status:`, videosResponse.status);
         
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
           const videosArray = Array.isArray(videosData.videos || videosData) 
             ? (videosData.videos || videosData) 
             : [];
-          console.log(`[Profile] ✅ Videos received:`, videosArray.length);
           setVideos(videosArray);
         } else {
-          console.warn(`[Profile] ⚠️ Failed to fetch videos:`, videosResponse.status);
+          logger.warn(`[UserProfile] Failed to fetch videos:`, videosResponse.status);
           setVideos([]);
         }
       } else {
-        console.error(`[Profile] ❌ Failed to fetch user profile:`, response.status);
-        setProfileUser(null);
+        // Cải thiện error handling
+        let errorMessage = "Không tìm thấy người dùng";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          logger.error(`[UserProfile] Failed to parse error response:`, parseError);
+        }
+        
+        logger.error(`[UserProfile] Failed to fetch user profile:`, {
+          status: response.status,
+          userId: userId,
+          message: errorMessage
+        });
+        
+        // Nếu là 404, có thể do backend chưa có route này
+        if (response.status === 404) {
+          logger.warn(`[UserProfile] 404 - Using fallback user data if available`);
+          
+          // Sử dụng fallback data từ search results nếu có
+          if (fallbackUserData) {
+            setProfileUser(fallbackUserData);
+            // Vẫn fetch videos nếu có thể
+            try {
+              const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+              if (videosResponse.ok) {
+                const videosData = await videosResponse.json();
+                const videosArray = Array.isArray(videosData.videos || videosData) 
+                  ? (videosData.videos || videosData) 
+                  : [];
+                setVideos(videosArray);
+              }
+            } catch (videoError) {
+              logger.warn(`[UserProfile] Could not fetch videos:`, videoError);
+            }
+            setIsLoading(false);
+            return; // Không set profileUser = null, giữ fallback data
+          }
+        }
+        
+        // Chỉ set null nếu không có fallback data
+        if (!fallbackUserData) {
+          setProfileUser(null);
+        }
       }
     } catch (error) {
-      console.error("[Profile] ❌ Error fetching other user profile:", error);
+      logger.error("[UserProfile] Error fetching user profile:", error);
       setProfileUser(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchProfileData = async () => {
-    try {
-      setIsLoading(true);
-      const token = await require("@/utils/tokenStorage").getToken();
-
-      if (!token || !currentUser?._id) return;
-
-      // Fetch user videos
-      const videosResponse = await fetch(
-        `${API_BASE_URL}/videos/user/${currentUser._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Fetch total likes received
-      const totalLikesResponse = await fetch(
-        `${API_BASE_URL}/users/${currentUser._id}/total-likes`
-      );
-      if (totalLikesResponse.ok) {
-        const totalLikesData = await totalLikesResponse.json();
-        setTotalLikes(totalLikesData.totalLikes || 0);
-      }
-
-      if (videosResponse.ok) {
-        const videosData = await videosResponse.json();
-        setVideos(
-          Array.isArray(videosData.videos || videosData)
-            ? videosData.videos || videosData
-            : []
-        );
-      }
-
-      // For now, use empty arrays for favorites and liked
-      // These would need separate API endpoints
-      setFavorites([]);
-      setLiked([]);
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   const onRefresh = () => {
-    setRefreshing(true);
-    if (isViewingOtherProfile && targetUserId) {
+    if (targetUserId) {
+      setRefreshing(true);
       fetchOtherUserProfile(targetUserId).then(() => {
         setRefreshing(false);
       });
-    } else {
-      fetchProfileData();
     }
   };
 
@@ -234,57 +174,29 @@ export default function Profile() {
       <View style={styles.videoOverlay}>
         <View style={styles.videoStats}>
           <Ionicons name="eye-outline" size={12} color={Colors.white} />
-          <Text style={styles.videoStatsText}>
-            {formatNumber(item.views || 0)}
-          </Text>
+          <Text style={styles.videoStatsText}>{formatNumber(item.views || 0)}</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 
-  // Chỉ yêu cầu đăng nhập nếu đang xem profile của chính mình
-  // Cho phép xem profile của người khác mà không cần đăng nhập
-  if (!isViewingOtherProfile && (!isAuthenticated || !currentUser)) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.notLoggedInContainer}>
-          <Ionicons
-            name="person-circle-outline"
-            size={80}
-            color={Colors.gray[400]}
-          />
-          <Text style={styles.notLoggedInText}>Đăng nhập để xem hồ sơ</Text>
-          <Button
-            title="Đăng nhập"
-            onPress={() => router.push("/login")}
-            variant="primary"
-            style={{ marginTop: Spacing.lg }}
-          />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Hiển thị loading khi đang fetch data
   if (isLoading && !profileUser) {
     return (
       <SafeAreaView style={styles.container}>
-        <Loading
-          message="Loading profile..."
-          color={Colors.primary}
-          fullScreen
-        />
+        <Loading message="Loading profile..." color={Colors.primary} fullScreen />
       </SafeAreaView>
     );
   }
 
-  // Hiển thị thông báo khi không tìm thấy user (khi đang xem profile người khác)
-  if (isViewingOtherProfile && !isLoading && !profileUser) {
+  if (!profileUser && !isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notLoggedInContainer}>
           <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
           <Text style={styles.notLoggedInText}>Không tìm thấy người dùng</Text>
+          <Text style={[styles.notLoggedInText, { fontSize: Typography.fontSize.sm, marginTop: Spacing.sm }]}>
+            Có thể người dùng này không tồn tại hoặc đã bị xóa.
+          </Text>
           <Button
             title="Quay lại"
             onPress={() => router.back()}
@@ -319,48 +231,25 @@ export default function Profile() {
             contentFit="cover"
           />
 
-          <Text style={styles.username}>
-            {profileUser?.name || profileUser?.username || "User"}
-          </Text>
-          {profileUser?.bio && (
-            <Text style={styles.bio}>{profileUser.bio}</Text>
-          )}
+          <Text style={styles.username}>{profileUser?.name || profileUser?.username || "User"}</Text>
+          {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
 
           <View style={styles.buttonContainer}>
-            {isViewingOtherProfile ? (
-              <>
-                <Button
-                  title="Follow"
-                  onPress={() => {
-                    // TODO: Implement follow functionality
-                    console.log("Follow user:", targetUserId);
-                  }}
-                  variant="primary"
-                  size="sm"
-                />
-                <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
-                  size="sm"
-                />
-              </>
-            ) : (
-              <>
-                <Button
-                  title="Chỉnh sửa"
-                  onPress={() => router.push("/(tabs)/settings")}
-                  variant="outline"
-                  size="sm"
-                />
-                <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
-                  size="sm"
-                />
-              </>
-            )}
+            <Button
+              title="Follow"
+              onPress={() => {
+                // TODO: Implement follow functionality
+                // TODO: Implement follow logic
+              }}
+              variant="primary"
+              size="sm"
+            />
+            <Button
+              title="Chia sẻ"
+              onPress={() => {}}
+              variant="ghost"
+              size="sm"
+            />
           </View>
 
           {/* Stats */}
@@ -379,9 +268,7 @@ export default function Profile() {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {formatNumber(
-                  videos.reduce((sum, v) => sum + (v.likes || 0), 0)
-                )}
+                {formatNumber(videos.reduce((sum, v) => sum + (v.likes || 0), 0))}
               </Text>
               <Text style={styles.statLabel}>Lượt thích</Text>
             </View>
@@ -397,9 +284,7 @@ export default function Profile() {
               <Ionicons
                 name="grid"
                 size={16}
-                color={
-                  activeTab === "video" ? Colors.primary : Colors.gray[400]
-                }
+                color={activeTab === "video" ? Colors.primary : Colors.gray[400]}
               />
               <Text
                 style={[
@@ -411,19 +296,14 @@ export default function Profile() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "favorites" && styles.activeTab,
-              ]}
+              style={[styles.tab, activeTab === "favorites" && styles.activeTab]}
               onPress={() => setActiveTab("favorites")}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="bookmark-outline"
                 size={16}
-                color={
-                  activeTab === "favorites" ? Colors.primary : Colors.gray[400]
-                }
+                color={activeTab === "favorites" ? Colors.primary : Colors.gray[400]}
               />
               <Text
                 style={[
@@ -442,9 +322,7 @@ export default function Profile() {
               <Ionicons
                 name="heart-outline"
                 size={16}
-                color={
-                  activeTab === "liked" ? Colors.primary : Colors.gray[400]
-                }
+                color={activeTab === "liked" ? Colors.primary : Colors.gray[400]}
               />
               <Text
                 style={[
@@ -470,11 +348,7 @@ export default function Profile() {
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons
-              name={
-                activeTab === "video"
-                  ? "videocam-off-outline"
-                  : "bookmark-outline"
-              }
+              name={activeTab === "video" ? "videocam-off-outline" : "bookmark-outline"}
               size={64}
               color={Colors.gray[400]}
             />
@@ -655,3 +529,4 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
 });
+

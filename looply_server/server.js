@@ -27,6 +27,7 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import saveRoutes from "./routes/saveRoutes.js";
 
 const app = express();
@@ -34,9 +35,6 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
 });
-
-// Connect to database
-connectDB();
 
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
@@ -55,19 +53,25 @@ const createDefaultAdmin = async () => {
         role: "admin",
         status: "active",
       });
-      console.log("Default admin user created successfully");
+      console.log("✅ Default admin user created successfully");
+      console.log(`   Email: ${adminEmail}`);
+      console.log(`   Password: ${adminPassword}`);
     } else {
-      console.log("Admin user already exists");
+      console.log("ℹ️  Admin user already exists");
     }
   } catch (error) {
-    console.error("Error creating default admin:", error);
+    console.error("❌ Error creating default admin:", error);
   }
 };
 
-// Wait for DB connection then create admin
-setTimeout(async () => {
+// Connect to database
+connectDB();
+
+// Create admin after DB connection is established
+mongoose.connection.once('connected', async () => {
+  console.log("📦 Database connected, initializing admin user...");
   await createDefaultAdmin();
-}, 2000);
+});
 
 // Security middleware
 app.use(helmet()); // Adds various HTTP headers for security
@@ -107,6 +111,18 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/admin", adminRoutes);
+console.log("✅ Admin routes registered at /api/admin");
+console.log("   Available routes:");
+console.log("   - GET  /api/admin/test");
+console.log("   - GET  /api/admin/dashboard/stats");
+console.log("   - GET  /api/admin/dashboard/recent-videos");
+console.log("   - GET  /api/admin/dashboard/recent-reports");
+console.log("   - GET  /api/admin/users");
+console.log("   - GET  /api/admin/videos");
+console.log("   - GET  /api/admin/videos/:videoId");
+console.log("   - PUT  /api/admin/videos/:videoId/status");
+console.log("   - GET  /api/admin/comments");
 app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
@@ -123,6 +139,8 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Something went wrong!" });
 });
+
+const PORT = process.env.PORT || 5000;
 
 // Store connected users: userId -> socketId
 const connectedUsers = {};

@@ -6,6 +6,9 @@ import Comment from "../models/Comment.js";
 // Create a new report
 export const createReport = async (req, res) => {
   try {
+    console.log("📝 createReport controller called");
+    console.log("📝 Request body:", req.body);
+    console.log("📝 Reporter ID:", req.user?._id);
     const { reportedType, reportedId, reason } = req.body;
     const reporterId = req.user._id;
 
@@ -49,11 +52,13 @@ export const createReport = async (req, res) => {
 
     await report.populate("reporterId", "name username avatar");
 
+    console.log("✅ Report created successfully:", report._id);
     res.status(201).json({
       message: "Báo cáo đã được gửi thành công",
       report
     });
   } catch (error) {
+    console.error("❌ Error creating report:", error);
     res.status(500).json({ message: error.message });
   }
 };

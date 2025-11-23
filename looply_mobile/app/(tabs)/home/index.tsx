@@ -89,6 +89,48 @@ export default function HomeScreen() {
     }, [])
   );
 
+  useEffect(() => {
+    fetchVideos();
+  }, [isAuthenticated]);
+
+  // Fetch video cụ thể theo ID (khi video không có trong list hiện tại)
+  const fetchSpecificVideo = async (videoId: string) => {
+    try {
+      const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+      console.log(`[Home] 🔍 Fetching specific video: ${videoId}`);
+      const response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
+      
+      if (response.ok) {
+        const videoData = await response.json();
+        console.log(`[Home] ✅ Fetched video:`, videoData._id);
+        
+        // Kiểm tra xem video đã có trong list chưa
+        const existingIndex = videos.findIndex(v => v._id === videoData._id);
+        if (existingIndex === -1) {
+          // Thêm video vào đầu list
+          setVideos(prev => [videoData, ...prev]);
+          console.log(`[Home] ✅ Added video to list, scrolling to index 0`);
+          
+          // Scroll đến video mới thêm
+          setTimeout(() => {
+            scrollToIndex(0, true);
+            hasScrolledToVideoRef.current = true;
+          }, 500);
+        } else {
+          // Video đã có, scroll đến nó
+          console.log(`[Home] ✅ Video already in list at index ${existingIndex}, scrolling...`);
+          setTimeout(() => {
+            scrollToIndex(existingIndex, true);
+            hasScrolledToVideoRef.current = true;
+          }, 500);
+        }
+      } else {
+        console.warn(`[Home] ⚠️ Failed to fetch video ${videoId}:`, response.status);
+      }
+    } catch (error) {
+      console.error(`[Home] ❌ Error fetching specific video:`, error);
+    }
+  };
   // Xử lý scroll đến video khi có videoId từ params
   useEffect(() => {
     const videoId = params.videoId as string | undefined;
@@ -105,7 +147,12 @@ export default function HomeScreen() {
           scrollToIndex(videoIndex, true);
         }, 500);
       } else if (videoIndex === -1) {
-        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
+        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list`);
+        console.log(`[Home] 📋 Current videos count: ${videos.length}`);
+        console.log(`[Home] 🔍 Available video IDs:`, videos.slice(0, 5).map(v => v._id));
+        
+        // Nếu video không có trong danh sách, thử fetch video đó
+        fetchSpecificVideo(videoId);
       }
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);

@@ -124,6 +124,103 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+// Get user by ID
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[getUserById] 🔍 Looking for user with ID:`, id);
+    console.log(`[getUserById] 📋 ID type:`, typeof id);
+    console.log(`[getUserById] 📋 ID length:`, id?.length);
+    
+    // Validate ID format
+    if (!id || id.trim() === '') {
+      return res.status(400).json({ message: "ID không hợp lệ" });
+    }
+    
+    // Try multiple methods to find user
+    let user = null;
+    
+    // Method 1: Try findById (standard MongoDB method)
+    try {
+      user = await User.findById(id).select("-password");
+      if (user) {
+        console.log(`[getUserById] ✅ User found with findById`);
+      }
+    } catch (findByIdError) {
+      console.log(`[getUserById] ⚠️ findById failed:`, findByIdError.message);
+    }
+    
+    // Method 2: Try findOne with _id as string
+    if (!user) {
+      try {
+        console.log(`[getUserById] 🔄 Trying findOne with _id as string`);
+        user = await User.findOne({ _id: id }).select("-password");
+        if (user) {
+          console.log(`[getUserById] ✅ User found with findOne(_id)`);
+        }
+      } catch (findOneError) {
+        console.log(`[getUserById] ⚠️ findOne failed:`, findOneError.message);
+      }
+    }
+    
+    // Method 3: Try with mongoose.Types.ObjectId if ID is valid ObjectId format
+    if (!user) {
+      try {
+        const mongoose = (await import("mongoose")).default;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          const objectId = new mongoose.Types.ObjectId(id);
+          console.log(`[getUserById] 🔄 Trying findById with ObjectId conversion`);
+          user = await User.findById(objectId).select("-password");
+          if (user) {
+            console.log(`[getUserById] ✅ User found with ObjectId conversion`);
+          }
+        }
+      } catch (objectIdError) {
+        console.log(`[getUserById] ⚠️ ObjectId conversion failed:`, objectIdError.message);
+      }
+    }
+    
+    // Method 4: Debug - Get all users and check manually (for debugging only)
+    if (!user) {
+      console.log(`[getUserById] 🔍 Debug: Checking all users in database`);
+      const allUsers = await User.find().select("_id name username").limit(5);
+      console.log(`[getUserById] 📊 Sample users in DB:`, allUsers.map(u => ({
+        _id: u._id.toString(),
+        _idType: typeof u._id,
+        name: u.name
+      })));
+      
+      // Try to find by string comparison
+      const foundUser = allUsers.find(u => u._id.toString() === id);
+      if (foundUser) {
+        console.log(`[getUserById] ✅ User found by string comparison`);
+        user = await User.findById(foundUser._id).select("-password");
+      }
+    }
+    
+    if (!user) {
+      console.log(`[getUserById] ❌ User not found with ID:`, id);
+      console.log(`[getUserById] ❌ Tried all methods: findById, findOne, ObjectId conversion, string comparison`);
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+    
+    console.log(`[getUserById] ✅ User found:`, {
+      id: user._id.toString(),
+      name: user.name,
+      username: user.username
+    });
+    
+    res.json(user);
+  } catch (error) {
+    console.error(`[getUserById] ❌ Error:`, error);
+    // If it's a CastError (invalid ObjectId), return 400 instead of 500
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: "ID không hợp lệ" });
+    }
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const searchUsers = async (req, res) => {
   try {
     const { q } = req.query;
@@ -364,14 +461,20 @@ export const getFollowing = async (req, res) => {
   }
 };
 
-// Get current user info
+// Get current user info (including role)
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
-    res.json(user);
+    
+    // Ensure role and status are included in response
+    res.json({
+      ...user.toObject(),
+      role: user.role || "user",
+      status: user.status || "active"
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
