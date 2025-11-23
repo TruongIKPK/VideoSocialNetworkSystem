@@ -33,12 +33,16 @@ interface Video {
   status?: string;
 }
 
+type FilterType = "all" | "active" | "violation";
+
 export default function AdminVideosScreen() {
   const router = useRouter();
   const { user } = useCurrentUser();
   const { token } = useUser();
   const [videos, setVideos] = useState<Video[]>([]);
+  const [allVideos, setAllVideos] = useState<Video[]>([]); // Lưu tất cả videos để filter
   const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>("all");
 
   useEffect(() => {
     if (token) {
@@ -95,7 +99,8 @@ export default function AdminVideosScreen() {
         // API trả về { total, page, limit, videos: [...] } hoặc array trực tiếp
         const videoList = Array.isArray(data) ? data : (data.videos || []);
         console.log(`[Admin Videos] Video list length: ${videoList.length}`);
-        setVideos(videoList);
+        setAllVideos(videoList); // Lưu tất cả videos
+        applyFilter(videoList, filter); // Áp dụng filter hiện tại
       } else {
         const contentType = response.headers.get("content-type");
         let errorText = "";
@@ -118,14 +123,50 @@ export default function AdminVideosScreen() {
         }
         
         // Set empty array nếu không fetch được
+        setAllVideos([]);
         setVideos([]);
       }
     } catch (error) {
       console.error("[Admin Videos] Error fetching videos:", error);
+      setAllVideos([]);
       setVideos([]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Hàm filter videos theo status
+  const applyFilter = (videoList: Video[], currentFilter: FilterType) => {
+    let filtered: Video[] = [];
+    
+    switch (currentFilter) {
+      case "active":
+        filtered = videoList.filter(v => v.status !== "violation");
+        break;
+      case "violation":
+        filtered = videoList.filter(v => v.status === "violation");
+        break;
+      case "all":
+      default:
+        filtered = videoList;
+        break;
+    }
+    
+    setVideos(filtered);
+  };
+
+  // Khi filter thay đổi, áp dụng filter mới
+  useEffect(() => {
+    if (allVideos.length > 0) {
+      applyFilter(allVideos, filter);
+    }
+  }, [filter]);
+
+  // Tính toán thống kê
+  const stats = {
+    total: allVideos.length,
+    active: allVideos.filter(v => v.status !== "violation").length,
+    violation: allVideos.filter(v => v.status === "violation").length,
   };
 
   const handleViewVideo = (video: Video) => {
@@ -174,7 +215,59 @@ export default function AdminVideosScreen() {
 
         {/* Videos Section */}
         <View style={styles.videosCard}>
-          <Text style={styles.videosTitle}>Video gần đây</Text>
+          <View style={styles.videosHeader}>
+            <Text style={styles.videosTitle}>Quản lý Video</Text>
+            {/* Stats */}
+            {!isLoading && allVideos.length > 0 && (
+              <View style={styles.statsContainer}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{stats.total}</Text>
+                  <Text style={styles.statLabel}>Tổng</Text>
+                </View>
+                <View style={[styles.statItem, styles.statActive]}>
+                  <Text style={[styles.statValue, styles.statValueActive]}>{stats.active}</Text>
+                  <Text style={styles.statLabel}>Hoạt động</Text>
+                </View>
+                <View style={[styles.statItem, styles.statViolation]}>
+                  <Text style={[styles.statValue, styles.statValueViolation]}>{stats.violation}</Text>
+                  <Text style={styles.statLabel}>Vi phạm</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Filter Tabs */}
+          {!isLoading && allVideos.length > 0 && (
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[styles.filterTab, filter === "all" && styles.filterTabActive]}
+                onPress={() => setFilter("all")}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, filter === "all" && styles.filterTextActive]}>
+                  Tất cả ({stats.total})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterTab, filter === "active" && styles.filterTabActive]}
+                onPress={() => setFilter("active")}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, filter === "active" && styles.filterTextActive]}>
+                  Hoạt động ({stats.active})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterTab, filter === "violation" && styles.filterTabActive]}
+                onPress={() => setFilter("violation")}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.filterText, filter === "violation" && styles.filterTextActive]}>
+                  Vi phạm ({stats.violation})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -184,9 +277,20 @@ export default function AdminVideosScreen() {
           ) : videos.length > 0 ? (
             <View style={styles.videosList}>
               {videos.map((item) => (
-                <View key={item._id} style={styles.videoItem}>
+                <View 
+                  key={item._id} 
+                  style={[
+                    styles.videoItem,
+                    item.status === "violation" && styles.videoItemViolation
+                  ]}
+                >
                   <View style={styles.videoThumbnail}>
                     <Image source={{ uri: item.thumbnail }} style={styles.videoThumbnailImage} />
+                    {item.status === "violation" && (
+                      <View style={styles.violationOverlay}>
+                        <Ionicons name="warning" size={20} color="#EF4444" />
+                      </View>
+                    )}
                   </View>
                   <View style={styles.videoInfo}>
                     <View style={styles.videoTitleRow}>
@@ -195,6 +299,7 @@ export default function AdminVideosScreen() {
                       </Text>
                       {item.status === "violation" && (
                         <View style={styles.violationBadge}>
+                          <Ionicons name="warning" size={12} color="#EF4444" />
                           <Text style={styles.violationBadgeText}>Vi phạm</Text>
                         </View>
                       )}
@@ -224,7 +329,14 @@ export default function AdminVideosScreen() {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Không có video nào</Text>
+              <Ionicons name="videocam-outline" size={48} color={Colors.gray[400]} />
+              <Text style={styles.emptyText}>
+                {filter === "all" 
+                  ? "Không có video nào" 
+                  : filter === "active" 
+                    ? "Không có video hoạt động nào"
+                    : "Không có video vi phạm nào"}
+              </Text>
             </View>
           )}
         </View>
@@ -297,12 +409,86 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
+  videosHeader: {
+    marginBottom: Spacing.md,
+  },
   videosTitle: {
     fontSize: Typography.fontSize.xxl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.sm,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: Colors.gray[100],
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    alignItems: "center",
+  },
+  statActive: {
+    backgroundColor: "#D1FAE5",
+  },
+  statViolation: {
+    backgroundColor: "#FEE2E2",
+  },
+  statValue: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  statValueActive: {
+    color: "#059669",
+  },
+  statValueViolation: {
+    color: "#DC2626",
+  },
+  statLabel: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  filterContainer: {
+    flexDirection: "row",
+    gap: Spacing.xs,
     marginBottom: Spacing.md,
+    backgroundColor: Colors.gray[100],
+    borderRadius: BorderRadius.md,
+    padding: Spacing.xs,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+  },
+  filterTabActive: {
+    backgroundColor: Colors.white,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  filterText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  filterTextActive: {
+    color: Colors.primary,
+    fontFamily: Typography.fontFamily.semibold,
   },
   videosList: {
     gap: Spacing.sm,
@@ -312,12 +498,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.white,
+  },
+  videoItemViolation: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
   },
   videoThumbnail: {
     width: 60,
     height: 60,
     borderRadius: BorderRadius.md,
     backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    position: "relative",
+  },
+  violationOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(239, 68, 68, 0.3)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -339,6 +545,9 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
   },
   violationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: "#EF444420",
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,

@@ -182,9 +182,8 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (videoReportsResponse.status === 404) {
-        const errorText = await videoReportsResponse.text();
-        console.warn("⚠️ Admin route not found (404), using fallback: /api/reports");
-        console.warn("⚠️ Error response:", errorText);
+        // Chỉ log một lần, không log error response để tránh spam
+        console.log("ℹ️ Admin recent-reports route not available (404), using fallback: /api/reports");
         videoReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -221,9 +220,8 @@ export default function AdminDashboardScreen() {
       
       // Fallback: Nếu admin route không hoạt động (404), dùng route reports
       if (commentReportsResponse.status === 404) {
-        const errorText = await commentReportsResponse.text();
-        console.warn("⚠️ Admin route not found (404), using fallback: /api/reports");
-        console.warn("⚠️ Error response:", errorText);
+        // Chỉ log một lần, không log error response để tránh spam
+        console.log("ℹ️ Admin recent-reports route not available (404), using fallback: /api/reports");
         commentReportsResponse = await fetch(`${API_BASE_URL}/reports?limit=20`, {
           headers: {
             Authorization: `Bearer ${token}`,
