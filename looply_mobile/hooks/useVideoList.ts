@@ -97,12 +97,51 @@ export const useVideoList = ({
     return { ...video, isFollowing };
   };
 
-  // Process videos: check like and follow status
+  // Check save status for a video
+  const checkSaveStatus = async (video: VideoPost): Promise<VideoPost> => {
+    let savedBy = video.savedBy || [];
+    if (!Array.isArray(savedBy)) {
+      savedBy = [];
+    }
+
+    if (isAuthenticated && token && userId) {
+      try {
+        const checkResponse = await fetch(
+          `${API_BASE_URL}/saves/check?userId=${encodeURIComponent(userId)}&videoId=${encodeURIComponent(video._id)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.isSaved || checkData.saved) {
+            if (!savedBy.includes(userId)) {
+              savedBy = [...savedBy, userId];
+            }
+          } else {
+            savedBy = savedBy.filter((id: string) => id !== userId);
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking save status for video ${video._id}:`, error);
+      }
+    }
+
+    return { ...video, savedBy };
+  };
+
+  // Process videos: check like, follow and save status
   const processVideos = async (videoList: VideoPost[]): Promise<VideoPost[]> => {
     if (!isAuthenticated || !token || !userId) {
       return videoList.map((video) => ({
         ...video,
         likedBy: [],
+        savedBy: [],
         isFollowing: false,
       }));
     }
@@ -110,7 +149,8 @@ export const useVideoList = ({
     return Promise.all(
       videoList.map(async (video) => {
         const withLikeStatus = await checkLikeStatus(video);
-        return checkFollowStatus(withLikeStatus);
+        const withFollowStatus = await checkFollowStatus(withLikeStatus);
+        return checkSaveStatus(withFollowStatus);
       })
     );
   };

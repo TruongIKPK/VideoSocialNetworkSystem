@@ -70,11 +70,21 @@ export const VideoItem = ({
     item.likedBy.includes(currentUserId);
   
   // Kiểm tra xem video đã được save chưa
-  const isSaved =
-    currentUserId &&
-    item.savedBy &&
-    Array.isArray(item.savedBy) &&
-    item.savedBy.includes(currentUserId);
+  const isSaved = currentUserId 
+    ? (item.savedBy || []).includes(currentUserId)
+    : false;
+  
+  // Debug log
+  useEffect(() => {
+    if (isCurrent) {
+      console.log(`[VideoItem] Video ${item._id}:`, {
+        savedBy: item.savedBy,
+        currentUserId,
+        isSaved,
+        savesCount: item.saves || item.savesCount || 0
+      });
+    }
+  }, [isCurrent, item.savedBy, currentUserId, isSaved, item._id]);
   
   const likesCount = item.likes || item.likesCount || 0;
   const commentsCount = item.comments || item.commentsCount || 0;

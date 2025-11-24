@@ -94,6 +94,8 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     flexDirection: "row",
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
+    width: "60%", 
+    justifyContent: "center",
   },
   statsContainer: {
     flexDirection: "row",

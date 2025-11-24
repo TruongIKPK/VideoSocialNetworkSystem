@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { getToken, removeToken } from "@/utils/tokenStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import authService, { User } from "@/service/authService";
+import { connectSocket, disconnectSocket } from "@/services/socketService";
 
 interface UserContextType {
   user: User | null;
@@ -26,6 +27,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // Connect socket when user is authenticated
+  useEffect(() => {
+    if (token && user) {
+      // Socket connection will be handled in _layout.tsx with moderation handler
+      // We just ensure socket is available when user is logged in
+    } else {
+      // Disconnect socket when user logs out
+      disconnectSocket();
+    }
+  }, [token, user]);
 
   const loadUserData = async () => {
     try {
