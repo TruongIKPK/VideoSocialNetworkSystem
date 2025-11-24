@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { View, ActivityIndicator, Animated, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import { CustomHeader } from "../_layout";
 
 import { useUser } from "@/contexts/UserContext";
@@ -12,6 +13,7 @@ import { saveMessageToDB } from "@/utils/database";
 export default function TabLayout() {
   const { user, token } = useUser();
   const { isReloading, triggerReload } = useHomeReload();
+  const { t } = useTranslation();
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const lastTabPressTimeRef = React.useRef<number>(0);
   const TAB_PRESS_DEBOUNCE_MS = 300; // Debounce 0.3 giây (giảm từ 1s để nhanh hơn)
@@ -133,7 +135,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home/index"
         options={{
-          title: "Home",
+          title: t("tabs.home"),
           tabBarIcon: ({ focused }) => {
             console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}`);
             return (
@@ -196,7 +198,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore/index"
         options={{
-          title: "Explore",
+          title: t("tabs.explore"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="compass"
@@ -211,7 +213,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="camera/index"
         options={{
-          title: "Camera",
+          title: t("tabs.camera"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="camera"
@@ -224,7 +226,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inbox/index"
         options={{
-          title: "Inbox",
+          title: t("tabs.inbox"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="chatbubble"
@@ -243,7 +245,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile/index"
         options={{
-          title: "Profile",
+          title: t("tabs.profile"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="person"
