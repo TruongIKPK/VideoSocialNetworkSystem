@@ -118,9 +118,9 @@ export const VideoItem = ({
     setIsReportModalVisible(true);
   };
 
-  const handleReportSubmit = async (reason: any) => {
+  const handleReportSubmit = async (reason: any, description?: string) => {
     const reportedId = reportType === "video" ? item._id : item.user._id;
-    const result = await createReport(reportType, reportedId, reason);
+    const result = await createReport(reportType, reportedId, reason, description);
     
     if (result.success) {
       showAlert({

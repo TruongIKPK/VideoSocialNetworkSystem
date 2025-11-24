@@ -404,9 +404,9 @@ export default function CommentsModal() {
             setIsReportModalVisible(false);
             setReportingCommentId(null);
           }}
-          onSubmit={async (reason) => {
+          onSubmit={async (reason, description) => {
             if (reportingCommentId) {
-              const result = await createReport("comment", reportingCommentId, reason);
+              const result = await createReport("comment", reportingCommentId, reason, description);
               if (result.success) {
                 showAlert({
                   title: "Thành công",

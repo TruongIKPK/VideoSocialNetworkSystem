@@ -6,10 +6,12 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Animated,
   Dimensions,
+  ScrollView,
+  TextInput,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { ReportReason } from "@/hooks/useReport";
@@ -19,7 +21,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (reason: ReportReason) => Promise<void>;
+  onSubmit: (reason: ReportReason, description?: string) => Promise<void>;
   type: "user" | "video" | "comment";
   isSubmitting?: boolean;
 }
@@ -42,11 +44,13 @@ export const ReportModal = ({
   isSubmitting = false,
 }: ReportModalProps) => {
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
+  const [otherDescription, setOtherDescription] = useState<string>("");
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   React.useEffect(() => {
     if (visible) {
       setSelectedReason(null);
+      setOtherDescription("");
       Animated.spring(slideAnim, {
         toValue: 0,
         useNativeDriver: true,
@@ -65,10 +69,19 @@ export const ReportModal = ({
 
   const handleSubmit = async () => {
     if (selectedReason) {
-      await onSubmit(selectedReason);
+      // Nếu là "other", cần có mô tả
+      if (selectedReason === "other" && !otherDescription.trim()) {
+        return; // Không submit nếu chưa nhập mô tả
+      }
+      
+      await onSubmit(
+        selectedReason,
+        selectedReason === "other" ? otherDescription.trim() : undefined
+      );
       if (!isSubmitting) {
         onClose();
         setSelectedReason(null);
+        setOtherDescription("");
       }
     }
   };
@@ -113,7 +126,7 @@ export const ReportModal = ({
               <View style={styles.handle} />
             </View>
 
-            {/* Header */}
+            {/* Header - Fixed */}
             <View style={styles.header}>
               <Text style={styles.title}>Báo cáo {getTypeLabel()}</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -123,8 +136,12 @@ export const ReportModal = ({
 
             <Text style={styles.subtitle}>Vui lòng chọn lý do báo cáo:</Text>
 
-            {/* Reason options */}
-            <View style={styles.reasonsContainer}>
+            {/* Reason options - Scrollable */}
+            <ScrollView
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.reasonsContainer}
+              showsVerticalScrollIndicator={true}
+            >
               {REPORT_REASONS.map((reason) => (
                 <TouchableOpacity
                   key={reason.value}
@@ -162,23 +179,50 @@ export const ReportModal = ({
                   )}
                 </TouchableOpacity>
               ))}
-            </View>
-
-            {/* Submit button */}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                (!selectedReason || isSubmitting) && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={!selectedReason || isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color={Colors.white} />
-              ) : (
-                <Text style={styles.submitButtonText}>Gửi báo cáo</Text>
+              
+              {/* Text input for "other" reason */}
+              {selectedReason === "other" && (
+                <View style={styles.otherInputContainer}>
+                  <Text style={styles.otherInputLabel}>
+                    Vui lòng mô tả lý do báo cáo:
+                  </Text>
+                  <TextInput
+                    style={styles.otherInput}
+                    placeholder="Nhập lý do báo cáo..."
+                    placeholderTextColor={Colors.gray[400]}
+                    value={otherDescription}
+                    onChangeText={setOtherDescription}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    editable={!isSubmitting}
+                  />
+                  {!otherDescription.trim() && (
+                    <Text style={styles.otherInputHint}>
+                      Vui lòng nhập lý do báo cáo để tiếp tục
+                    </Text>
+                  )}
+                </View>
               )}
-            </TouchableOpacity>
+            </ScrollView>
+
+            {/* Submit button - Fixed at bottom */}
+            <View style={styles.submitButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  (!selectedReason || isSubmitting || (selectedReason === "other" && !otherDescription.trim())) && styles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={!selectedReason || isSubmitting || (selectedReason === "other" && !otherDescription.trim())}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.submitButtonText}>Gửi báo cáo</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </SafeAreaView>
         </Animated.View>
       </View>
@@ -240,10 +284,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  reasonsContainer: {
+  scrollContainer: {
     flex: 1,
+  },
+  reasonsContainer: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   reasonItem: {
     flexDirection: "row",
@@ -274,14 +321,47 @@ const styles = StyleSheet.create({
   checkIcon: {
     marginLeft: Spacing.sm,
   },
+  otherInputContainer: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  otherInputLabel: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.gray[700],
+    fontFamily: Typography.fontFamily.medium,
+    marginBottom: Spacing.sm,
+  },
+  otherInput: {
+    backgroundColor: Colors.gray[50],
+    borderWidth: 2,
+    borderColor: Colors.gray[200],
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: Typography.fontSize.md,
+    color: Colors.black,
+    fontFamily: Typography.fontFamily.regular,
+    minHeight: 100,
+    maxHeight: 150,
+  },
+  otherInputHint: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.error,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: Spacing.xs,
+  },
+  submitButtonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray[200],
+    backgroundColor: Colors.white,
+  },
   submitButton: {
     backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.lg,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 48,

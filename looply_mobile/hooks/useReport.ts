@@ -22,7 +22,8 @@ export const useReport = ({ token }: UseReportOptions) => {
   const createReport = async (
     reportedType: ReportType,
     reportedId: string,
-    reason: ReportReason
+    reason: ReportReason,
+    description?: string
   ): Promise<{ success: boolean; message: string }> => {
     if (!token) {
       return {
@@ -33,17 +34,24 @@ export const useReport = ({ token }: UseReportOptions) => {
 
     setIsSubmitting(true);
     try {
+      const body: any = {
+        reportedType,
+        reportedId,
+        reason,
+      };
+      
+      // Nếu có description (khi reason là "other"), thêm vào body
+      if (description && description.trim()) {
+        body.description = description.trim();
+      }
+
       const response = await fetch(`${API_BASE_URL}/reports`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          reportedType,
-          reportedId,
-          reason,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
