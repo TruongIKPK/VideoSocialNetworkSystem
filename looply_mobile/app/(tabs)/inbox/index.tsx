@@ -185,6 +185,7 @@ export default function InboxList() {
       });
     };
 
+    
     // Lắng nghe sự kiện
     socketService.on("receive-message", handleNewMessage);
     socketService.on("message-seen", handleMessageSeen);
