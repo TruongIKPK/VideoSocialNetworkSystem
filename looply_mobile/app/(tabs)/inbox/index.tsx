@@ -13,7 +13,7 @@ import { getUnreadCount } from "@/utils/notificationStorage";
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
 // Component hiển thị từng dòng tin nhắn (Tự lấy tên User từ Server)
-const ConversationItem = ({ item }) => {
+const ConversationItem = ({ item }: { item: any }) => {
   const [userInfo, setUserInfo] = useState({ name: "Đang tải...", avatar: null });
   
   useEffect(() => {

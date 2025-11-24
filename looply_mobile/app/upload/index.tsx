@@ -69,26 +69,37 @@ export default function UploadScreen() {
   }, [mediaUri, isVideo]);
 
   const handleUpload = async () => {
+    console.log("=".repeat(60));
+    console.log("[Upload] 🎬 Bắt đầu quá trình upload video");
+    console.log("[Upload] ⏰ Thời gian:", new Date().toISOString());
+    
     // Validation
-    if (isUploading || !mediaUri) return;
+    if (isUploading || !mediaUri) {
+      console.log("[Upload] ⚠️ Upload đã đang chạy hoặc không có mediaUri");
+      return;
+    }
     
     if (!isVideo) {
+      console.log("[Upload] ❌ Chỉ hỗ trợ upload video");
       setError("Chỉ hỗ trợ upload video");
       return;
     }
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
+      console.log("[Upload] ❌ Thiếu tiêu đề");
       setError("Vui lòng nhập tiêu đề");
       return;
     }
 
     if (trimmedTitle.length > 100) {
+      console.log("[Upload] ❌ Tiêu đề quá dài:", trimmedTitle.length);
       setError("Tiêu đề không được quá 100 ký tự");
       return;
     }
 
     if (desc.length > 500) {
+      console.log("[Upload] ❌ Mô tả quá dài:", desc.length);
       setError("Mô tả không được quá 500 ký tự");
       return;
     }
@@ -100,6 +111,13 @@ export default function UploadScreen() {
     // Determine file extension
     const fileExtension = mediaUri.split('.').pop()?.toLowerCase() || 'mp4';
 
+    console.log("[Upload] ✅ Validation thành công");
+    console.log("[Upload] 📝 Thông tin video:");
+    console.log("  - Tiêu đề:", trimmedTitle);
+    console.log("  - Mô tả:", desc || "(không có)");
+    console.log("  - File extension:", fileExtension);
+    console.log("  - Media URI:", mediaUri.substring(0, 50) + "...");
+
     // Show confirmation alert before starting upload
     Alert.alert(
       "Đang tải lên",
@@ -108,19 +126,28 @@ export default function UploadScreen() {
         {
           text: "OK",
           onPress: () => {
+            console.log("[Upload] 👤 Người dùng xác nhận upload");
+            console.log("[Upload] 🚀 Bắt đầu upload video lên server...");
+            
             // Start upload asynchronously (don't await)
             uploadVideoAsync({
               title: trimmedTitle,
               description: desc,
               mediaUri,
               fileExtension,
-            }).catch((err) => {
+            })
+            .then((result) => {
+              console.log("[Upload] ✅ Upload hoàn tất từ uploadService");
+              console.log("[Upload] 📊 Kết quả:", JSON.stringify(result, null, 2));
+            })
+            .catch((err) => {
               // Error is already handled in uploadService and notification is sent
-              console.error("Upload service error:", err);
+              console.error("[Upload] ❌ Lỗi từ uploadService:", err);
             });
 
             // Navigate away after user confirms
             // Upload will continue in background and notification will be sent when complete
+            console.log("[Upload] 🔄 Chuyển đến màn hình profile");
             router.replace("/(tabs)/profile");
           },
         },
