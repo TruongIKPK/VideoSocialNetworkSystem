@@ -37,47 +37,6 @@ export const addComment = async (req, res) => {
   }
 };
 
-export const getCommentById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const comment = await Comment.findById(id)
-      .populate("userId", "name username avatar");
-
-    if (!comment) {
-      return res.status(404).json({ message: "Không tìm thấy comment" });
-    }
-
-    // Kiểm tra status - chỉ trả về comment active (trừ khi là admin)
-    if (comment.status === "violation") {
-      return res.status(404).json({ message: "Comment này đã bị vi phạm" });
-    }
-
-    res.json({
-      _id: comment._id,
-      text: comment.text,
-      videoId: comment.videoId,
-      userId: comment.userId ? {
-        _id: comment.userId._id,
-        name: comment.userId.name || comment.userId.username || "User",
-        avatar: comment.userId.avatar || ""
-      } : null,
-      likesCount: comment.likesCount || 0,
-      likedUsers: comment.likedUsers || [],
-      createdAt: comment.createdAt,
-      updatedAt: comment.updatedAt,
-      parentId: comment.parentId,
-      status: comment.status
-    });
-  } catch (error) {
-    // Xử lý lỗi ObjectId không hợp lệ
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "ID comment không hợp lệ" });
-    }
-    res.status(500).json({ message: error.message });
-  }
-};
-
 export const getCommentsByVideo = async (req, res) => {
   try {
     const comments = await Comment.find({ 

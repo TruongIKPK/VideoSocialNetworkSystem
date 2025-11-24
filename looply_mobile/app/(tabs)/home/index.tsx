@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
-import { Spacing } from "@/constants/theme";
-import { useColors } from "@/hooks/useColors";
-import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
-import { useHomeReload } from "@/contexts/HomeReloadContext";
+import { Colors, Spacing } from "@/constants/theme";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { VideoItem } from "@/components/home/VideoItem";
 import { LoadingScreen } from "@/components/home/LoadingScreen";
 import { ErrorScreen } from "@/components/home/ErrorScreen";
@@ -23,22 +21,13 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const { userId } = useCurrentUser();
   const { isAuthenticated, token } = useUser();
-  const { isReloading, setIsReloading, setReloadCallback } = useHomeReload();
-  const Colors = useColors(); // Get theme-aware colors
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const hasScrolledToVideoRef = useRef(false);
   const lastFetchedIndexRef = useRef(-1); // Track index đã fetch để tránh fetch nhiều lần
   const lastVideosLengthRef = useRef(0); // Track số lượng video để phát hiện khi có video mới
-  const lastFocusTimeRef = useRef<number>(0); // Track thời gian focus lần trước
-  const focusCountRef = useRef(0); // Track số lần focus
-  const isManualReloadRef = useRef(false); // Track xem có phải reload thủ công không
-  
-  // Create dynamic styles based on theme
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   // Video list management
   const {
@@ -90,127 +79,16 @@ export default function HomeScreen() {
     },
   });
 
-  // Lưu fetchVideos vào ref để tránh stale closure trong useFocusEffect
-  const fetchVideosRef = useRef(fetchVideos);
-  fetchVideosRef.current = fetchVideos;
-
-  // Cập nhật reload state khi isLoading thay đổi
-  useEffect(() => {
-    console.log(`[Home] 🔄 isLoading changed: ${isLoading}, isManualReload: ${isManualReloadRef.current}`);
-    if (isManualReloadRef.current) {
-      // Nếu là reload thủ công, chỉ reset khi loading xong
-      if (!isLoading) {
-        console.log(`[Home] ✅ Loading finished, resetting isReloading`);
-        isManualReloadRef.current = false;
-        // Reset ngay lập tức để animation dừng nhanh
-        setIsReloading(false);
-      } else {
-        console.log(`[Home] ⏳ Still loading...`);
-      }
-    }
-  }, [isLoading, setIsReloading]);
-  
-  // Safety timeout: Đảm bảo isReloading không quay mãi mãi (tối đa 10 giây)
-  useEffect(() => {
-    if (isReloading) {
-      const safetyTimeout = setTimeout(() => {
-        console.log(`[Home] ⚠️ Safety timeout: Force reset isReloading after 10s`);
-        isManualReloadRef.current = false;
-        setIsReloading(false);
-      }, 10000); // 10 giây
-      
-      return () => clearTimeout(safetyTimeout);
-    }
-  }, [isReloading, setIsReloading]);
-
-  // Xử lý khi tab được focus/unfocus - CHỈ để track focus state, KHÔNG reload
+  // Xử lý khi tab được focus/unfocus
   useFocusEffect(
     React.useCallback(() => {
-      console.log(`[Home] 📍 useFocusEffect triggered - chỉ track focus, không reload`);
       setIsScreenFocused(true);
-      
       return () => {
-        console.log(`[Home] 🔚 useFocusEffect cleanup`);
         setIsScreenFocused(false);
       };
     }, [])
   );
 
-  // Đăng ký reload callback với context - CHỈ được gọi khi nhấn icon home ở tab bar
-  // KHÔNG có logic reload tự động nào khác (không reload khi focus, không reload tự động)
-  useEffect(() => {
-    const reloadHandler = () => {
-      console.log(`[Home] 🔄 Manual reload triggered from icon home press ONLY`);
-      
-      // Kiểm tra xem có đang loading không để tránh reload nhiều lần
-      if (isLoading) {
-        console.log(`[Home] ⚠️ Already loading, skipping reload`);
-        return;
-      }
-      
-      // Kiểm tra xem có đang reload không
-      if (isManualReloadRef.current) {
-        console.log(`[Home] ⚠️ Already in manual reload, skipping`);
-        return;
-      }
-      
-      console.log(`[Home] ✅ Starting manual reload from icon home ONLY`);
-      isManualReloadRef.current = true;
-      setIsReloading(true);
-      // Scroll về đầu danh sách ngay lập tức (không delay)
-      if (flatListRef.current && videos.length > 0) {
-        flatListRef.current.scrollToIndex({ index: 0, animated: false });
-      }
-      // Gọi fetchVideos với isManualReload = true để không filter duplicates
-      fetchVideosRef.current(true);
-    };
-    
-    console.log(`[Home] 📝 Registering reload callback - CHỈ cho icon home press, KHÔNG tự động`);
-    setReloadCallback(reloadHandler);
-    return () => {
-      console.log(`[Home] 🗑️ Unregistering reload callback`);
-      setReloadCallback(() => {});
-    };
-  }, [setReloadCallback, setIsReloading, isLoading, videos.length]);
-
-  // Fetch video cụ thể theo ID (khi video không có trong list hiện tại)
-  const fetchSpecificVideo = async (videoId: string) => {
-    try {
-      const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
-      console.log(`[Home] 🔍 Fetching specific video: ${videoId}`);
-      const response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
-      
-      if (response.ok) {
-        const videoData = await response.json();
-        console.log(`[Home] ✅ Fetched video:`, videoData._id);
-        
-        // Kiểm tra xem video đã có trong list chưa
-        const existingIndex = videos.findIndex(v => v._id === videoData._id);
-        if (existingIndex === -1) {
-          // Thêm video vào đầu list
-          setVideos(prev => [videoData, ...prev]);
-          console.log(`[Home] ✅ Added video to list, scrolling to index 0`);
-          
-          // Scroll đến video mới thêm
-          setTimeout(() => {
-            scrollToIndex(0, true);
-            hasScrolledToVideoRef.current = true;
-          }, 500);
-        } else {
-          // Video đã có, scroll đến nó
-          console.log(`[Home] ✅ Video already in list at index ${existingIndex}, scrolling...`);
-          setTimeout(() => {
-            scrollToIndex(existingIndex, true);
-            hasScrolledToVideoRef.current = true;
-          }, 500);
-        }
-      } else {
-        console.warn(`[Home] ⚠️ Failed to fetch video ${videoId}:`, response.status);
-      }
-    } catch (error) {
-      console.error(`[Home] ❌ Error fetching specific video:`, error);
-    }
-  };
   // Xử lý scroll đến video khi có videoId từ params
   useEffect(() => {
     const videoId = params.videoId as string | undefined;
@@ -227,12 +105,7 @@ export default function HomeScreen() {
           scrollToIndex(videoIndex, true);
         }, 500);
       } else if (videoIndex === -1) {
-        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list`);
-        console.log(`[Home] 📋 Current videos count: ${videos.length}`);
-        console.log(`[Home] 🔍 Available video IDs:`, videos.slice(0, 5).map(v => v._id));
-        
-        // Nếu video không có trong danh sách, thử fetch video đó
-        fetchSpecificVideo(videoId);
+        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list, will try to fetch it`);
       }
     }
   }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);
@@ -353,28 +226,26 @@ export default function HomeScreen() {
   );
 }
 
-const createStyles = (Colors: ReturnType<typeof useColors>) => {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: Colors.black,
-    },
-    searchButton: {
-      position: "absolute",
-      top: 50,
-      right: Spacing.md,
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: "rgba(0, 0, 0, 0.4)",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 100,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-  });
-};
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.black,
+  },
+  searchButton: {
+    position: "absolute",
+    top: 50,
+    right: Spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+});

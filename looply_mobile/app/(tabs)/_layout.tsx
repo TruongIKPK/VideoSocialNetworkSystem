@@ -1,87 +1,51 @@
 import { Tabs } from "expo-router";
 import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { View, ActivityIndicator, Animated, StyleSheet } from "react-native";
 import { CustomHeader } from "../_layout";
 
 import { useUser } from "@/contexts/UserContext";
-import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { socketService } from "../../service/socketService";
+import { saveMessageToDB } from "@/utils/database";
 
 export default function TabLayout() {
   const { user, token } = useUser();
-  const { isReloading, triggerReload } = useHomeReload();
-  const rotateAnim = React.useRef(new Animated.Value(0)).current;
-  const lastTabPressTimeRef = React.useRef<number>(0);
-  const TAB_PRESS_DEBOUNCE_MS = 300; // Debounce 0.3 giây (giảm từ 1s để nhanh hơn)
-  
-  // Debug: Log reloading state
-  useEffect(() => {
-    console.log(`[TabLayout] 🔄 isReloading changed: ${isReloading}`);
-  }, [isReloading]);
-  
-  // Animation cho vòng tròn reload
-  const animationRef = React.useRef<Animated.CompositeAnimation | null>(null);
-  
-  useEffect(() => {
-    if (isReloading) {
-      console.log(`[TabLayout] 🎬 Starting reload animation`);
-      // Dừng animation cũ nếu có
-      if (animationRef.current) {
-        animationRef.current.stop();
-        animationRef.current = null;
-      }
-      // Reset giá trị về 0
-      rotateAnim.setValue(0);
-      // Bắt đầu animation quay mới
-      animationRef.current = Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      );
-      animationRef.current.start();
-    } else {
-      console.log(`[TabLayout] ⏹️ Stopping reload animation`);
-      // Dừng animation nếu đang chạy
-      if (animationRef.current) {
-        animationRef.current.stop();
-        animationRef.current = null;
-      }
-      // Reset giá trị về 0
-      rotateAnim.setValue(0);
-    }
-    
-    // Cleanup khi component unmount
-    return () => {
-      if (animationRef.current) {
-        animationRef.current.stop();
-        animationRef.current = null;
-      }
-    };
-  }, [isReloading, rotateAnim]);
-  
-  const rotation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   useEffect(() => {
-    // Chỉ kết nối socket cho user thường, không phải admin
-    if (token && user?._id && user?.role !== "admin") {
+    if (token && user?._id) {
+      console.log("🔄 Đang kết nối Socket từ TabLayout...");
       socketService.connect(token);
-    } else if (user?.role === "admin") {
-      // Nếu là admin, disconnect socket
-      socketService.disconnect();
-    }
 
-    // Cleanup: disconnect khi component unmount hoặc user thay đổi
-    return () => {
-      // Không disconnect ở đây vì có thể user chỉ navigate giữa các tab
-      // Socket sẽ được quản lý bởi socketService
-    };
-  }, [token, user?._id, user?.role]); // Chỉ depend vào _id và role, không phải toàn bộ user object
+      const handleGlobalMessage = (msg: any) => {
+        console.log("📩 [Global Listener] Có tin nhắn mới:", msg);
+
+        // Chỉ xử lý tin nhắn từ người khác gửi đến
+        if (msg.from !== user._id) {
+          const incomingMsg = {
+            messageId: msg.messageId,
+            chatId: msg.from, // ID người gửi chính là ID cuộc trò chuyện
+            content: msg.text,
+            sender: "other",
+            type: msg.type || "text",
+            timestamp: msg.timestamp,
+            status: "received",
+          };
+
+          // 💾 Lưu ngay vào SQLite
+          saveMessageToDB(incomingMsg);
+
+          // (Tùy chọn) Tại đây bạn có thể bắn Notification hoặc rung máy
+        }
+      };
+
+      // Đăng ký sự kiện
+      socketService.on("receive-message", handleGlobalMessage);
+
+      // Cleanup khi unmount
+      return () => {
+        socketService.off("receive-message", handleGlobalMessage);
+      };
+    }
+  }, [token, user]);
 
   return (
     <Tabs
@@ -103,57 +67,15 @@ export default function TabLayout() {
         name="home/index"
         options={{
           title: "Home",
-          tabBarIcon: ({ focused }) => {
-            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}`);
-            return (
-              <View style={styles.iconContainer}>
-                <Ionicons
-                  name={focused ? "home" : "home-outline"}
-                  size={28}
-                  color={focused ? "#fff" : "#B5B5B5"}
-                />
-                {isReloading && (
-                  <Animated.View
-                    style={[
-                      styles.reloadCircle,
-                      {
-                        transform: [{ rotate: rotation }],
-                      },
-                    ]}
-                  >
-                    <View style={styles.circleBorder}>
-                      <Ionicons name="arrow-forward" size={12} color="#fff" style={styles.arrowIcon} />
-                    </View>
-                  </Animated.View>
-                )}
-              </View>
-            );
-          },
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="home"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
+          ),
           headerShown: true,
           header: () => <CustomHeader />,
-        }}
-        listeners={{
-          tabPress: (e) => {
-            const now = Date.now();
-            const timeSinceLastPress = now - lastTabPressTimeRef.current;
-            
-            console.log(`[TabLayout] 👆 Tab press detected on home tab! isReloading: ${isReloading}, timeSinceLastPress: ${timeSinceLastPress}ms`);
-            
-            // Ngăn trigger nếu đang reload hoặc vừa mới press gần đây
-            if (isReloading) {
-              console.log(`[TabLayout] ⚠️ Already reloading, skipping`);
-              return;
-            }
-            
-            if (timeSinceLastPress < TAB_PRESS_DEBOUNCE_MS) {
-              console.log(`[TabLayout] ⚠️ Tab press too soon (${timeSinceLastPress}ms < ${TAB_PRESS_DEBOUNCE_MS}ms), skipping`);
-              return;
-            }
-            
-            lastTabPressTimeRef.current = now;
-            console.log(`[TabLayout] ✅ Triggering reload`);
-            triggerReload();
-          },
         }}
       />
       <Tabs.Screen
@@ -210,25 +132,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile/index"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="person"
-              size={28}
-              color={focused ? "#fff" : "#B5B5B5"}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile/[userId]"
-        options={{
-          href: null, // Ẩn khỏi tab bar
-        }}
-      />
-      <Tabs.Screen
         name="settings/index"
         options={{
           href: null,
@@ -241,40 +144,20 @@ export default function TabLayout() {
           tabBarStyle: { display: "none" },
         }}
       />
+
+      <Tabs.Screen
+        name="profile/index"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Ionicons
+              name="person"
+              size={28}
+              color={focused ? "#fff" : "#B5B5B5"}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  iconContainer: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 36,
-    height: 36,
-  },
-  reloadCircle: {
-    position: "absolute",
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circleBorder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2.5,
-    borderColor: "#fff",
-    borderTopColor: "transparent",
-    borderRightColor: "transparent",
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  arrowIcon: {
-    position: "absolute",
-    top: -1,
-    right: 6,
-  },
-});

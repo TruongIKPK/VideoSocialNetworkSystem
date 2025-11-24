@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,8 +17,7 @@ import { Image } from "expo-image";
 import { useUser } from "@/contexts/UserContext";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { useColors } from "@/hooks/useColors";
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { format, isToday, isYesterday } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useReport } from "@/hooks/useReport";
@@ -64,7 +63,6 @@ export default function CommentsModal() {
   const { videoId } = useLocalSearchParams<{ videoId: string }>();
   const { isAuthenticated, token } = useUser();
   const { user } = useCurrentUser();
-  const Colors = useColors(); // Get theme-aware colors
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
@@ -75,9 +73,6 @@ export default function CommentsModal() {
   const flatListRef = useRef<FlatList>(null);
   const { createReport, isSubmitting: isSubmittingReport } = useReport({ token });
   const { showAlert, AlertComponent } = useCustomAlert();
-  
-  // Create dynamic styles based on theme
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     if (videoId) {
@@ -435,12 +430,11 @@ export default function CommentsModal() {
   );
 }
 
-const createStyles = (Colors: ReturnType<typeof useColors>) => {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: Colors.white,
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
   keyboardView: {
     flex: 1,
   },
@@ -626,6 +620,5 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     color: Colors.text.secondary,
     fontFamily: Typography.fontFamily.regular,
   },
-  });
-};
+});
 

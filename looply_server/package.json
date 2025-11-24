@@ -11,11 +11,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@aws-sdk/client-rekognition": "^3.936.0",
-    "@aws-sdk/client-s3": "^3.937.0",
-    "@aws-sdk/s3-request-presigner": "^3.937.0",
-    "@qdrant/js-client-rest": "^1.16.0",
-    "@qdrant/qdrant-js": "^1.16.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.7.0",

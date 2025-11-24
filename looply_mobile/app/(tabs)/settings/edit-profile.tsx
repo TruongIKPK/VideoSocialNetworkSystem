@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,8 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useUser } from "@/contexts/UserContext";
 // import { useCurrentUser } from "@/hooks/useCurrentUser"; // Không cần dùng
-import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { useColors } from "@/hooks/useColors";
+import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getAvatarUri } from "@/utils/imageHelpers";
@@ -29,7 +28,6 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { user, token, login } = useUser();
-  const Colors = useColors(); // Get theme-aware colors
   // const { currentUser } = useCurrentUser(); // Không cần dùng
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -37,9 +35,6 @@ export default function EditProfileScreen() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Create dynamic styles based on theme
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   // Ẩn tab bar khi ở màn hình này
   useLayoutEffect(() => {
@@ -105,6 +100,7 @@ export default function EditProfileScreen() {
         });
       }
     } catch (error) {
+      console.error("Error picking image:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại!");
     }
   };
@@ -178,6 +174,7 @@ export default function EditProfileScreen() {
         },
       ]);
     } catch (error: any) {
+      console.error("Error updating profile:", error);
       Alert.alert("Lỗi", error.message || "Cập nhật thất bại. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);
@@ -271,12 +268,11 @@ export default function EditProfileScreen() {
   );
 }
 
-const createStyles = (Colors: ReturnType<typeof useColors>) => {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: Colors.white,
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -356,6 +352,5 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.xl,
   },
-  });
-};
+});
 

@@ -1,21 +1,5 @@
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-
-// Get current file directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load environment variables from .env file in the server directory
-const envResult = dotenv.config({ path: join(__dirname, ".env") });
-
-if (envResult.error) {
-  console.warn("⚠️  Could not load .env file:", envResult.error.message);
-  console.warn("   Trying to load from default location...");
-  dotenv.config(); // Try default location
-} else {
-  console.log(`✅ Environment variables loaded from: ${join(__dirname, ".env")}`);
-}
+dotenv.config();
 
 import express from "express";
 import http from "http";
@@ -43,12 +27,7 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import videoViewRoutes from "./routes/videoViewRoutes.js";
 import hashtagRoutes from "./routes/hashtagRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
 import saveRoutes from "./routes/saveRoutes.js";
-
-// Import moderation services
-import { initializeCollection } from "./services/qdrantService.js";
-import { startModerationPolling } from "./services/moderationProcessor.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -58,18 +37,6 @@ const io = new Server(server, {
 
 // Connect to database
 connectDB();
-
-// Initialize Qdrant collection and start moderation polling after DB connection
-setTimeout(async () => {
-  try {
-    await initializeCollection();
-    // Start polling for moderation jobs every 30 seconds
-    // Pass io and connectedUsers so moderation processor can emit notifications
-    startModerationPolling(30000, io, connectedUsers);
-  } catch (error) {
-    console.error("Error initializing moderation system:", error);
-  }
-}, 3000);
 
 // Create default admin user if not exists
 const createDefaultAdmin = async () => {
@@ -88,22 +55,19 @@ const createDefaultAdmin = async () => {
         role: "admin",
         status: "active",
       });
-      console.log("✅ Default admin user created successfully");
-      console.log(`   Email: ${adminEmail}`);
-      console.log(`   Password: ${adminPassword}`);
+      console.log("Default admin user created successfully");
     } else {
-      console.log("ℹ️  Admin user already exists");
+      console.log("Admin user already exists");
     }
   } catch (error) {
-    console.error("❌ Error creating default admin:", error);
+    console.error("Error creating default admin:", error);
   }
 };
 
-// Create admin after DB connection is established
-mongoose.connection.once('connected', async () => {
-  console.log("📦 Database connected, initializing admin user...");
+// Wait for DB connection then create admin
+setTimeout(async () => {
   await createDefaultAdmin();
-});
+}, 2000);
 
 // Security middleware
 app.use(helmet()); // Adds various HTTP headers for security
@@ -143,7 +107,6 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/video-views", videoViewRoutes);
 app.use("/api/hashtags", hashtagRoutes);
 app.use("/api/reports", reportRoutes);
-app.use("/api/admin", adminRoutes);
 app.use("/api/saves", saveRoutes);
 
 // Health check endpoint for quick testing
@@ -161,13 +124,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Something went wrong!" });
 });
 
-const PORT = process.env.PORT || 5000;
-
 // Store connected users: userId -> socketId
 const connectedUsers = {};
-
-// Export io and connectedUsers for use in other modules
-export { io, connectedUsers };
 
 // Socket authentication middleware
 io.use(async (socket, next) => {
@@ -177,19 +135,13 @@ io.use(async (socket, next) => {
       socket.handshake.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      console.log("[Socket Auth] ❌ No token provided");
       return next(new Error("Authentication token required"));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Convert userId to string to ensure consistency
-    socket.userId = String(decoded.userId);
-    console.log("[Socket Auth] ✅ Token verified");
-    console.log(`[Socket Auth] Decoded userId: ${socket.userId}`);
-    console.log(`[Socket Auth] UserId type: ${typeof socket.userId}`);
+    socket.userId = decoded.userId;
     next();
   } catch (error) {
-    console.error("[Socket Auth] ❌ Token verification failed:", error.message);
     next(new Error("Invalid or expired token"));
   }
 });
@@ -197,31 +149,24 @@ io.use(async (socket, next) => {
 // Lắng nghe kết nối socket
 io.on("connection", (socket) => {
   const userId = socket.userId;
-  console.log("=".repeat(60));
-  console.log("🔌 [Socket] New connection received");
-  console.log(`[Socket] Socket ID: ${socket.id}`);
-  console.log(`[Socket] User ID: ${userId}`);
-  console.log(`[Socket] User ID type: ${typeof userId}`);
-  console.log(`[Socket] User ID string: ${String(userId)}`);
+  console.log("User connected:", socket.id, "userId:", userId);
 
   if (userId) {
-    // Convert userId to string to ensure consistency
-    const userIdString = String(userId);
-    connectedUsers[userIdString] = socket.id;
+    connectedUsers[userId] = socket.id;
+
+    const onlineUserIds = Object.keys(connectedUsers);
+    socket.emit("get-online-users", onlineUserIds);
 
     // Broadcast user online
-    socket.broadcast.emit("user-online", { userId: userIdString });
+    socket.broadcast.emit("user-online", { userId });
 
-    console.log(`✅ User ${userIdString} joined automatically.`);
-    console.log(`[Socket] Stored in connectedUsers: ${userIdString} -> ${socket.id}`);
+    console.log(`✅ User ${userId} joined automatically.`);
     console.log(
       `📋 Total connected: ${Object.keys(connectedUsers).length}`,
       Object.keys(connectedUsers)
     );
-    console.log("=".repeat(60));
   } else {
     console.log("⚠️ Kết nối không có userId hợp lệ");
-    console.log("=".repeat(60));
     // socket.disconnect(); // Tùy chọn: ngắt kết nối nếu không auth
   }
 
@@ -383,6 +328,7 @@ io.on("connection", (socket) => {
   });
 });
 
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });

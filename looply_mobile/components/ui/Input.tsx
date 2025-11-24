@@ -94,8 +94,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.md,
     color: Colors.text.primary,
     fontFamily: Typography.fontFamily.regular,
-    paddingVertical: Spacing.sm,
-    textAlignVertical: "center",
   },
   iconLeft: {
     marginRight: Spacing.sm,

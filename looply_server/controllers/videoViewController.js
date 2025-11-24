@@ -1,7 +1,6 @@
 // controllers/videoViewController.js
 import VideoView from "../models/VideoView.js";
 import Video from "../models/Video.js";
-import { getApprovedVideosFilter } from "./videoController.js";
 
 // Lưu lịch sử xem
 export const recordVideoView = async (req, res) => {
@@ -47,13 +46,9 @@ export const getRecommendedVideos = async (req, res) => {
     
     const viewedVideoIds = viewedVideos.map(v => v.videoId);
 
-    // Lấy video chưa xem, loại bỏ video flagged, rejected, và violation
-    const approvedFilter = getApprovedVideosFilter();
+    // Lấy video chưa xem
     let videos = await Video.find({ 
-      $and: [
-        { _id: { $nin: viewedVideoIds } },
-        approvedFilter
-      ]
+      _id: { $nin: viewedVideoIds } 
     })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -69,12 +64,8 @@ export const getRecommendedVideos = async (req, res) => {
 
       const oldVideoIds = oldViewed.map(v => v.videoId);
       
-      // Lấy video đã xem cũ, nhưng vẫn loại bỏ video flagged, rejected, và violation
       const additionalVideos = await Video.find({ 
-        $and: [
-          { _id: { $in: oldVideoIds } },
-          approvedFilter
-        ]
+        _id: { $in: oldVideoIds } 
       }).lean();
 
       videos = [...videos, ...additionalVideos];

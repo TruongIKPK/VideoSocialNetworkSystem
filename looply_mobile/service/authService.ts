@@ -33,8 +33,6 @@ export interface User {
   email: string;
   bio: string;
   avatar: string;
-  role?: string;
-  status?: string;
   followers: number;
   followersList: string[];
   following: number;

@@ -5,8 +5,8 @@
 
 import { Platform } from 'react-native';
 
-// Light Theme Colors
-const LightColors = {
+// Color Palette
+export const Colors = {
   // Primary Colors
   primary: '#007AFF',
   primaryDark: '#0051CC',
@@ -69,80 +69,6 @@ const LightColors = {
     facebook: '#4267B2',
     apple: '#000000',
   },
-};
-
-// Dark Theme Colors
-const DarkColors = {
-  // Primary Colors (same as light)
-  primary: '#007AFF',
-  primaryDark: '#0051CC',
-  primaryLight: '#5AC8FA',
-  
-  // Accent Colors (same as light)
-  accent: '#00D4FF',
-  accentDark: '#00A8CC',
-  
-  // Status Colors (same as light)
-  success: '#34C759',
-  error: '#FF3B30',
-  warning: '#FF9500',
-  info: '#007AFF',
-  
-  // Neutral Colors (inverted)
-  black: '#FFFFFF',
-  white: '#000000',
-  gray: {
-    50: '#0D0D0D',
-    100: '#1A1A1A',
-    200: '#333333',
-    300: '#4A4A4A',
-    400: '#666666',
-    500: '#999999',
-    600: '#B5B5B5',
-    700: '#D1D1D1',
-    800: '#E8E8E8',
-    900: '#F5F5F5',
-  },
-  
-  // Background Colors
-  background: {
-    light: '#000000',
-    dark: '#FFFFFF',
-    gray: '#1A1A1A',
-    overlay: 'rgba(0, 0, 0, 0.5)',
-    overlayLight: 'rgba(0, 0, 0, 0.8)',
-  },
-  
-  // Text Colors (inverted)
-  text: {
-    primary: '#FFFFFF',
-    secondary: '#B5B5B5',
-    tertiary: '#999999',
-    inverse: '#000000',
-    light: '#666666',
-  },
-  
-  // Border Colors
-  border: {
-    light: '#333333',
-    medium: '#4A4A4A',
-    dark: '#666666',
-  },
-  
-  // Social Colors (same as light)
-  social: {
-    google: '#DB4437',
-    facebook: '#4267B2',
-    apple: '#FFFFFF',
-  },
-};
-
-// Legacy export (defaults to light theme for backward compatibility)
-export const Colors = LightColors;
-
-// Function to get colors based on theme
-export const getColors = (theme: 'light' | 'dark' = 'light') => {
-  return theme === 'dark' ? DarkColors : LightColors;
 };
 
 // Spacing Scale (8px base)

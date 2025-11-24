@@ -2,59 +2,7 @@ import Video from "../models/Video.js";
 import User from "../models/User.js";
 import VideoView from "../models/VideoView.js";
 import Like from "../models/Like.js";
-import Save from "../models/Save.js";
-import Comment from "../models/Comment.js";
-import cloudinary, { configureCloudinary, getPublicIdFromUrl, generateThumbnailUrl, makeThumbnailPublic } from "../config/cloudinary.js";
-import { uploadVideoToS3 } from "../services/s3Service.js";
-import { startContentModeration } from "../services/rekognitionService.js";
-import { emitModerationNotification } from "../utils/socketHelper.js";
-import fs from "fs";
-
-// Import io and connectedUsers from server.js
-// Using dynamic import to avoid circular dependency issues
-let io = null;
-let connectedUsers = null;
-
-// Lazy load io and connectedUsers
-async function getSocketInstance() {
-  if (!io || !connectedUsers) {
-    try {
-      const serverModule = await import("../server.js");
-      io = serverModule.io;
-      connectedUsers = serverModule.connectedUsers;
-    } catch (error) {
-      console.warn("[VideoController] Could not load socket instance:", error.message);
-    }
-  }
-  return { io, connectedUsers };
-}
-
-/**
- * Helper function to build query filter for approved videos only
- * Excludes: flagged, rejected, and violation status videos
- * @returns {Object} MongoDB query filter
- */
-export const getApprovedVideosFilter = () => {
-  return {
-    $and: [
-      // Exclude flagged and rejected videos
-      // Include videos without moderationStatus (backward compatibility) or approved videos
-      {
-        $or: [
-          { moderationStatus: "approved" },
-          { moderationStatus: { $exists: false } }
-        ]
-      },
-      // Exclude violation status (old system)
-      {
-        $or: [
-          { status: { $ne: "violation" } },
-          { status: { $exists: false } }
-        ]
-      }
-    ]
-  };
-};
+import cloudinary, { configureCloudinary } from "../config/cloudinary.js";
 
 export const uploadVideo = async (req, res) => {
   try {
@@ -70,94 +18,19 @@ export const uploadVideo = async (req, res) => {
       return res.status(401).json({ message: "Không tìm thấy thông tin user" });
     }
 
+    const result = await cloudinary.uploader.upload(file.path, {
+      resource_type: "video",
+      folder: "videos"
+    });
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
 
-    // Step 1: Upload to Cloudinary as private (authenticated access)
-    // Use eager transformation to automatically generate thumbnail
-    const cloudinaryResult = await cloudinary.uploader.upload(file.path, {
-      resource_type: "video",
-      folder: "videos",
-      access_mode: "authenticated", // Private access
-      eager: [
-        {
-          width: 320,
-          height: 240,
-          crop: "fill",
-          quality: "auto",
-          format: "jpg",
-          start_offset: 1, // Capture frame at 1 second
-        }
-      ],
-      eager_async: false, // Generate thumbnail immediately
-    });
-
-    // Step 2: Upload thumbnail as separate public image
-    // Eager transformation creates a thumbnail from the video, but since the video is private,
-    // the eager thumbnail URL may not be accessible. We need to upload it as a separate public image
-    // so it's accessible even when the video is private.
-    // 
-    // Process:
-    // 1. Eager transformation creates a derived asset (thumbnail) from the video
-    // 2. We upload this thumbnail as a new public image file
-    // 3. This ensures the thumbnail is always accessible, regardless of video access mode
-    let thumbnailUrl = null;
-    if (cloudinaryResult.eager && cloudinaryResult.eager.length > 0) {
-      try {
-        // Get the eager thumbnail URL
-        const eagerThumbnailUrl = cloudinaryResult.eager[0].secure_url;
-        
-        // Extract public_id for thumbnail (use a separate folder for thumbnails)
-        const thumbnailPublicId = `thumbnails/${cloudinaryResult.public_id.replace('videos/', '')}`;
-        
-        // Upload the eager thumbnail as a new public image
-        // Cloudinary can upload from its own URL (even if source is private, we have API access)
-        const thumbnailResult = await cloudinary.uploader.upload(
-          eagerThumbnailUrl,
-          {
-            resource_type: "image",
-            folder: "thumbnails",
-            public_id: thumbnailPublicId,
-            access_mode: "public", // Thumbnail is public
-            overwrite: true,
-            invalidate: true, // Invalidate CDN cache
-          }
-        );
-        thumbnailUrl = thumbnailResult.secure_url;
-        console.log(`[UploadVideo] ✅ Thumbnail uploaded as public image: ${thumbnailUrl}`);
-      } catch (thumbnailError) {
-        console.error("[UploadVideo] ⚠️ Error uploading thumbnail as public image:", thumbnailError);
-        // Try to make eager thumbnail public using explicit API as fallback
-        try {
-          thumbnailUrl = await makeThumbnailPublic(cloudinaryResult.eager[0].secure_url);
-          console.log(`[UploadVideo] ✅ Thumbnail made public via explicit API: ${thumbnailUrl}`);
-        } catch (explicitError) {
-          console.error("[UploadVideo] ⚠️ Error making thumbnail public via explicit API:", explicitError);
-          // Final fallback: Use eager URL (may not work if video is private)
-          thumbnailUrl = cloudinaryResult.eager[0].secure_url;
-          console.warn("[UploadVideo] ⚠️ Using eager URL as fallback (may not be accessible)");
-        }
-      }
-    } else {
-      // Fallback: Generate thumbnail URL using Cloudinary transformation
-      // Note: This may not work if video is private
-      thumbnailUrl = generateThumbnailUrl(
-        cloudinaryResult.secure_url,
-        cloudinaryResult.public_id,
-        { width: 320, height: 240, offset: 1 }
-      );
-      console.warn("[UploadVideo] ⚠️ No eager transformation, using generated thumbnail URL (may not be accessible)");
-    }
-
-    // Step 3: Create video record with pending moderation status
     const video = await Video.create({
       title,
       description,
-      url: cloudinaryResult.secure_url,
-      thumbnail: thumbnailUrl || cloudinaryResult.secure_url, // Fallback to video URL if thumbnail generation fails
-      cloudinaryPublicId: cloudinaryResult.public_id,
-      cloudinaryTempUrl: cloudinaryResult.secure_url,
-      moderationStatus: "pending",
+      url: result.secure_url,
+      thumbnail: result.secure_url.replace(".mp4", ".jpg"),
       user: {
         _id: user._id,
         name: user.name,
@@ -165,59 +38,15 @@ export const uploadVideo = async (req, res) => {
       }
     });
 
-    // Step 3: Upload to S3 as private (for Rekognition)
-    // Only upload to S3 if file still exists
-    const s3Key = `${userId}/${video._id}.mp4`;
-    if (fs.existsSync(file.path)) {
-      const uploadedS3Key = await uploadVideoToS3(file.path, s3Key);
-      if (uploadedS3Key) {
-        video.s3Key = uploadedS3Key;
-        await video.save();
-      }
-      // If uploadVideoToS3 returns null, it means S3 is not configured or upload failed
-      // Continue without S3 - video is still saved to Cloudinary
-    } else {
-      console.warn(`File not found for S3 upload: ${file.path}. Skipping S3 upload.`);
-    }
-
-    // Step 4: Start Rekognition moderation job
-    if (video.s3Key) {
-      try {
-        const jobId = await startContentModeration(video.s3Key);
-        video.rekognitionJobId = jobId;
-        await video.save();
-      } catch (rekognitionError) {
-        console.error("Error starting Rekognition job:", rekognitionError);
-        // Continue even if Rekognition fails - video is still saved
-      }
-    }
-
-    // Clean up temporary file (only if it exists)
-    if (fs.existsSync(file.path)) {
-      try {
-        fs.unlinkSync(file.path);
-        console.log(`Temporary file deleted: ${file.path}`);
-      } catch (unlinkError) {
-        console.error("Error deleting temp file:", unlinkError.message || unlinkError);
-      }
-    }
-
-    // Step 5: Return immediate response with pending status
-    res.status(201).json({
-      ...video.toObject(),
-      message: "Video đang được kiểm duyệt. Bạn sẽ được thông báo khi video được duyệt."
-    });
+    res.status(201).json(video);
   } catch (error) {
-    console.error("Upload video error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
 export const getAllVideos = async (req, res) => {
   try {
-    // Only show approved videos, exclude flagged, rejected, and violation videos
-    const videos = await Video.find(getApprovedVideosFilter())
-      .sort({ createdAt: -1 });
+    const videos = await Video.find({ status: { $ne: "violation" } }).sort({ createdAt: -1 });
     res.json(videos);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -228,28 +57,9 @@ export const getVideoById = async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: "Không tìm thấy video" });
-    
-    // Check moderation status - exclude flagged, rejected, and violation videos
-    if (video.moderationStatus === "rejected" || video.moderationStatus === "flagged") {
-      return res.status(403).json({ 
-        message: "Video này đang chờ kiểm duyệt hoặc đã bị từ chối",
-        moderationStatus: video.moderationStatus
-      });
-    }
-    
-    // Backward compatibility with old status field
-    if (video.status === "violation" && !video.moderationStatus) {
+    if (video.status === "violation") {
       return res.status(403).json({ message: "Video này đã bị vi phạm" });
     }
-    
-    // Only return approved videos
-    if (video.moderationStatus && video.moderationStatus !== "approved") {
-      return res.status(403).json({ 
-        message: "Video này không khả dụng",
-        moderationStatus: video.moderationStatus
-      });
-    }
-    
     res.json(video);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -258,54 +68,10 @@ export const getVideoById = async (req, res) => {
 
 export const deleteVideo = async (req, res) => {
   try {
-    const videoId = req.params.id;
-    const video = req.video; // Video đã được kiểm tra ownership trong middleware
-    
-    if (!video) {
-      return res.status(404).json({ message: "Video not found" });
-    }
-
-    // 1. Xóa video từ Cloudinary nếu có cloudinaryPublicId
-    if (video.cloudinaryPublicId) {
-      try {
-        configureCloudinary();
-        await cloudinary.uploader.destroy(video.cloudinaryPublicId, {
-          resource_type: "video"
-        });
-        console.log(`[DeleteVideo] ✅ Deleted video from Cloudinary: ${video.cloudinaryPublicId}`);
-      } catch (cloudinaryError) {
-        console.error(`[DeleteVideo] ⚠️ Error deleting from Cloudinary:`, cloudinaryError);
-        // Tiếp tục xóa dù Cloudinary có lỗi
-      }
-    }
-
-    // 2. Thumbnail không cần xóa vì nó được tạo động từ video URL
-    // Thumbnail URL được generate từ video public ID, không phải file riêng
-    // Khi video bị xóa, thumbnail URL sẽ tự động không còn hoạt động
-
-    // 3. Xóa tất cả likes liên quan đến video
-    await Like.deleteMany({ 
-      targetType: "video", 
-      targetId: videoId 
-    });
-
-    // 4. Xóa tất cả comments liên quan đến video
-    await Comment.deleteMany({ videoId: videoId });
-
-    // 5. Xóa tất cả saves liên quan đến video
-    await Save.deleteMany({ videoId: videoId });
-
-    // 6. Xóa tất cả video views liên quan đến video
-    await VideoView.deleteMany({ videoId: videoId });
-
-    // 7. Xóa video từ database
-    await Video.findByIdAndDelete(videoId);
-
-    console.log(`[DeleteVideo] ✅ Successfully deleted video: ${videoId}`);
-    res.json({ message: "Đã xoá video thành công" });
+    await Video.findByIdAndDelete(req.params.id);
+    res.json({ message: "Đã xoá video" });
   } catch (error) {
-    console.error("[DeleteVideo] ❌ Error deleting video:", error);
-    res.status(500).json({ message: error.message || "Lỗi khi xóa video" });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -317,18 +83,13 @@ export const searchVideos = async (req, res) => {
       return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
     }
 
-    // Tìm kiếm trong cả title và description, loại bỏ video flagged, rejected, và violation
-    const approvedFilter = getApprovedVideosFilter();
+    // Tìm kiếm trong cả title và description, loại bỏ video vi phạm
     const videos = await Video.find({
-      $and: [
-        {
-          $or: [
-            { title: { $regex: q, $options: 'i' } },
-            { description: { $regex: q, $options: 'i' } }
-          ]
-        },
-        approvedFilter
-      ]
+      $or: [
+        { title: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } }
+      ],
+      status: { $ne: "violation" }
     }).sort({ createdAt: -1 });
 
     // Lấy thông tin views và likes cho từng video
@@ -368,12 +129,9 @@ export const getRandomVideos = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 3;
     
-    // Lấy video ngẫu nhiên, loại bỏ video flagged, rejected, và violation
-    const approvedFilter = getApprovedVideosFilter();
+    // Lấy video ngẫu nhiên, loại bỏ video vi phạm
     const videos = await Video.aggregate([
-      { 
-        $match: approvedFilter
-      },
+      { $match: { status: { $ne: "violation" } } },
       { $sample: { size: limit } }
     ]);
     
@@ -388,8 +146,7 @@ export const getRandomVideos = async (req, res) => {
 
 export const getLatestVideos = async (req, res) => {
   try {
-    // Lấy video mới nhất, loại bỏ video flagged, rejected, và violation
-    const videos = await Video.find(getApprovedVideosFilter())
+    const videos = await Video.find({ status: { $ne: "violation" } })
       .sort({ createdAt: -1 })
       .limit(3);
     
@@ -437,13 +194,9 @@ export const searchVideosByHashtags = async (req, res) => {
       const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regexPattern = new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i');
       
-      // Loại bỏ video flagged, rejected, và violation
-      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
-        $and: [
-          { description: { $regex: regexPattern } },
-          approvedFilter
-        ]
+        description: { $regex: regexPattern },
+        status: { $ne: "violation" }
       }).sort({ createdAt: -1 });
     } else {
       // Nếu có nhiều hashtags, tìm video chứa TẤT CẢ các hashtags
@@ -453,12 +206,10 @@ export const searchVideosByHashtags = async (req, res) => {
         return { description: { $regex: new RegExp(`#${escapedTag}(?=\\s|,|$|\\s)`, 'i') } };
       });
       
-      // Loại bỏ video flagged, rejected, và violation
-      const approvedFilter = getApprovedVideosFilter();
       videos = await Video.find({
         $and: [
           ...regexConditions,
-          approvedFilter
+          { status: { $ne: "violation" } }
         ]
       }).sort({ createdAt: -1 });
     }
@@ -502,464 +253,3 @@ export const updateVideoStatus = async (req, res) => {
   }
 };
 
-// Lấy danh sách video theo userId (người dùng đăng tải)
-export const getVideosByUserId = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ message: "Thiếu userId" });
-    }
-
-    // Kiểm tra xem user đang request có phải là chủ sở hữu không
-    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
-    const isOwner = currentUserId && currentUserId === userId;
-
-    let query;
-
-    if (isOwner) {
-      // Nếu là chủ sở hữu: hiển thị TẤT CẢ video (pending, approved, flagged, rejected, violation)
-      // Không filter gì cả, chỉ lấy video của user này
-      query = {
-        "user._id": userId
-      };
-    } else {
-      // Nếu không phải chủ sở hữu: chỉ hiển thị video approved
-      const approvedFilter = getApprovedVideosFilter();
-      query = {
-        $and: [
-          { "user._id": userId },
-          approvedFilter
-        ]
-      };
-    }
-
-    const videos = await Video.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Lấy thống kê views, likes, comments cho từng video
-    const videosWithStats = await Promise.all(
-      videos.map(async (video) => {
-        const views = await VideoView.countDocuments({ videoId: video._id });
-        const likes = await Like.countDocuments({ 
-          targetType: "video", 
-          targetId: video._id 
-        });
-        const comments = await Comment.countDocuments({ 
-          videoId: video._id,
-          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
-        });
-
-        return {
-          ...video,
-          views: views,
-          likes: likes,
-          comments: comments
-        };
-      })
-    );
-
-    res.json({
-      total: videosWithStats.length,
-      videos: videosWithStats
-    });
-  } catch (error) {
-    console.error("Get videos by userId error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Lấy danh sách video người dùng đã thích
-export const getLikedVideosByUserId = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ message: "Thiếu userId" });
-    }
-
-    // Tìm tất cả like của user này cho video
-    const likes = await Like.find({
-      user: userId,
-      targetType: "video"
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const videoIds = likes.map(like => like.targetId);
-
-    if (videoIds.length === 0) {
-      return res.json({
-        total: 0,
-        videos: []
-      });
-    }
-
-    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
-    const approvedFilter = getApprovedVideosFilter();
-    const videos = await Video.find({
-      $and: [
-        { _id: { $in: videoIds } },
-        approvedFilter
-      ]
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Lấy thống kê views, likes, comments cho từng video
-    const videosWithStats = await Promise.all(
-      videos.map(async (video) => {
-        const views = await VideoView.countDocuments({ videoId: video._id });
-        const likes = await Like.countDocuments({ 
-          targetType: "video", 
-          targetId: video._id 
-        });
-        const comments = await Comment.countDocuments({ 
-          videoId: video._id,
-          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
-        });
-
-        return {
-          ...video,
-          views: views,
-          likes: likes,
-          comments: comments
-        };
-      })
-    );
-
-    res.json({
-      total: videosWithStats.length,
-      videos: videosWithStats
-    });
-  } catch (error) {
-    console.error("Get liked videos by userId error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Lấy danh sách video người dùng đã save
-export const getSavedVideosByUserId = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ message: "Thiếu userId" });
-    }
-
-    // Tìm tất cả save của user này
-    const saves = await Save.find({
-      user: userId
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const videoIds = saves.map(save => save.videoId);
-
-    if (videoIds.length === 0) {
-      return res.json({
-        total: 0,
-        videos: []
-      });
-    }
-
-    // Lấy thông tin video, loại bỏ video flagged, rejected, và violation
-    const approvedFilter = getApprovedVideosFilter();
-    const videos = await Video.find({
-      $and: [
-        { _id: { $in: videoIds } },
-        approvedFilter
-      ]
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Lấy thống kê views, likes, comments cho từng video
-    const videosWithStats = await Promise.all(
-      videos.map(async (video) => {
-        const views = await VideoView.countDocuments({ videoId: video._id });
-        const likes = await Like.countDocuments({ 
-          targetType: "video", 
-          targetId: video._id 
-        });
-        const comments = await Comment.countDocuments({ 
-          videoId: video._id,
-          status: { $ne: "violation" } // Chỉ đếm comment không vi phạm
-        });
-
-        return {
-          ...video,
-          views: views,
-          likes: likes,
-          comments: comments
-        };
-      })
-    );
-
-    res.json({
-      total: videosWithStats.length,
-      videos: videosWithStats
-    });
-  } catch (error) {
-    console.error("Get saved videos by userId error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Admin Review Endpoints
-
-/**
- * Get pending moderation videos (flagged, rejected, or pending)
- * Admin only
- */
-export const getPendingModerationVideos = async (req, res) => {
-  try {
-    const videos = await Video.find({
-      moderationStatus: { $in: ["flagged", "rejected", "pending"] }
-    })
-      .sort({ createdAt: -1 })
-      .limit(50);
-
-    res.json({
-      total: videos.length,
-      videos: videos
-    });
-  } catch (error) {
-    console.error("Get pending moderation videos error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/**
- * Get flagged or rejected videos only (excludes pending)
- * Admin only
- */
-export const getFlaggedOrRejectedVideos = async (req, res) => {
-  try {
-    const { page = 1, limit = 20, status } = req.query;
-    const pageNumber = parseInt(page);
-    const limitNumber = parseInt(limit);
-    const skip = (pageNumber - 1) * limitNumber;
-
-    // Build query - only flagged or rejected
-    const query = {
-      moderationStatus: { $in: ["flagged", "rejected"] }
-    };
-
-    // Optional: filter by specific status if provided
-    if (status && (status === "flagged" || status === "rejected")) {
-      query.moderationStatus = status;
-    }
-
-    // Get total count for pagination
-    const total = await Video.countDocuments(query);
-
-    // Get videos with pagination
-    const videos = await Video.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNumber)
-      .lean();
-
-    // Get additional stats for each video
-    const videosWithStats = await Promise.all(
-      videos.map(async (video) => {
-        const views = await VideoView.countDocuments({ videoId: video._id });
-        const likes = await Like.countDocuments({ 
-          targetType: "video", 
-          targetId: video._id 
-        });
-        const comments = await Comment.countDocuments({ videoId: video._id });
-
-        return {
-          ...video,
-          views: views,
-          likes: likes,
-          comments: comments
-        };
-      })
-    );
-
-    res.json({
-      total: total,
-      page: pageNumber,
-      limit: limitNumber,
-      totalPages: Math.ceil(total / limitNumber),
-      videos: videosWithStats
-    });
-  } catch (error) {
-    console.error("Get flagged or rejected videos error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/**
- * Admin approve a flagged/rejected video
- * Admin only
- */
-export const approveVideo = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const video = await Video.findById(id);
-
-    if (!video) {
-      return res.status(404).json({ message: "Không tìm thấy video" });
-    }
-
-    // Make Cloudinary video public
-    if (video.cloudinaryPublicId) {
-      try {
-        const { makeVideoPublic } = await import("../config/cloudinary.js");
-        await makeVideoPublic(video.cloudinaryPublicId);
-      } catch (cloudinaryError) {
-        console.error("Error making video public:", cloudinaryError);
-      }
-    }
-
-    // Update video status and regenerate thumbnail URL
-    video.moderationStatus = "approved";
-    video.url = video.cloudinaryTempUrl || video.url;
-    
-    // Regenerate thumbnail URL using the updated video URL
-    if (video.url && video.cloudinaryPublicId) {
-      const newThumbnailUrl = generateThumbnailUrl(
-        video.url,
-        video.cloudinaryPublicId,
-        { width: 320, height: 240, offset: 1 }
-      );
-      if (newThumbnailUrl) {
-        video.thumbnail = newThumbnailUrl;
-      }
-    }
-    
-    await video.save();
-
-    // Emit notification to user
-    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
-    if (socketIo && users && video.user?._id) {
-      emitModerationNotification(
-        socketIo,
-        users,
-        video.user._id.toString(),
-        video._id.toString(),
-        "approved",
-        video.title
-      );
-    }
-
-    res.json({
-      message: "Video đã được duyệt thành công",
-      video: video
-    });
-  } catch (error) {
-    console.error("Approve video error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/**
- * Admin reject a video
- * Admin only
- */
-export const rejectVideo = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    const existingVideo = await Video.findById(id);
-    if (!existingVideo) {
-      return res.status(404).json({ message: "Không tìm thấy video" });
-    }
-
-    const video = await Video.findByIdAndUpdate(
-      id,
-      {
-        moderationStatus: "rejected",
-        moderationResults: {
-          ...(existingVideo.moderationResults || {}),
-          adminRejection: {
-            reason: reason || "Video không phù hợp với quy định cộng đồng",
-            rejectedAt: new Date(),
-            rejectedBy: req.user?._id || req.user?.id
-          }
-        }
-      },
-      { new: true }
-    );
-
-    // Emit notification to user
-    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
-    if (socketIo && users && existingVideo.user?._id) {
-      emitModerationNotification(
-        socketIo,
-        users,
-        existingVideo.user._id.toString(),
-        id,
-        "rejected",
-        existingVideo.title
-      );
-    }
-
-    res.json({
-      message: "Video đã bị từ chối",
-      video: video
-    });
-  } catch (error) {
-    console.error("Reject video error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/**
- * Admin flag a video for review
- * Admin only
- */
-export const flagVideo = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    const existingVideo = await Video.findById(id);
-    if (!existingVideo) {
-      return res.status(404).json({ message: "Không tìm thấy video" });
-    }
-
-    const video = await Video.findByIdAndUpdate(
-      id,
-      {
-        moderationStatus: "flagged",
-        moderationResults: {
-          ...(existingVideo.moderationResults || {}),
-          adminFlag: {
-            reason: reason || "Video cần được xem xét thêm",
-            flaggedAt: new Date(),
-            flaggedBy: req.user?._id || req.user?.id
-          }
-        }
-      },
-      { new: true }
-    );
-
-    // Emit notification to user
-    const { io: socketIo, connectedUsers: users } = await getSocketInstance();
-    if (socketIo && users && existingVideo.user?._id) {
-      emitModerationNotification(
-        socketIo,
-        users,
-        existingVideo.user._id.toString(),
-        id,
-        "flagged",
-        existingVideo.title
-      );
-    }
-
-    res.json({
-      message: "Video đã được đánh dấu để xem xét",
-      video: video
-    });
-  } catch (error) {
-    console.error("Flag video error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};

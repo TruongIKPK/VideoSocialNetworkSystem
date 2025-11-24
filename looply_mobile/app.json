@@ -22,8 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "CAMERA",
-        "RECORD_AUDIO",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECORD_AUDIO"
       ],
       "package": "com.anonymous.looply_mobile"
     },
@@ -54,15 +53,7 @@
       "expo-video",
       "expo-web-browser",
       "expo-secure-store",
-      "expo-sqlite",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.png",
-          "color": "#ffffff",
-          "sounds": []
-        }
-      ]
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
