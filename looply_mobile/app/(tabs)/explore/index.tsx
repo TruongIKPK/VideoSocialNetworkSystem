@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getThumbnailUri, formatNumber } from "@/utils/imageHelpers";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
 
 const { width } = Dimensions.get("window");
@@ -45,12 +46,16 @@ const categories = [
 ];
 
 export default function ExploreScreen() {
+  const Colors = useColors(); // Get theme-aware colors
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   useEffect(() => {
     fetchVideos();
@@ -128,9 +133,12 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Khám phá</Text>
-        <TouchableOpacity>
-          <Ionicons name="search-outline" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
+      <TouchableOpacity 
+        onPress={() => router.push("/search")}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="search" size={24} color="#000" />
+      </TouchableOpacity>
       </View>
 
       {/* Categories */}
@@ -197,11 +205,12 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.light,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.light,
+    },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -315,4 +324,5 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};

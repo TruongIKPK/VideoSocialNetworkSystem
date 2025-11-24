@@ -19,11 +19,13 @@ import searchService, {
   HashtagSearchResult,
 } from "@/service/searchService";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   getAvatarUri,
   getThumbnailUri,
   formatNumber,
 } from "@/utils/imageHelpers";
+import { logger } from "@/utils/logger";
 
 const { width } = Dimensions.get("window");
 const ITEM_WIDTH = (width - 48) / 2;
@@ -31,10 +33,9 @@ const ITEM_WIDTH = (width - 48) / 2;
 type TabType = "video" | "user" | "hashtag";
 
 export default function SearchScreen() {
-  console.log(`[Search] 🎬 SearchScreen component rendered`);
-  
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { userId: currentUserId } = useCurrentUser();
   
   // Nhận params từ navigation (nếu có)
   const initialQuery = (params.query as string) || "";
@@ -47,170 +48,109 @@ export default function SearchScreen() {
   const [users, setUsers] = useState<UserSearchResult[]>([]);
   const [hashtags, setHashtags] = useState<HashtagSearchResult[]>([]);
   const hasInitialSearchRef = useRef(false); // Flag để tránh duplicate search
-  
-  console.log(`[Search] 📥 Received params:`, { query: initialQuery, tab: initialTab });
-
-  console.log(`[Search] 📊 Current state:`, {
-    activeTab,
-    searchQuery: `"${searchQuery}"`,
-    searchQueryLength: searchQuery.length,
-    isLoading,
-    videosCount: videos.length,
-    usersCount: users.length,
-    hashtagsCount: hashtags.length
-  });
 
   // Giảm tần suất gọi tìm kiếm (debounce) truy vấn tìm kiếm
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
-  // Log khi searchQuery thay đổi
-  useEffect(() => {
-    console.log(`[Search] 📝 searchQuery changed: "${searchQuery}"`);
-  }, [searchQuery]);
-
-  // Log khi debouncedSearchQuery thay đổi
-  useEffect(() => {
-    console.log(`[Search] ⏱️ debouncedSearchQuery changed: "${debouncedSearchQuery}"`);
-  }, [debouncedSearchQuery]);
-
-  // Log khi activeTab thay đổi
-  useEffect(() => {
-    console.log(`[Search] 📑 activeTab changed: ${activeTab}`);
-  }, [activeTab]);
+  // Tăng delay lên 1200ms để tránh rate limit
+  const debouncedSearchQuery = useDebounce(searchQuery, 1200);
+  
+  // State để track rate limit
+  const [rateLimited, setRateLimited] = useState(false);
 
   const loadTrendingHashtags = useCallback(async () => {
     setIsLoading(true);
     try {
-      console.log(`\n[Search] 🔥 Loading trending hashtags...`);
       const response = await searchService.getTrendingHashtags();
-      console.log(`[Search] 🔥 Trending hashtags response:`, {
-        success: response.success,
-        count: response.data?.length || 0,
-        total: response.total || 0
-      });
       if (response.success && response.data.length > 0) {
-        console.log(`[Search] ✅ Setting ${response.data.length} trending hashtags to state`);
         setHashtags(response.data);
       } else {
-        console.log(`[Search] ⚠️ No trending hashtags found, setting empty array`);
         setHashtags([]);
       }
     } catch (error) {
-      console.error(`[Search] ❌ Load trending hashtags error:`, error);
+      logger.error(`[Search] Load trending hashtags error:`, error);
       setHashtags([]);
     } finally {
       setIsLoading(false);
-      console.log(`[Search] Loading state set to: false\n`);
     }
   }, []);
 
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
-      console.log(`[Search] ⚠️ Empty query, skipping search`);
       return;
     }
 
     setIsLoading(true);
-    console.log(`\n[Search] 🔍 ========== START SEARCH ==========`);
-    console.log(`[Search] Query: "${query}"`);
-    console.log(`[Search] Active Tab: ${activeTab}`);
-    console.log(`[Search] Timestamp: ${new Date().toISOString()}`);
+    logger.debug(`[Search] Searching: "${query}" in tab: ${activeTab}`);
     
     try {
       switch (activeTab) {
         case "video": {
-          console.log(`[Search] 📹 Searching videos...`);
           const videoResponse = await searchService.searchVideos(query);
-          console.log(`[Search] 📹 Video response summary:`, {
-            success: videoResponse.success,
-            count: videoResponse.data?.length || 0,
-            total: videoResponse.total || 0,
-            message: videoResponse.message || "OK"
-          });
-          
           if (videoResponse.success) {
-            console.log(`[Search] ✅ Setting ${videoResponse.data.length} videos to state`);
-            setVideos(videoResponse.data);
+            // Filter để loại bỏ video của user hiện tại khỏi kết quả
+            const filteredVideos = currentUserId 
+              ? videoResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+              : videoResponse.data;
+            setVideos(filteredVideos);
           } else {
-            console.warn(`[Search] ❌ Video search failed:`, videoResponse.message);
+            logger.warn(`[Search] Video search failed:`, videoResponse.message);
             setVideos([]);
           }
           break;
         }
         case "user": {
-          console.log(`[Search] 👤 Searching users...`);
           const userResponse = await searchService.searchUsers(query);
-          console.log(`[Search] 👤 User response summary:`, {
-            success: userResponse.success,
-            count: userResponse.data?.length || 0,
-            total: userResponse.total || 0,
-            message: userResponse.message || "OK"
-          });
-          
           if (userResponse.success) {
-            console.log(`[Search] ✅ Setting ${userResponse.data.length} users to state`);
-            console.log(`[Search] 👤 Users data:`, userResponse.data.map(u => ({
-              id: u._id,
-              name: u.name,
-              username: u.username
-            })));
-            setUsers(userResponse.data);
-            // Force re-render
-            console.log(`[Search] 👤 State updated, users count: ${userResponse.data.length}`);
+            // Filter để loại bỏ user hiện tại khỏi kết quả
+            const filteredUsers = currentUserId 
+              ? userResponse.data.filter(user => String(user._id) !== String(currentUserId))
+              : userResponse.data;
+            setUsers(filteredUsers);
           } else {
-            console.warn(`[Search] ❌ User search failed:`, userResponse.message);
+            logger.warn(`[Search] User search failed:`, userResponse.message);
             setUsers([]);
+            
+            // Xử lý rate limit
+            if (userResponse.message?.includes("Too many requests") || 
+                userResponse.message?.includes("Quá nhiều yêu cầu") ||
+                userResponse.message?.includes("please try again later")) {
+              setRateLimited(true);
+              logger.warn(`[Search] Rate limit reached, disabling search temporarily`);
+              
+              // Tự động bỏ rate limit sau 15 giây
+              setTimeout(() => {
+                setRateLimited(false);
+              }, 15000);
+            }
           }
           break;
         }
         case "hashtag": {
-          console.log(`[Search] #️⃣ Searching hashtags and videos by hashtag...`);
-          
           // Search hashtags
           const hashtagResponse = await searchService.searchHashtags(query);
-          console.log(`[Search] #️⃣ Hashtag response summary:`, {
-            success: hashtagResponse.success,
-            count: hashtagResponse.data?.length || 0,
-            total: hashtagResponse.total || 0,
-            message: hashtagResponse.message || "OK"
-          });
-
           if (hashtagResponse.success) {
-            console.log(`[Search] ✅ Setting ${hashtagResponse.data.length} hashtags to state`);
             setHashtags(hashtagResponse.data);
           } else {
-            console.warn(`[Search] ❌ Hashtag search failed:`, hashtagResponse.message);
+            logger.warn(`[Search] Hashtag search failed:`, hashtagResponse.message);
             setHashtags([]);
           }
 
           // Also search videos by hashtag
           const videoByHashtagResponse = await searchService.searchVideosByHashtags(query);
-          console.log(`[Search] 📹 Video by hashtag response summary:`, {
-            success: videoByHashtagResponse.success,
-            count: videoByHashtagResponse.data?.length || 0,
-            total: videoByHashtagResponse.total || 0,
-            message: videoByHashtagResponse.message || "OK"
-          });
-
           if (videoByHashtagResponse.success) {
-            console.log(`[Search] ✅ Setting ${videoByHashtagResponse.data.length} videos by hashtag to state`);
-            setVideos(videoByHashtagResponse.data);
+            // Filter để loại bỏ video của user hiện tại khỏi kết quả
+            const filteredVideos = currentUserId 
+              ? videoByHashtagResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+              : videoByHashtagResponse.data;
+            setVideos(filteredVideos);
           } else {
-            console.warn(`[Search] ❌ Video search by hashtag failed:`, videoByHashtagResponse.message);
+            logger.warn(`[Search] Video search by hashtag failed:`, videoByHashtagResponse.message);
             setVideos([]);
           }
           break;
         }
       }
-      console.log(`[Search] ✅ ========== SEARCH COMPLETE ==========\n`);
     } catch (error) {
-      console.error(`[Search] ❌ ========== SEARCH ERROR ==========`);
-      console.error("[Search] Error details:", error);
-      if (error instanceof Error) {
-        console.error("[Search] Error message:", error.message);
-        console.error("[Search] Error stack:", error.stack);
-      }
-      console.error(`[Search] ======================================\n`);
+      logger.error(`[Search] Search error:`, error);
       
       // Xóa kết quả khi có lỗi
       if (activeTab === "video") setVideos([]);
@@ -218,28 +158,18 @@ export default function SearchScreen() {
       if (activeTab === "hashtag") setHashtags([]);
     } finally {
       setIsLoading(false);
-      console.log(`[Search] Loading state set to: false`);
     }
-  }, [activeTab, setVideos, setUsers, setHashtags, setIsLoading]);
+  }, [activeTab, setVideos, setUsers, setHashtags, setIsLoading, currentUserId]);
 
   // Xử lý params khi component mount hoặc params thay đổi
   useEffect(() => {
-    console.log(`[Search] 📥 Params effect triggered:`, { 
-      initialQuery, 
-      initialTab,
-      hasQuery: !!initialQuery,
-      hasTab: !!initialTab
-    });
-    
     if (initialQuery && initialQuery.trim().length > 0) {
-      console.log(`[Search] 📥 Setting query and tab from params`);
       setSearchQuery(initialQuery);
       if (initialTab) {
         setActiveTab(initialTab);
       }
     } else {
       // Nếu không có params, load trending hashtags
-      console.log(`[Search] 🚀 No params, loading trending hashtags...`);
       loadTrendingHashtags();
     }
   }, [initialQuery, initialTab, loadTrendingHashtags]);
@@ -247,63 +177,55 @@ export default function SearchScreen() {
   // Tự động search khi có initial query (chạy sau khi state đã được set)
   useEffect(() => {
     if (initialQuery && initialQuery.trim().length > 0 && !hasInitialSearchRef.current) {
-      console.log(`[Search] 🔍 Auto-searching with initial query: "${initialQuery}" in tab: ${initialTab || "video"}`);
       hasInitialSearchRef.current = true; // Đánh dấu đã search
       
       // Delay để đảm bảo state đã được set và handleSearch đã sẵn sàng
       const timer = setTimeout(() => {
-        console.log(`[Search] 🔍 Executing auto-search now...`);
         handleSearch(initialQuery.trim());
       }, 300);
       return () => {
-        console.log(`[Search] 🧹 Cleaning up auto-search timer`);
         clearTimeout(timer);
       };
     }
-  }, [initialQuery, handleSearch]); // Chỉ depend vào initialQuery và handleSearch
+  }, [initialQuery, handleSearch]);
 
   // Tìm kiếm khi truy vấn đã được debounce hoặc khi thay đổi tab
   useEffect(() => {
-    console.log(`[Search] 🔄 useEffect triggered:`, {
-      debouncedSearchQuery: `"${debouncedSearchQuery}"`,
-      debouncedLength: debouncedSearchQuery.trim().length,
-      activeTab: activeTab,
-      hasInitialSearch: hasInitialSearchRef.current
-    });
-
     // Skip nếu đang trong quá trình initial search từ params
     if (hasInitialSearchRef.current && debouncedSearchQuery === initialQuery) {
-      console.log(`[Search] ⏭️ Skipping debounce search (initial search in progress)`);
+      return;
+    }
+    
+    // Kiểm tra rate limit trước khi search
+    if (rateLimited) {
       return;
     }
 
     if (debouncedSearchQuery.trim().length > 0) {
-      console.log(`[Search] ✅ Query has content, calling handleSearch...`);
       hasInitialSearchRef.current = false; // Reset flag sau initial search
       handleSearch(debouncedSearchQuery);
     } else {
-      console.log(`[Search] ⚠️ Query is empty, clearing results...`);
       hasInitialSearchRef.current = false; // Reset flag
       // Xóa kết quả khi ô tìm kiếm trống
       setVideos([]);
       setUsers([]);
       // Tải lại hashtag thịnh hành khi ô tìm kiếm trống và đang ở tab hashtag
       if (activeTab === "hashtag") {
-        console.log(`[Search] 🔥 Loading trending hashtags (empty query, hashtag tab)`);
         loadTrendingHashtags();
       } else {
         setHashtags([]);
       }
     }
-  }, [debouncedSearchQuery, activeTab, handleSearch, loadTrendingHashtags, initialQuery]);
+  }, [debouncedSearchQuery, activeTab, handleSearch, loadTrendingHashtags, initialQuery, rateLimited]);
 
   const handleVideoPress = (video: VideoSearchResult) => {
-    console.log(`[Search] 🎬 Video pressed:`, video._id);
-    // Navigate về home và có thể scroll đến video này
-    // Hoặc tạo màn hình chi tiết video
+    // Navigate về home và scroll đến video này
     router.push({
       pathname: "/(tabs)/home",
-      params: { videoId: video._id, scrollToVideo: "true" }
+      params: { 
+        videoId: video._id, 
+        scrollToVideo: "true"
+      }
     });
   };
 
@@ -346,17 +268,35 @@ export default function SearchScreen() {
   );
 
   const handleUserPress = (user: UserSearchResult) => {
-    console.log(`[Search] 👤 User pressed:`, user._id, user.username);
-    // Navigate đến profile của user này
+    const userId = String(user._id).trim();
+    
+    // Validate userId
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === '') {
+      logger.error(`[Search] Invalid userId:`, userId);
+      return;
+    }
+    
+    logger.debug(`[Search] Navigating to profile:`, userId);
+    
+    // Dùng dynamic route profile/[userId] và pass user data qua params để fallback
     router.push({
-      pathname: "/user/[userId]",
-      params: { userId: user._id, username: user.username }
+      pathname: `/(tabs)/profile/${userId}` as any,
+      params: {
+        // Pass user data để hiển thị tạm thời nếu API fail
+        userId: user._id,
+        username: user.username,
+        userName: user.name || '',
+        userUsername: user.username || '',
+        userAvatar: user.avatar || '',
+        userBio: user.bio || '',
+        userFollowers: String(user.followers || 0),
+        userFollowing: String(user.following || 0),
+      }
     });
   };
 
   const handleFollowPress = (user: UserSearchResult, e: any) => {
     e.stopPropagation(); // Ngăn trigger user press
-    console.log(`[Search] ➕ Follow button pressed for user:`, user._id);
     // TODO: Implement follow/unfollow logic
     // Có thể gọi API follow/unfollow ở đây
   };
@@ -410,8 +350,6 @@ export default function SearchScreen() {
   };
 
   const handleHashtagPress = async (hashtag: HashtagSearchResult) => {
-    console.log(`[Search] #️⃣ Hashtag pressed:`, hashtag.name);
-    
     // Set query và search videos by hashtag
     const hashtagQuery = hashtag.name.startsWith('#') ? hashtag.name.substring(1) : hashtag.name;
     setSearchQuery(hashtagQuery);
@@ -421,19 +359,17 @@ export default function SearchScreen() {
     setIsLoading(true);
     try {
       const videoResponse = await searchService.searchVideosByHashtags(hashtagQuery);
-      console.log(`[Search] 📹 Video by hashtag response:`, {
-        success: videoResponse.success,
-        count: videoResponse.data?.length || 0,
-        total: videoResponse.total || 0
-      });
-
       if (videoResponse.success) {
-        setVideos(videoResponse.data);
+        // Filter để loại bỏ video của user hiện tại khỏi kết quả
+        const filteredVideos = currentUserId 
+          ? videoResponse.data.filter(video => String(video.author?._id) !== String(currentUserId))
+          : videoResponse.data;
+        setVideos(filteredVideos);
       } else {
         setVideos([]);
       }
     } catch (error) {
-      console.error(`[Search] ❌ Error searching videos by hashtag:`, error);
+      logger.error(`[Search] Error searching videos by hashtag:`, error);
       setVideos([]);
     } finally {
       setIsLoading(false);
@@ -474,6 +410,10 @@ export default function SearchScreen() {
         break;
       case "user":
         data = users;
+        console.log(`[Search] 📊 getDataByTab - user tab:`, {
+          usersArrayLength: users.length,
+          usersState: users.map(u => ({ id: u._id, name: u.name, username: u.username }))
+        });
         break;
       case "hashtag":
         // Khi search hashtag, hiển thị cả hashtags và videos
@@ -487,16 +427,6 @@ export default function SearchScreen() {
       default:
         data = [];
     }
-    console.log(`[Search] 📊 getDataByTab:`, {
-      activeTab,
-      dataLength: data.length,
-      videosLength: videos.length,
-      hashtagsLength: hashtags.length,
-      data: data.slice(0, 3).map(item => ({
-        id: item._id,
-        name: item.name || item.title || item.username
-      }))
-    });
     return data;
   };
 
@@ -521,20 +451,25 @@ export default function SearchScreen() {
   const renderEmptyState = () => {
     const hasSearchQuery = searchQuery.trim().length > 0;
     const data = getDataByTab();
-    
-    console.log(`[Search] 🎨 renderEmptyState:`, {
-      isLoading,
-      hasSearchQuery,
-      activeTab,
-      dataLength: data.length,
-      shouldShowEmpty: !isLoading && data.length === 0
-    });
 
     if (isLoading) {
       return (
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.emptyStateTitle}>Đang tìm kiếm...</Text>
+        </View>
+      );
+    }
+    
+    // Hiển thị thông báo rate limit
+    if (rateLimited) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="time-outline" size={48} color="#FF9500" />
+          <Text style={styles.emptyStateTitle}>Quá nhiều yêu cầu</Text>
+          <Text style={styles.emptyStateSubtitle}>
+            Vui lòng đợi một chút rồi thử lại. Tìm kiếm sẽ được kích hoạt lại sau vài giây.
+          </Text>
         </View>
       );
     }
@@ -597,17 +532,9 @@ export default function SearchScreen() {
             placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={(text) => {
-              console.log(`[Search] ⌨️ TextInput onChangeText: "${text}"`);
               setSearchQuery(text);
             }}
-            onFocus={() => {
-              console.log(`[Search] 👁️ TextInput focused`);
-            }}
-            onBlur={() => {
-              console.log(`[Search] 👁️ TextInput blurred`);
-            }}
             onSubmitEditing={() => {
-              console.log(`[Search] ⏎ TextInput submitted with: "${searchQuery}"`);
               if (searchQuery.trim().length > 0) {
                 handleSearch(searchQuery.trim());
               }
@@ -637,7 +564,6 @@ export default function SearchScreen() {
         <TouchableOpacity
           style={[styles.tab, activeTab === "video" && styles.activeTab]}
           onPress={() => {
-            console.log(`[Search] 📑 Tab "video" pressed`);
             setActiveTab("video");
           }}
         >
@@ -653,7 +579,6 @@ export default function SearchScreen() {
         <TouchableOpacity
           style={[styles.tab, activeTab === "user" && styles.activeTab]}
           onPress={() => {
-            console.log(`[Search] 📑 Tab "user" pressed`);
             setActiveTab("user");
           }}
         >
@@ -669,7 +594,6 @@ export default function SearchScreen() {
         <TouchableOpacity
           style={[styles.tab, activeTab === "hashtag" && styles.activeTab]}
           onPress={() => {
-            console.log(`[Search] 📑 Tab "hashtag" pressed`);
             setActiveTab("hashtag");
           }}
         >
@@ -689,22 +613,17 @@ export default function SearchScreen() {
         data={getDataByTab()}
         renderItem={renderItem}
         keyExtractor={(item, index) => {
-          const key = item._id || `item-${index}`;
-          console.log(`[Search] 🔑 KeyExtractor:`, { key, index, activeTab });
-          return key;
+          return item._id || `item-${index}`;
         }}
         numColumns={(activeTab === "video" || (activeTab === "hashtag" && videos.length > 0)) ? 2 : 1}
-        key={`${activeTab}-${searchQuery}-${isLoading}`}
-        extraData={{ activeTab, searchQuery, isLoading, users: users.length, videos: videos.length, hashtags: hashtags.length }}
+        key={`${activeTab}-${searchQuery}-${isLoading}-${users.length}-${videos.length}-${hashtags.length}`}
+        extraData={{ activeTab, searchQuery, isLoading, usersCount: users.length, videosCount: videos.length, hashtagsCount: hashtags.length, users, videos, hashtags }}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={
           (activeTab === "video" || (activeTab === "hashtag" && videos.length > 0)) ? styles.columnWrapper : undefined
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={renderEmptyState}
-        onLayout={() => {
-          console.log(`[Search] 📐 FlatList onLayout, data length: ${getDataByTab().length}`);
-        }}
       />
     </SafeAreaView>
   );

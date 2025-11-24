@@ -295,12 +295,13 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   registerButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   termsContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
+    marginTop: Spacing.xs,
     marginBottom: Spacing.xs,
     paddingHorizontal: Spacing.sm,
   },
@@ -323,7 +324,8 @@ const styles = StyleSheet.create({
   loginLinkContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   loginLinkText: {
     color: Colors.text.secondary,
@@ -369,8 +371,9 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.error,
     fontSize: Typography.fontSize.sm,
+    textAlign: "center",
+    marginTop: Spacing.xs,
     marginBottom: Spacing.sm,
-    marginLeft: Spacing.md,
     fontFamily: Typography.fontFamily.regular,
   },
   chatButton: {

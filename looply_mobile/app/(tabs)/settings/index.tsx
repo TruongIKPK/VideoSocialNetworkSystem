@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,8 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { Card } from "@/components/ui/Card";
+import { Typography, Spacing } from "@/constants/theme";
+import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/Button";
 
 interface SettingItem {
@@ -29,8 +30,13 @@ interface SettingItem {
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, logout } = useUser();
+  const { theme, toggleTheme } = useTheme();
+  const Colors = useColors(); // Get theme-aware colors
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const darkModeEnabled = theme === "dark";
+  
+  // Create dynamic styles based on theme
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -93,11 +99,13 @@ export default function SettingsScreen() {
     {
       id: "dark-mode",
       title: "Chế độ tối",
-      subtitle: "Bật/tắt chế độ tối",
-      icon: "moon-outline",
+      subtitle: darkModeEnabled ? "Đang bật" : "Đang tắt",
+      icon: darkModeEnabled ? "moon" : "moon-outline",
       type: "toggle",
       value: darkModeEnabled,
-      onPress: () => setDarkModeEnabled(!darkModeEnabled),
+      onPress: async () => {
+        await toggleTheme();
+      },
     },
     {
       id: "language",
@@ -194,10 +202,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -207,39 +215,47 @@ export default function SettingsScreen() {
 
         {/* User Info */}
         {user && (
-          <Card style={styles.userCard}>
-            <View style={styles.userInfo}>
-              <Ionicons name="person-circle" size={48} color={Colors.primary} />
-              <View style={styles.userText}>
-                <Text style={styles.userName}>{user.name || user.username || "User"}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
+          <View style={styles.userCard}>
+            <View style={styles.userCardContent}>
+              <View style={styles.userInfo}>
+                <Ionicons name="person-circle" size={48} color={Colors.primary} />
+                <View style={styles.userText}>
+                  <Text style={styles.userName}>{user.name || user.username || "User"}</Text>
+                  <Text style={styles.userEmail}>{user.email}</Text>
+                </View>
               </View>
             </View>
-          </Card>
+          </View>
         )}
 
         {/* Account Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tài khoản</Text>
-          <Card>
-            {accountSettings.map(renderSettingItem)}
-          </Card>
+          <View style={styles.settingsCard}>
+            <View style={styles.settingsCardContent}>
+              {accountSettings.map(renderSettingItem)}
+            </View>
+          </View>
         </View>
 
         {/* App Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ứng dụng</Text>
-          <Card>
-            {appSettings.map(renderSettingItem)}
-          </Card>
+          <View style={styles.settingsCard}>
+            <View style={styles.settingsCardContent}>
+              {appSettings.map(renderSettingItem)}
+            </View>
+          </View>
         </View>
 
         {/* Support */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Hỗ trợ</Text>
-          <Card>
-            {supportSettings.map(renderSettingItem)}
-          </Card>
+          <View style={styles.settingsCard}>
+            <View style={styles.settingsCardContent}>
+              {supportSettings.map(renderSettingItem)}
+            </View>
+          </View>
         </View>
 
         {/* Logout Button */}
@@ -261,20 +277,29 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.gray,
-  },
+const createStyles = (Colors: ReturnType<typeof useColors>) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: Colors.background.gray,
+    },
   scrollView: {
     flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   header: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
+    marginHorizontal: 0,
   },
   headerTitle: {
     fontSize: Typography.fontSize.xxxl,
@@ -283,8 +308,19 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
   },
   userCard: {
-    margin: Spacing.md,
-    marginBottom: 0,
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  userCardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   userInfo: {
     flexDirection: "row",
@@ -308,10 +344,11 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.md,
+    fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.semibold,
     color: Colors.text.secondary,
     marginBottom: Spacing.sm,
@@ -348,8 +385,22 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs / 2,
     fontFamily: Typography.fontFamily.regular,
   },
+  settingsCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 0,
+    marginHorizontal: 0,
+    marginBottom: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+  },
+  settingsCardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
+  },
   logoutSection: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
   },
   logoutButton: {
@@ -364,4 +415,5 @@ const styles = StyleSheet.create({
     color: Colors.text.tertiary,
     fontFamily: Typography.fontFamily.regular,
   },
-});
+  });
+};

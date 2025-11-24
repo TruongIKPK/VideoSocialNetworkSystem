@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addComment,
+  getCommentById,
   getCommentsByVideo,
   likeComment,
   unlikeComment,
@@ -17,7 +18,9 @@ router.post("/:id/like", authenticateToken, likeComment);
 router.post("/:id/unlike", authenticateToken, unlikeComment);
 router.put("/:id/status", authenticateToken, requireAdmin, updateCommentStatus);
 
-// Public route
+// Public routes
+// Route lấy comment theo ID phải đặt trước route /:videoId để tránh conflict
+router.get("/id/:id", getCommentById);
 router.get("/:videoId", getCommentsByVideo);
 
 export default router;

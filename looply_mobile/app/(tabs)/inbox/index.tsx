@@ -17,10 +17,21 @@ import { socketService } from "@/service/socketService";
 import { useUser } from "@/contexts/UserContext";
 import { getAvatarUri } from "@/utils/imageHelpers";
 import { getInboxConversations, markMessagesAsSeen } from "@/utils/database";
+import { NotificationModal } from "@/components/NotificationModal";
+import { getUnreadCount } from "@/utils/notificationStorage";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
-const ConversationItem = ({ item, onOpenChat, isOnline }) => {
+interface Conversation {
+  id: string | number;
+  chatId: string;
+  content: string;
+  sender: string;
+  timestamp: string;
+  status: string;
+}
+
+const ConversationItem = ({ item, onOpenChat, isOnline }: { item: Conversation; onOpenChat: (chatId: string) => void; isOnline: boolean }) => {
   const [userInfo, setUserInfo] = useState({ name: "Đang tải...", avatar: null });
   const isUnread = item.sender !== "me" && item.status !== "seen";
 
@@ -82,16 +93,18 @@ const ConversationItem = ({ item, onOpenChat, isOnline }) => {
 };
 
 export default function InboxList() {
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [onlineUsers, setOnlineUsers] = useState({}); // State lưu list online
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({}); // State lưu list online
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { token } = useUser();
   const isNavigatingRef = useRef(false);
 
   const loadInbox = useCallback(() => {
     try {
-      const data = getInboxConversations();
-      const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const data = getInboxConversations() as Conversation[];
+      const sortedData = data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setConversations(sortedData);
     } catch (error) {
       console.log("Lỗi load inbox:", error);
@@ -99,6 +112,18 @@ export default function InboxList() {
       setLoading(false);
     }
   }, []);
+
+  const loadUnreadCount = useCallback(async () => {
+    const count = await getUnreadCount();
+    setUnreadCount(count);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadInbox();
+      loadUnreadCount();
+    }, [loadInbox, loadUnreadCount])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -191,14 +216,42 @@ export default function InboxList() {
     router.push(`/(tabs)/inbox/${chatId}`);
   };
 
+  // Reload unread count khi modal đóng
+  const handleNotificationModalClose = () => {
+    setNotificationModalVisible(false);
+    loadUnreadCount();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Hộp thư</Text>
-        <TouchableOpacity onPress={() => router.push("/search")}>
-          <Ionicons name="create-outline" size={28} color="black" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <TouchableOpacity onPress={() => router.push("/search")}>
+            <Ionicons name="create-outline" size={28} color="black" />
+          </TouchableOpacity>
+          {/* Icon thông báo */}
+          <TouchableOpacity 
+            onPress={() => setNotificationModalVisible(true)}
+            style={styles.notificationButton}
+          >
+            <Ionicons name="notifications-outline" size={28} color="black" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        visible={notificationModalVisible}
+        onClose={handleNotificationModalClose}
+      />
 
       {loading ? (
         <ActivityIndicator size="large" color="gray" style={{ marginTop: 20 }} />
@@ -265,4 +318,26 @@ const styles = StyleSheet.create({
   right: { alignItems: "flex-end", marginLeft: 10, minWidth: 50 },
   time: { fontSize: 12, color: "#999" },
   unreadDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#007AFF", marginTop: 6 },
+  
+  notificationButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
 });

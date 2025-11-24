@@ -43,8 +43,8 @@ export default function LoginScreen() {
       if (response.success && response.token && response.user) {
         // Update user context
         await login(response.user, response.token);
-        // Tự động navigate, không cần thông báo
-        router.replace("/(tabs)/home");
+        // Tự động navigate về trang index (root route)
+        router.replace("/");
       } else {
         setGeneralError(response.message || "Đăng nhập thất bại");
       }
@@ -206,14 +206,15 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
   loginButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   forgotPassword: {
     textAlign: "center",
     color: Colors.text.secondary,
     fontSize: Typography.fontSize.md,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
     fontFamily: Typography.fontFamily.regular,
   },
   errorText: {
@@ -228,7 +229,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: Colors.primary,
     fontSize: Typography.fontSize.lg,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
     fontWeight: Typography.fontWeight.medium,
     fontFamily: Typography.fontFamily.medium,
   },

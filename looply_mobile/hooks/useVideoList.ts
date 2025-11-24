@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { VideoPost } from "@/types/video";
 
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
@@ -20,6 +20,13 @@ export const useVideoList = ({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadedVideoIds, setLoadedVideoIds] = useState<Set<string>>(new Set());
+  const isAutoLoadingRef = useRef(false); // Ref để track auto-loading state
+  const autoLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Ref để lưu timeout ID
+  const hasFetchedRef = useRef(false); // Ref để track xem đã fetch lần đầu chưa
+  const lastIsAuthenticatedRef = useRef<boolean | null>(null); // Ref để track giá trị isAuthenticated trước đó
+  const isLoadingRef = useRef(false); // Ref để track loading state để tránh race condition
+  const lastFetchTimeRef = useRef<number>(0); // Ref để track thời gian fetch lần cuối
+  const FETCH_DEBOUNCE_MS = 500; // Debounce 0.5 giây (giảm từ 1.5s để reload nhanh hơn)
   
   // Giới hạn số lượng video trong memory để tránh tràn RAM
   const MAX_VIDEOS_IN_MEMORY = 50;
@@ -67,8 +74,8 @@ export const useVideoList = ({
     let isFollowing = false;
     if (video.user && video.user._id && video.user._id !== userId && isAuthenticated && token && userId) {
       try {
-        const userResponse = await fetch(
-          `${API_BASE_URL}/users/${userId}`,
+        const checkFollowResponse = await fetch(
+          `${API_BASE_URL}/users/check-follow?userId=${encodeURIComponent(video.user._id)}`,
           {
             method: "GET",
             headers: {
@@ -78,13 +85,9 @@ export const useVideoList = ({
           }
         );
 
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          if (userData.followingList && Array.isArray(userData.followingList)) {
-            isFollowing = userData.followingList.some(
-              (id: string) => String(id) === String(video.user._id)
-            );
-          }
+        if (checkFollowResponse.ok) {
+          const checkFollowData = await checkFollowResponse.json();
+          isFollowing = checkFollowData.isFollowing || checkFollowData.followed || false;
         }
       } catch (error) {
         console.error(`Error checking follow status for user ${video.user._id}:`, error);
@@ -94,12 +97,51 @@ export const useVideoList = ({
     return { ...video, isFollowing };
   };
 
-  // Process videos: check like and follow status
+  // Check save status for a video
+  const checkSaveStatus = async (video: VideoPost): Promise<VideoPost> => {
+    let savedBy = video.savedBy || [];
+    if (!Array.isArray(savedBy)) {
+      savedBy = [];
+    }
+
+    if (isAuthenticated && token && userId) {
+      try {
+        const checkResponse = await fetch(
+          `${API_BASE_URL}/saves/check?userId=${encodeURIComponent(userId)}&videoId=${encodeURIComponent(video._id)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.isSaved || checkData.saved) {
+            if (!savedBy.includes(userId)) {
+              savedBy = [...savedBy, userId];
+            }
+          } else {
+            savedBy = savedBy.filter((id: string) => id !== userId);
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking save status for video ${video._id}:`, error);
+      }
+    }
+
+    return { ...video, savedBy };
+  };
+
+  // Process videos: check like, follow and save status
   const processVideos = async (videoList: VideoPost[]): Promise<VideoPost[]> => {
     if (!isAuthenticated || !token || !userId) {
       return videoList.map((video) => ({
         ...video,
         likedBy: [],
+        savedBy: [],
         isFollowing: false,
       }));
     }
@@ -107,15 +149,48 @@ export const useVideoList = ({
     return Promise.all(
       videoList.map(async (video) => {
         const withLikeStatus = await checkLikeStatus(video);
-        return checkFollowStatus(withLikeStatus);
+        const withFollowStatus = await checkFollowStatus(withLikeStatus);
+        return checkSaveStatus(withFollowStatus);
       })
     );
   };
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (isManualReload: boolean = false) => {
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+    
+    // Ngăn fetch nếu đang loading để tránh vòng lặp
+    if (isLoadingRef.current) {
+      console.log(`[useVideoList] ⚠️ Already loading, skipping fetch`);
+      return;
+    }
+    
+    // Ngăn fetch nếu vừa mới fetch gần đây (debounce) - TRỪ KHI là manual reload
+    if (!isManualReload && timeSinceLastFetch < FETCH_DEBOUNCE_MS && hasFetchedRef.current) {
+      console.log(`[useVideoList] ⚠️ Fetch too soon (${timeSinceLastFetch}ms < ${FETCH_DEBOUNCE_MS}ms), skipping`);
+      return;
+    }
+    
+    console.log(`[useVideoList] 🚀 Starting fetchVideos${isManualReload ? ' (manual reload)' : ''}`);
+    lastFetchTimeRef.current = now;
+    
+    // Hủy auto-load timeout nếu đang chạy
+    if (autoLoadTimeoutRef.current) {
+      clearTimeout(autoLoadTimeoutRef.current);
+      autoLoadTimeoutRef.current = null;
+    }
+    isAutoLoadingRef.current = false;
+    
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
-    setLoadedVideoIds(new Set());
+    
+    // Khi manual reload, reset loadedVideoIds để accept tất cả videos mới
+    if (isManualReload) {
+      setLoadedVideoIds(new Set());
+    }
+    
+    hasFetchedRef.current = true;
 
     try {
       let url: string;
@@ -140,9 +215,11 @@ export const useVideoList = ({
       const videoList = Array.isArray(data) ? data : (data.videos || data);
 
       if (Array.isArray(videoList) && videoList.length > 0) {
-        const uniqueVideos = videoList.filter(
-          (video) => !loadedVideoIds.has(video._id)
-        );
+        // Khi manual reload, accept tất cả videos (không filter)
+        // Khi initial load, filter dựa trên loadedVideoIds
+        const uniqueVideos = isManualReload 
+          ? videoList  // Manual reload: accept tất cả
+          : videoList.filter((video) => !loadedVideoIds.has(video._id));  // Initial load: filter duplicates
 
         if (uniqueVideos.length > 0) {
           const newVideoIds = new Set(loadedVideoIds);
@@ -155,7 +232,9 @@ export const useVideoList = ({
           console.log(`[useVideoList] ✅ Initial load: ${processedVideos.length} videos`);
 
           // Nếu đã đăng nhập, tự động load thêm video để có đủ nội dung
-          if (isAuthenticated && token && processedVideos.length > 0) {
+          // Chỉ auto-load nếu chưa đang auto-load
+          if (isAuthenticated && token && processedVideos.length > 0 && !isAutoLoadingRef.current) {
+            isAutoLoadingRef.current = true;
             // Load thêm 2 batch nữa để có đủ video cho user scroll
             const additionalBatches = 2;
             console.log(`[useVideoList] 📥 Auto-loading ${additionalBatches} more batches for authenticated user...`);
@@ -164,7 +243,7 @@ export const useVideoList = ({
             const currentLoadedIds = new Set(newVideoIds);
             
             // Load thêm video trong background (không block UI)
-            setTimeout(async () => {
+            autoLoadTimeoutRef.current = setTimeout(async () => {
               let accumulatedLoadedIds = new Set(currentLoadedIds);
               
               for (let i = 0; i < additionalBatches; i++) {
@@ -209,6 +288,8 @@ export const useVideoList = ({
                         console.log(`[useVideoList] ✅ Auto-loaded batch ${i + 1}: ${processedMoreVideos.length} videos`);
                       } else {
                         console.log(`[useVideoList] ⚠️ Batch ${i + 1}: All videos are duplicates`);
+                        // Nếu tất cả đều là duplicates, dừng auto-load
+                        break;
                       }
                     }
                   }
@@ -221,6 +302,9 @@ export const useVideoList = ({
                   await new Promise(resolve => setTimeout(resolve, 500));
                 }
               }
+              
+              isAutoLoadingRef.current = false;
+              autoLoadTimeoutRef.current = null;
             }, 1000); // Delay 1s sau khi initial load xong
           }
         } else {
@@ -233,6 +317,7 @@ export const useVideoList = ({
       console.error("Fetch videos error:", error);
       setError("Failed to load videos. Please try again.");
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -347,8 +432,22 @@ export const useVideoList = ({
   };
 
   useEffect(() => {
-    fetchVideos();
-  }, [isAuthenticated]);
+    // CHỈ fetch tự động nếu:
+    // 1. Chưa fetch lần nào (lần đầu load trang), HOẶC
+    // 2. isAuthenticated thay đổi thực sự (từ false -> true hoặc true -> false)
+    // VÀ không đang loading (kiểm tra qua ref để tránh dependency loop)
+    // LƯU Ý: Đây là fetch tự động, KHÔNG phải reload thủ công từ icon home
+    const shouldFetch = (!hasFetchedRef.current || 
+                         (lastIsAuthenticatedRef.current !== null && 
+                          lastIsAuthenticatedRef.current !== isAuthenticated));
+    
+    if (shouldFetch && !isLoadingRef.current) {
+      console.log(`[useVideoList] 🔄 Auto-fetch (initial load or auth change), NOT manual reload`);
+      lastIsAuthenticatedRef.current = isAuthenticated;
+      fetchVideos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]); // Chỉ depend vào isAuthenticated, không depend vào isLoading để tránh loop
 
   return {
     videos,
