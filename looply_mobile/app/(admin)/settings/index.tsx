@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Typography, Spacing } from "@/constants/theme";
@@ -31,6 +32,7 @@ export default function AdminSettingsScreen() {
   const router = useRouter();
   const { logout } = useUser();
   const { theme, toggleTheme } = useTheme();
+  const { t, i18n } = useTranslation();
   const Colors = useColors(); // Get theme-aware colors
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   
@@ -42,15 +44,15 @@ export default function AdminSettingsScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "Đăng xuất",
-      "Bạn có chắc chắn muốn đăng xuất?",
+      t("settings.logout.confirmTitle"),
+      t("settings.logout.confirmMessage"),
       [
         {
-          text: "Hủy",
+          text: t("settings.logout.cancel"),
           style: "cancel",
         },
         {
-          text: "Đăng xuất",
+          text: t("settings.logout.confirm"),
           style: "destructive",
           onPress: async () => {
             await logout();
@@ -65,16 +67,16 @@ export default function AdminSettingsScreen() {
   const accountSettings: SettingItem[] = [
     {
       id: "privacy",
-      title: "Quyền riêng tư",
-      subtitle: "Kiểm soát quyền riêng tư",
+      title: t("settings.account.privacy"),
+      subtitle: t("settings.account.privacySubtitle"),
       icon: "lock-closed-outline",
       type: "navigation",
       onPress: () => {},
     },
     {
       id: "security",
-      title: "Bảo mật",
-      subtitle: "Mật khẩu và xác thực",
+      title: t("settings.account.security"),
+      subtitle: t("settings.account.securitySubtitle"),
       icon: "shield-checkmark-outline",
       type: "navigation",
       onPress: () => {},
@@ -84,8 +86,8 @@ export default function AdminSettingsScreen() {
   const appSettings: SettingItem[] = [
     {
       id: "notifications",
-      title: "Thông báo",
-      subtitle: "Quản lý thông báo",
+      title: t("settings.app.notifications"),
+      subtitle: t("settings.app.notificationsSubtitle"),
       icon: "notifications-outline",
       type: "toggle",
       value: notificationsEnabled,
@@ -93,8 +95,8 @@ export default function AdminSettingsScreen() {
     },
     {
       id: "dark-mode",
-      title: "Chế độ tối",
-      subtitle: darkModeEnabled ? "Đang bật" : "Đang tắt",
+      title: t("settings.app.darkMode"),
+      subtitle: darkModeEnabled ? t("settings.app.darkModeOn") : t("settings.app.darkModeOff"),
       icon: darkModeEnabled ? "moon" : "moon-outline",
       type: "toggle",
       value: darkModeEnabled,
@@ -104,35 +106,38 @@ export default function AdminSettingsScreen() {
     },
     {
       id: "language",
-      title: "Ngôn ngữ",
-      subtitle: "Tiếng Việt",
+      title: t("settings.app.language"),
+      subtitle: i18n.language === "vi" ? t("settings.app.languageSubtitle") : "English",
       icon: "language-outline",
       type: "navigation",
-      onPress: () => {},
+      onPress: () => {
+        const newLang = i18n.language === "vi" ? "en" : "vi";
+        i18n.changeLanguage(newLang);
+      },
     },
   ];
 
   const supportSettings: SettingItem[] = [
     {
       id: "help",
-      title: "Trợ giúp & Hỗ trợ",
-      subtitle: "Câu hỏi thường gặp",
+      title: t("settings.support.help"),
+      subtitle: t("settings.support.helpSubtitle"),
       icon: "help-circle-outline",
       type: "navigation",
       onPress: () => {},
     },
     {
       id: "feedback",
-      title: "Gửi phản hồi",
-      subtitle: "Chia sẻ ý kiến của bạn",
+      title: t("settings.support.feedback"),
+      subtitle: t("settings.support.feedbackSubtitle"),
       icon: "chatbubble-ellipses-outline",
       type: "navigation",
       onPress: () => {},
     },
     {
       id: "about",
-      title: "Về Looply",
-      subtitle: "Phiên bản 1.0.0",
+      title: t("settings.support.about"),
+      subtitle: t("settings.support.aboutSubtitle"),
       icon: "information-circle-outline",
       type: "navigation",
       onPress: () => {},
@@ -157,23 +162,23 @@ export default function AdminSettingsScreen() {
             >
               <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Cài đặt</Text>
+            <Text style={styles.headerTitle}>{t("settings.title")}</Text>
           </View>
         </View>
 
         {/* Account Settings */}
-        <SettingsSection title="Tài khoản" items={accountSettings} />
+        <SettingsSection title={t("settings.account.title")} items={accountSettings} />
 
         {/* App Settings */}
-        <SettingsSection title="Ứng dụng" items={appSettings} />
+        <SettingsSection title={t("settings.app.title")} items={appSettings} />
 
         {/* Support */}
-        <SettingsSection title="Hỗ trợ" items={supportSettings} />
+        <SettingsSection title={t("settings.support.title")} items={supportSettings} />
 
         {/* Logout Button */}
         <View style={styles.logoutSection}>
           <Button
-            title="Đăng xuất"
+            title={t("settings.logout.title")}
             onPress={handleLogout}
             variant="danger"
             fullWidth
@@ -182,7 +187,7 @@ export default function AdminSettingsScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Looply Admin v1.0.0</Text>
+          <Text style={styles.footerText}>{t("settings.footer.adminVersion")}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

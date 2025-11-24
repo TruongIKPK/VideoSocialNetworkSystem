@@ -23,6 +23,7 @@ import { ReportModal } from "@/components/report/ReportModal";
 import { useUser } from "@/contexts/UserContext";
 import { useCustomAlert } from "@/hooks/useCustomAlert";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -96,6 +97,7 @@ export const VideoItem = ({
   const { createReport, isSubmitting } = useReport({ token });
   const { showAlert, AlertComponent } = useCustomAlert();
   const router = useRouter();
+  const { t } = useTranslation();
 
   // Kiểm tra xem description có dài không (ước tính > 100 ký tự hoặc > 2 dòng)
   const isDescriptionLong = item.description && item.description.length > 100;
@@ -124,14 +126,14 @@ export const VideoItem = ({
     
     if (result.success) {
       showAlert({
-        title: "Thành công",
+        title: t("common.success"),
         message: result.message,
         type: "success",
       });
       setIsReportModalVisible(false);
     } else {
       showAlert({
-        title: "Lỗi",
+        title: t("common.error"),
         message: result.message,
         type: "error",
       });
@@ -416,7 +418,7 @@ export const VideoItem = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.expandButton}>Xem thêm</Text>
+                    <Text style={styles.expandButton}>{t("video.showMore")}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -444,7 +446,7 @@ export const VideoItem = ({
                   item.isFollowing && styles.followButtonTextFollowing,
                 ]}
               >
-                {item.isFollowing ? "Đã follow" : "Follow"}
+                {item.isFollowing ? t("common.following") : t("common.follow")}
               </Text>
             </TouchableOpacity>
           )}
@@ -534,7 +536,7 @@ export const VideoItem = ({
 
               {/* Header */}
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Mô tả</Text>
+                <Text style={styles.modalTitle}>{t("video.description")}</Text>
                 <TouchableOpacity
                   onPress={handleCloseModal}
                   style={styles.modalCloseButton}

@@ -1,0 +1,165 @@
+{
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "retry": "Thử lại",
+    "close": "Đóng",
+    "search": "Tìm kiếm",
+    "noResults": "Không có kết quả",
+    "follow": "Theo dõi",
+    "following": "Đang theo dõi",
+    "unfollow": "Bỏ theo dõi",
+    "like": "Thích",
+    "comment": "Bình luận",
+    "share": "Chia sẻ",
+    "save": "Lưu",
+    "saved": "Đã lưu",
+    "views": "lượt xem",
+    "likes": "lượt thích",
+    "comments": "bình luận",
+    "shares": "lượt chia sẻ",
+    "saves": "lượt lưu"
+  },
+  "auth": {
+    "login": {
+      "title": "Đăng nhập",
+      "subtitle": "Chào mừng bạn quay trở lại Looply",
+      "email": "Địa chỉ thư điện tử",
+      "password": "Mật khẩu",
+      "button": "ĐĂNG NHẬP",
+      "registerLink": "Đăng kí tại đây",
+      "forgotPassword": "Quên mật khẩu?",
+      "backToHome": "Quay về trang chủ",
+      "otherOptions": "Lựa chọn khác",
+      "error": "Đăng nhập thất bại",
+      "errorMessage": "Đăng nhập thất bại. Vui lòng thử lại!"
+    },
+    "register": {
+      "title": "Xin chào!",
+      "subtitle": "Hãy đăng kí tài khoản Looply tại đây!",
+      "fullName": "Họ và tên",
+      "email": "Địa chỉ thư điện tử",
+      "password": "Mật khẩu",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "agreeTerms": "Tôi đồng ý với",
+      "termsOfService": "Điều khoản sử dụng",
+      "and": "và",
+      "privacyPolicy": "Chính sách bảo mật",
+      "button": "ĐĂNG KÍ",
+      "hasAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập",
+      "otherOptions": "Lựa chọn khác",
+      "error": "Đăng kí thất bại",
+      "errorMessage": "Đăng kí thất bại. Vui lòng thử lại!"
+    }
+  },
+  "tabs": {
+    "home": "Trang chủ",
+    "explore": "Khám phá",
+    "camera": "Camera",
+    "inbox": "Hộp thư",
+    "profile": "Hồ sơ"
+  },
+  "home": {
+    "noVideos": "Không có video nào",
+    "noNewVideos": "Không có video mới",
+    "failedToLoad": "Tải video thất bại. Vui lòng thử lại.",
+    "loadingMore": "Đang tải thêm..."
+  },
+  "explore": {
+    "title": "Khám phá",
+    "all": "Tất cả",
+    "trending": "Thịnh hành",
+    "music": "Âm nhạc",
+    "comedy": "Hài kịch",
+    "dance": "Nhảy múa",
+    "sports": "Thể thao",
+    "noVideos": "Không có video nào"
+  },
+  "profile": {
+    "title": "Hồ sơ",
+    "editProfile": "Chỉnh sửa hồ sơ",
+    "followers": "Người theo dõi",
+    "following": "Đang theo dõi",
+    "videos": "Video",
+    "likes": "Lượt thích",
+    "noVideos": "Chưa có video nào",
+    "noBio": "Chưa có tiểu sử"
+  },
+  "upload": {
+    "title": "Tiêu đề",
+    "titleRequired": "Tiêu đề:",
+    "titlePlaceholder": "Nhập tiêu đề...",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Viết mô tả (tùy chọn)...",
+    "uploading": "Đang tải...",
+    "upload": "Đăng tải",
+    "cancel": "Hủy bỏ",
+    "charCount": "/100",
+    "descCharCount": "/500",
+    "error": "Lỗi"
+  },
+  "video": {
+    "report": "Báo cáo",
+    "reportVideo": "Báo cáo video",
+    "reportUser": "Báo cáo người dùng",
+    "reportSuccess": "Báo cáo thành công",
+    "reportError": "Lỗi khi báo cáo",
+    "description": "Mô tả",
+    "showMore": "Xem thêm",
+    "showLess": "Thu gọn",
+    "viewAllComments": "Xem tất cả bình luận"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "account": {
+      "title": "Tài khoản",
+      "editProfile": "Chỉnh sửa hồ sơ",
+      "editProfileSubtitle": "Cập nhật thông tin cá nhân",
+      "privacy": "Quyền riêng tư",
+      "privacySubtitle": "Kiểm soát quyền riêng tư",
+      "security": "Bảo mật",
+      "securitySubtitle": "Mật khẩu và xác thực"
+    },
+    "app": {
+      "title": "Ứng dụng",
+      "notifications": "Thông báo",
+      "notificationsSubtitle": "Quản lý thông báo",
+      "darkMode": "Chế độ tối",
+      "darkModeOn": "Đang bật",
+      "darkModeOff": "Đang tắt",
+      "language": "Ngôn ngữ",
+      "languageSubtitle": "Tiếng Việt",
+      "dataUsage": "Sử dụng dữ liệu",
+      "dataUsageSubtitle": "Quản lý dữ liệu"
+    },
+    "support": {
+      "title": "Hỗ trợ",
+      "help": "Trợ giúp & Hỗ trợ",
+      "helpSubtitle": "Câu hỏi thường gặp",
+      "feedback": "Gửi phản hồi",
+      "feedbackSubtitle": "Chia sẻ ý kiến của bạn",
+      "about": "Về Looply",
+      "aboutSubtitle": "Phiên bản 1.0.0"
+    },
+    "logout": {
+      "title": "Đăng xuất",
+      "confirmTitle": "Đăng xuất",
+      "confirmMessage": "Bạn có chắc chắn muốn đăng xuất?",
+      "cancel": "Hủy",
+      "confirm": "Đăng xuất"
+    },
+    "footer": {
+      "appVersion": "Looply v1.0.0",
+      "adminVersion": "Looply Admin v1.0.0"
+    }
+  }
+}
