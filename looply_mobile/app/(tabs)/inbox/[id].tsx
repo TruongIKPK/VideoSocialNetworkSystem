@@ -61,16 +61,6 @@ export default function ChatDetail() {
     // --- LẮNG NGHE TIN NHẮN ĐẾN ---
     const handleReceiveMessage = (msg: any) => {
       if (msg.from === chatId) {
-        const incomingMsg = {
-          messageId: msg.messageId,
-          chatId: msg.from,
-          content: msg.text,
-          sender: "other",
-          type: msg.type || "text",
-          timestamp: msg.timestamp,
-          status: "received", // Mới nhận
-        };
-        saveMessageToDB(incomingMsg);
         loadMessages();
 
         // Tự động gửi lại "Đã xem" (Seen)
@@ -243,8 +233,12 @@ export default function ChatDetail() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 60}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.select({
+          ios: 0,
+          android: 0,
+          default: 0,
+        })}
       >
         <FlatList
           ref={flatListRef}
@@ -334,7 +328,7 @@ const styles = StyleSheet.create({
   },
   leftText: { color: "#000", fontSize: 16 },
   rightText: { color: "#fff", fontSize: 16 },
-  statusContainer: { alignSelf: "flex-end", marginTop: 2 }, 
+  statusContainer: { alignSelf: "flex-end", marginTop: 2 },
   inputArea: {
     flexDirection: "row",
     alignItems: "center",

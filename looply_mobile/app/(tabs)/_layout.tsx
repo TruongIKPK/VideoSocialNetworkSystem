@@ -7,6 +7,7 @@ import { CustomHeader } from "../_layout";
 import { useUser } from "@/contexts/UserContext";
 import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { socketService } from "../../service/socketService";
+import { saveMessageToDB } from "@/utils/database";
 
 export default function TabLayout() {
   const { user, token } = useUser();
@@ -71,6 +72,36 @@ export default function TabLayout() {
     // Chỉ kết nối socket cho user thường, không phải admin
     if (token && user?._id && user?.role !== "admin") {
       socketService.connect(token);
+
+      const handleGlobalMessage = (msg: any) => {
+        console.log("📩 [Global Listener] Có tin nhắn mới:", msg);
+
+        // Chỉ xử lý tin nhắn từ người khác gửi đến
+        if (msg.from !== user._id) {
+          const incomingMsg = {
+            messageId: msg.messageId,
+            chatId: msg.from, // ID người gửi chính là ID cuộc trò chuyện
+            content: msg.text,
+            sender: "other",
+            type: msg.type || "text",
+            timestamp: msg.timestamp,
+            status: "received",
+          };
+
+          // 💾 Lưu ngay vào SQLite
+          saveMessageToDB(incomingMsg);
+
+          // (Tùy chọn) Tại đây bạn có thể bắn Notification hoặc rung máy
+        }
+      };
+
+      // Đăng ký sự kiện
+      socketService.on("receive-message", handleGlobalMessage);
+
+      // Cleanup khi unmount
+      return () => {
+        socketService.off("receive-message", handleGlobalMessage);
+      };
     } else if (user?.role === "admin") {
       // Nếu là admin, disconnect socket
       socketService.disconnect();

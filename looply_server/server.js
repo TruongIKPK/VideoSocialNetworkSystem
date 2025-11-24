@@ -209,6 +209,9 @@ io.on("connection", (socket) => {
     const userIdString = String(userId);
     connectedUsers[userIdString] = socket.id;
 
+    const onlineUserIds = Object.keys(connectedUsers);
+    socket.emit("get-online-users", onlineUserIds);
+
     // Broadcast user online
     socket.broadcast.emit("user-online", { userId: userIdString });
 
