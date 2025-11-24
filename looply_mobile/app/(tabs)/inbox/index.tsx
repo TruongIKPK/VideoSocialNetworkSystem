@@ -4,16 +4,27 @@ import { format, isToday, isYesterday, isThisYear } from "date-fns";
 import { vi } from "date-fns/locale";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useEffect } from "react";
-import { getInboxConversations } from "@/utils/database"; 
 import { Ionicons } from "@expo/vector-icons";
+import { socketService } from "@/service/socketService";
+import { useUser } from "@/contexts/UserContext";
+import { getAvatarUri } from "@/utils/imageHelpers";
+import { getInboxConversations, markMessagesAsSeen } from "@/utils/database";
 import { NotificationModal } from "@/components/NotificationModal";
 import { getUnreadCount } from "@/utils/notificationStorage";
 
 // URL API Backend
 const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
 
-// Component hiển thị từng dòng tin nhắn (Tự lấy tên User từ Server)
-const ConversationItem = ({ item }: { item: any }) => {
+interface Conversation {
+  id: string | number;
+  chatId: string;
+  content: string;
+  sender: string;
+  timestamp: string;
+  status: string;
+}
+
+const ConversationItem = ({ item, onOpenChat, isOnline }: { item: Conversation; onOpenChat: (chatId: string) => void; isOnline: boolean }) => {
   const [userInfo, setUserInfo] = useState({ name: "Đang tải...", avatar: null });
   
   useEffect(() => {
@@ -71,32 +82,128 @@ const ConversationItem = ({ item }: { item: any }) => {
 };
 
 export default function InboxList() {
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({}); // State lưu list online
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { token } = useUser();
+  const isNavigatingRef = useRef(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadInbox();
-      loadUnreadCount();
-    }, [])
-  );
-
-  const loadInbox = () => {
+  const loadInbox = useCallback(() => {
     try {
-      const data = getInboxConversations();
-      setConversations(data);
+      const data = getInboxConversations() as Conversation[];
+      const sortedData = data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setConversations(sortedData);
     } catch (error) {
       console.log("Lỗi load inbox:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useCallback(async () => {
     const count = await getUnreadCount();
     setUnreadCount(count);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadInbox();
+      loadUnreadCount();
+    }, [loadInbox, loadUnreadCount])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isNavigatingRef.current) {
+        isNavigatingRef.current = false;
+        return;
+      }
+      const timeout = setTimeout(() => loadInbox(), 200);
+      return () => clearTimeout(timeout);
+    }, [loadInbox])
+  );
+
+  useEffect(() => {
+    if (!token) return;
+
+    socketService.connect(token);
+
+    // 1. Logic nhận tin nhắn mới
+    const handleNewMessage = (message) => {
+      console.log("📨 Socket: Tin nhắn mới");
+      setTimeout(() => loadInbox(), 1000);
+    };
+
+    // 2. Logic đánh dấu đã đọc
+    const handleMessageSeen = ({ seenBy }) => {
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (String(conv.chatId) === String(seenBy)) {
+            return { ...conv, status: "seen", unreadCount: 0 };
+          }
+          return conv;
+        })
+      );
+    };
+
+    // --- LOGIC ONLINE/OFFLINE ---
+
+    // 3. ✨ MỚI: Nhận danh sách toàn bộ user đang online khi mới connect
+    const handleGetOnlineUsers = (userIds) => {
+      // userIds là mảng id, ví dụ: ["id1", "id2"]
+      const onlineMap = {};
+      userIds.forEach((id) => {
+        onlineMap[String(id)] = true;
+      });
+      setOnlineUsers(onlineMap);
+    };
+
+    // 4. Ai đó vừa online
+    const handleUserOnline = ({ userId }) => {
+      setOnlineUsers((prev) => ({ ...prev, [String(userId)]: true }));
+    };
+
+    // 5. Ai đó vừa offline
+    const handleUserOffline = ({ userId }) => {
+      setOnlineUsers((prev) => {
+        const newState = { ...prev };
+        delete newState[String(userId)];
+        return newState;
+      });
+    };
+
+    
+    // Lắng nghe sự kiện
+    socketService.on("receive-message", handleNewMessage);
+    socketService.on("message-seen", handleMessageSeen);
+    
+    // 👇 Sự kiện Online
+    socketService.on("get-online-users", handleGetOnlineUsers); // <-- Server cần emit cái này khi client connect
+    socketService.on("user-online", handleUserOnline);
+    socketService.on("user-offline", handleUserOffline);
+
+    return () => {
+      socketService.off("receive-message", handleNewMessage);
+      socketService.off("message-seen", handleMessageSeen);
+      socketService.off("get-online-users", handleGetOnlineUsers);
+      socketService.off("user-online", handleUserOnline);
+      socketService.off("user-offline", handleUserOffline);
+    };
+  }, [token, loadInbox]);
+
+  const handleOpenChat = async (chatId) => {
+    isNavigatingRef.current = true;
+    setConversations((prev) =>
+      prev.map((c) => (String(c.chatId) === String(chatId) ? { ...c, status: "seen" } : c))
+    );
+    try {
+      await markMessagesAsSeen(chatId); 
+    } catch (error) {
+      console.log("❌ Lỗi update DB:", error);
+    }
+    router.push(`/(tabs)/inbox/${chatId}`);
   };
 
   // Reload unread count khi modal đóng
@@ -110,12 +217,16 @@ export default function InboxList() {
       {/* Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Hộp thư</Text>
-        {/* Icon thông báo */}
-        <TouchableOpacity 
-          onPress={() => setNotificationModalVisible(true)}
-          style={styles.notificationButton}
-        >
-          <Ionicons name="notifications-outline" size={28} color="black" />
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <TouchableOpacity onPress={() => router.push("/search")}>
+            <Ionicons name="create-outline" size={28} color="black" />
+          </TouchableOpacity>
+          {/* Icon thông báo */}
+          <TouchableOpacity 
+            onPress={() => setNotificationModalVisible(true)}
+            style={styles.notificationButton}
+          >
+            <Ionicons name="notifications-outline" size={28} color="black" />
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
@@ -123,7 +234,8 @@ export default function InboxList() {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Notification Modal */}
@@ -160,6 +272,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingHorizontal: 5
   },
   headerTitle: { fontSize: 24, fontWeight: "bold" },
+  emptyContainer: { alignItems: "center", marginTop: 100, opacity: 0.7 },
+  emptyText: { color: "#999", fontSize: 18, marginTop: 10, fontWeight: "bold" },
+  row: { flexDirection: "row", alignItems: "center", marginVertical: 12 },
+  
+  avatarContainer: { marginRight: 12, position: 'relative' },
+  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#eee", borderWidth: 1, borderColor: "#f0f0f0" },
+  
+  // Style cho chấm xanh (Nút online)
+  onlineIndicator: {
+    position: 'absolute', 
+    bottom: 2, 
+    right: 2, 
+    width: 14, 
+    height: 14, 
+    borderRadius: 7,
+    backgroundColor: '#31A24C', // Màu xanh lá Messenger
+    borderWidth: 2, 
+    borderColor: '#fff', 
+    zIndex: 99, 
+    elevation: 5, // Đổ bóng cho Android nổi lên
+  },
+
+  name: { fontSize: 16, marginBottom: 4, color: "#000", fontWeight: "normal" },
+  nameUnread: { fontWeight: "bold" },
+  message: { color: "#666", fontSize: 14, fontWeight: "normal" },
+  messageUnread: { fontWeight: "bold", color: "#000" },
+  right: { alignItems: "flex-end", marginLeft: 10, minWidth: 50 },
+  time: { fontSize: 12, color: "#999" },
+  unreadDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#007AFF", marginTop: 6 },
+  
   notificationButton: {
     position: 'relative',
     padding: 4,
@@ -181,13 +323,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  emptyContainer: { alignItems: 'center', marginTop: 100, opacity: 0.7 },
-  emptyText: { color: '#999', fontSize: 18, marginTop: 10, fontWeight: 'bold' },
-  emptySubText: { color: '#aaa', fontSize: 14, marginTop: 5 },
-  row: { flexDirection: "row", alignItems: "center", marginVertical: 10 },
-  avatar: { width: 56, height: 56, borderRadius: 28, marginRight: 12, backgroundColor: '#eee' },
-  name: { fontWeight: "bold", fontSize: 16, marginBottom: 4 },
-  message: { color: "#555", fontSize: 14 },
-  right: { alignItems: "flex-end", marginLeft: 10 },
-  time: { fontSize: 12, color: "#999" },
 });

@@ -171,20 +171,24 @@ export const useVideoActions = ({
     const currentVideo = videos.find((v) => v._id === videoId);
     if (!currentVideo) return;
 
-    const isCurrentlySaved = currentVideo.savedBy?.includes(userId) || false;
+    // Đảm bảo savedBy luôn là array
+    const savedByArray = currentVideo.savedBy || [];
+    const isCurrentlySaved = savedByArray.includes(userId);
     const currentSaves = currentVideo.saves || currentVideo.savesCount || 0;
 
     // Optimistic UI update
     setVideos((prev) =>
       prev.map((video) => {
         if (video._id === videoId) {
+          const newSavedBy = isCurrentlySaved
+            ? savedByArray.filter((id) => id !== userId)
+            : [...savedByArray, userId];
+          
           return {
             ...video,
             saves: isCurrentlySaved ? currentSaves - 1 : currentSaves + 1,
             savesCount: isCurrentlySaved ? currentSaves - 1 : currentSaves + 1,
-            savedBy: isCurrentlySaved
-              ? (video.savedBy || []).filter((id) => id !== userId)
-              : [...(video.savedBy || []), userId],
+            savedBy: newSavedBy,
           };
         }
         return video;
@@ -203,8 +207,12 @@ export const useVideoActions = ({
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${endpoint} video`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to ${endpoint} video`);
       }
+
+      // Không cần update lại vì đã optimistic update
+      console.log(`✅ Video ${isCurrentlySaved ? 'unsaved' : 'saved'} successfully`);
     } catch (error) {
       console.error("Save error:", error);
       // Revert on error
@@ -215,7 +223,7 @@ export const useVideoActions = ({
               ...video,
               saves: currentSaves,
               savesCount: currentSaves,
-              savedBy: currentVideo.savedBy || [],
+              savedBy: savedByArray,
             };
           }
           return video;
