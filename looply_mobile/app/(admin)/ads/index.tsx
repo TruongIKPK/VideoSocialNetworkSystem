@@ -1,0 +1,320 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  Dimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getAvatarUri } from "@/utils/imageHelpers";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants/theme";
+import { Button } from "@/components/ui/Button";
+
+const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+export default function AdminAdsScreen() {
+  const { user } = useCurrentUser();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const requestMediaPermission = async () => {
+    if (Platform.OS !== "web") {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Quyền truy cập",
+          "Cần quyền truy cập thư viện ảnh để upload quảng cáo."
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handlePickImage = async () => {
+    const hasPermission = await requestMediaPermission();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedImage) {
+      Alert.alert("Thông báo", "Vui lòng chọn ảnh để đăng tải.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // TODO: Implement actual upload to server
+      // For now, just show success message
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      Alert.alert("Thành công", "Quảng cáo đã được đăng tải thành công!", [
+        {
+          text: "OK",
+          onPress: () => {
+            setSelectedImage(null);
+          },
+        },
+      ]);
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể đăng tải quảng cáo. Vui lòng thử lại.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Admin Info Card */}
+        <View style={styles.adminCard}>
+          <View style={styles.adminCardContent}>
+            <Image
+              source={getAvatarUri(user?.avatar)}
+              style={styles.avatar}
+            />
+            <View style={styles.adminTextContainer}>
+              <Text style={styles.adminName}>{user?.name || user?.username || "Admin"}</Text>
+              {user?.email && (
+                <Text style={styles.adminEmail}>{user.email}</Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Ad Creation Card */}
+        <View style={styles.card}>
+          <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>Quản lý quảng cáo</Text>
+          
+          {/* Upload Area */}
+          <TouchableOpacity
+            style={styles.uploadArea}
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+          >
+            {selectedImage ? (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.uploadedImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.uploadPlaceholder}>
+                <Ionicons name="image-outline" size={64} color={Colors.text.secondary} />
+                <Text style={styles.uploadHint}>Nhấn để chọn ảnh quảng cáo</Text>
+                <Text style={styles.uploadSubHint}>Tỷ lệ khuyến nghị: 16:9</Text>
+                <TouchableOpacity
+                  style={styles.uploadButton}
+                  onPress={handlePickImage}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="cloud-upload-outline" size={20} color={Colors.white} style={{ marginRight: Spacing.xs }} />
+                  <Text style={styles.uploadButtonText}>Chọn ảnh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Upload Action Button */}
+          <View style={styles.actionContainer}>
+            <Button
+              title="Đăng tải"
+              onPress={handleUpload}
+              variant="primary"
+              size="md"
+              disabled={!selectedImage || isUploading}
+              loading={isUploading}
+              style={styles.uploadActionButton}
+            />
+          </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background.gray,
+  },
+  scrollView: {
+    flex: 1,
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
+  },
+  adminCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  adminCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    flex: 1,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.gray[200],
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+  },
+  adminTextContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  adminName: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+    flexShrink: 1,
+  },
+  adminRole: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  adminEmail: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginTop: 2,
+  },
+  card: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 0,
+    marginBottom: Spacing.md,
+    borderRadius: 0,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  cardContent: {
+    paddingHorizontal: Spacing.lg,
+    width: "100%",
+  },
+  cardTitle: {
+    fontSize: Typography.fontSize.xxl,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.md,
+    letterSpacing: -0.5,
+  },
+  uploadArea: {
+    width: "100%",
+    height: 400,
+    backgroundColor: Colors.gray[50],
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.border.light,
+    borderStyle: "dashed",
+  },
+  uploadPlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  uploadHint: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.medium,
+    color: Colors.text.primary,
+    fontFamily: Typography.fontFamily.medium,
+    marginTop: Spacing.sm,
+  },
+  uploadSubHint: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.text.secondary,
+    fontFamily: Typography.fontFamily.regular,
+    marginBottom: Spacing.md,
+  },
+  uploadButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  uploadButtonText: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.white,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  uploadedImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BorderRadius.lg,
+  },
+  actionContainer: {
+    alignItems: "flex-end",
+  },
+  uploadActionButton: {
+    minWidth: 120,
+  },
+});
+

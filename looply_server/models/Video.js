@@ -18,6 +18,19 @@ const videoSchema = new mongoose.Schema({
   likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   status: { type: String, enum: ["active", "violation"], default: "active" },
 
+  // Moderation fields
+  moderationStatus: { 
+    type: String, 
+    enum: ["pending", "approved", "flagged", "rejected"], 
+    default: "pending" 
+  },
+  s3Key: String,
+  cloudinaryPublicId: String,
+  cloudinaryTempUrl: String,
+  rekognitionJobId: String,
+  moderationResults: { type: mongoose.Schema.Types.Mixed },
+  embedding: [Number],
+
 }, { timestamps: true });
 
 export default mongoose.model("Video", videoSchema);
