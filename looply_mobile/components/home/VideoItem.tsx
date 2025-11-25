@@ -24,6 +24,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useCustomAlert } from "@/hooks/useCustomAlert";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { shareVideo } from "@/utils/shareHelpers";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -45,6 +46,7 @@ interface VideoItemProps {
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
   onSave?: (videoId: string) => void;
+  onShare?: (videoId: string) => void;
   currentUserId: string | null;
   isScreenFocused: boolean;
 }
@@ -59,6 +61,7 @@ export const VideoItem = ({
   onComment,
   onFollow,
   onSave,
+  onShare,
   currentUserId,
   isScreenFocused,
 }: VideoItemProps) => {
@@ -147,6 +150,19 @@ export const VideoItem = ({
         message: result.message,
         type: "error",
       });
+    }
+  };
+
+  const handleShare = async () => {
+    const result = await shareVideo({
+      _id: item._id,
+      title: item.title,
+      description: item.description,
+      user: item.user,
+    });
+
+    if (result.success && onShare) {
+      onShare(item._id);
     }
   };
 
@@ -503,7 +519,7 @@ export const VideoItem = ({
         </TouchableOpacity>
 
         {/* Share */}
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
           <Ionicons name="share-social-outline" size={30} color="#FFF" />
           <Text style={styles.actionText}>{formatNumber(sharesCount)}</Text>
         </TouchableOpacity>

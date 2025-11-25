@@ -953,6 +953,23 @@ export default function Profile() {
                   size="sm"
                   style={{ flex: 1 }}
                 />
+                <Button
+                  title="Chia sẻ"
+                  onPress={async () => {
+                    if (profileUser) {
+                      const { shareUserProfile } = await import("@/utils/shareHelpers");
+                      await shareUserProfile({
+                        _id: profileUser._id,
+                        name: profileUser.name,
+                        username: profileUser.username,
+                        bio: profileUser.bio,
+                      });
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
               </>
             ) : (
               // Giao diện khi xem User CỦA MÌNH: Chỉnh sửa & Chia sẻ
@@ -966,7 +983,17 @@ export default function Profile() {
                 />
                 <Button
                   title="Chia sẻ"
-                  onPress={() => {}}
+                  onPress={async () => {
+                    if (profileUser) {
+                      const { shareUserProfile } = await import("@/utils/shareHelpers");
+                      await shareUserProfile({
+                        _id: profileUser._id,
+                        name: profileUser.name,
+                        username: profileUser.username,
+                        bio: profileUser.bio,
+                      });
+                    }
+                  }}
                   variant="ghost"
                   size="sm"
                   style={{ flex: 1 }}

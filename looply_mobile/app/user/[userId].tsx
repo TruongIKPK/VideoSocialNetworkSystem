@@ -351,7 +351,17 @@ export default function OtherUserProfile() {
               />
               <Button
                 title="Chia sẻ"
-                onPress={() => {}}
+                onPress={async () => {
+                  if (profileUser) {
+                    const { shareUserProfile } = await import("@/utils/shareHelpers");
+                    await shareUserProfile({
+                      _id: profileUser._id,
+                      name: profileUser.name,
+                      username: profileUser.username,
+                      bio: profileUser.bio,
+                    });
+                  }
+                }}
                 variant="ghost"
                 size="sm"
               />

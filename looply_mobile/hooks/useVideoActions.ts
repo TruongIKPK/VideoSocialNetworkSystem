@@ -232,11 +232,18 @@ export const useVideoActions = ({
     }
   };
 
+  const handleShare = async (videoId: string) => {
+    // Track share if needed - you can add API call here to increment share count
+    // For now, just log it
+    console.log(`Video ${videoId} shared`);
+  };
+
   return {
     handleLike,
     handleComment,
     handleFollow,
     handleSave,
+    handleShare,
   };
 };
 
