@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -347,25 +347,14 @@ export default function Profile() {
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null); // Video được chọn để xóa
   const [showDeleteButtons, setShowDeleteButtons] = useState<Set<string>>(new Set()); // Set các video ID đang hiển thị nút xóa
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (isViewingOtherProfile && targetUserId) {
-        // Nếu đang xem profile người khác -> Fetch data người đó
-        fetchOtherUserProfile(targetUserId);
-      } else if (currentUser) {
-        // Nếu là profile mình -> Dùng data currentUser
-        setProfileUser(currentUser);
-        fetchProfileData();
-      }
-
-      const uploaded = Array.isArray(params.uploaded) 
-        ? params.uploaded[0] 
-        : (params.uploaded as string | undefined);
-      if (uploaded === "true") {
-        router.setParams({ uploaded: undefined });
-      }
-    }
-  }, [isAuthenticated, isViewingOtherProfile, targetUserId, currentUser]);
+  // Refs để track việc đã fetch data
+  const hasFetchedProfileRef = useRef(false);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+  const hasFetchedTabsRef = useRef<{ video: boolean; saved: boolean; liked: boolean }>({
+    video: false,
+    saved: false,
+    liked: false,
+  });
 
   // Reset nút xóa khi chuyển tab
   useEffect(() => {
@@ -373,17 +362,58 @@ export default function Profile() {
     setVideoToDelete(null);
   }, [activeTab]);
 
+  // Fetch profile data chỉ khi cần thiết (mount lần đầu, userId thay đổi, hoặc có param uploaded)
   useEffect(() => {
-    // Reset state khi params thay đổi
-    setVideos([]);
-    setLiked([]);
-    setShowDeleteButtons(new Set()); // Reset nút xóa khi thay đổi tab hoặc user
+    const uploaded = Array.isArray(params.uploaded) 
+      ? params.uploaded[0] 
+      : (params.uploaded as string | undefined);
+    
+    // Xác định userId hiện tại
+    const currentUserId = isViewingOtherProfile && targetUserId 
+      ? targetUserId 
+      : (currentUser?._id || null);
+
+    // Reset state khi userId thay đổi
+    if (lastFetchedUserIdRef.current !== null && 
+        lastFetchedUserIdRef.current !== currentUserId) {
+      // Reset state khi chuyển profile
+      setVideos([]);
+      setSaved([]);
+      setLiked([]);
+      setShowDeleteButtons(new Set());
+      setVideoToDelete(null);
+      hasFetchedTabsRef.current = { video: false, saved: false, liked: false };
+    }
+    
+    // Xử lý param uploaded nếu có
+    if (uploaded === "true") {
+      router.setParams({ uploaded: undefined });
+      // Reset flags để fetch lại khi có video mới upload
+      hasFetchedProfileRef.current = false;
+      hasFetchedTabsRef.current = { video: false, saved: false, liked: false };
+    }
+
+    // Chỉ fetch nếu:
+    // 1. Chưa fetch lần nào, HOẶC
+    // 2. userId thay đổi, HOẶC
+    // 3. Có param uploaded (đã reset flags ở trên)
+    const shouldFetch = !hasFetchedProfileRef.current || 
+                       lastFetchedUserIdRef.current !== currentUserId ||
+                       uploaded === "true";
+
+    if (!shouldFetch) {
+      return; // Không fetch lại nếu không cần
+    }
 
     if (isViewingOtherProfile && targetUserId) {
       // Fetch profile của user khác
+      hasFetchedProfileRef.current = true;
+      lastFetchedUserIdRef.current = targetUserId;
       fetchOtherUserProfile(targetUserId);
     } else if (isAuthenticated && currentUser) {
       // Hiển thị profile của user hiện tại
+      hasFetchedProfileRef.current = true;
+      lastFetchedUserIdRef.current = currentUser._id;
       setProfileUser(currentUser);
       fetchProfileData();
     } else {
@@ -391,11 +421,30 @@ export default function Profile() {
     }
   }, [
     isAuthenticated,
-    currentUser,
-    activeTab,
+    currentUser?._id,
     targetUserId,
     isViewingOtherProfile,
+    params.uploaded,
   ]);
+
+  // Fetch tab data khi chuyển tab (chỉ nếu chưa fetch tab đó)
+  useEffect(() => {
+    // Chỉ fetch tab data nếu đã fetch profile và chưa fetch tab này
+    if (!hasFetchedProfileRef.current) {
+      return; // Chờ fetch profile xong
+    }
+
+    // Nếu đang xem profile người khác, chỉ có tab video
+    if (isViewingOtherProfile) {
+      return; // Tab data đã được fetch trong fetchOtherUserProfile
+    }
+
+    // Chỉ fetch nếu chưa fetch tab này
+    if (!hasFetchedTabsRef.current[activeTab]) {
+      fetchTabData();
+      hasFetchedTabsRef.current[activeTab] = true;
+    }
+  }, [activeTab, isViewingOtherProfile]);
 
   const handleFollow = async () => {
     // TODO: Gọi API Follow tại đây
@@ -462,6 +511,8 @@ export default function Profile() {
             ? (videosData.videos || videosData) 
             : [];
           setVideos(videosArray);
+          // Đánh dấu đã fetch tab video cho profile người khác
+          hasFetchedTabsRef.current.video = true;
         } else {
           setVideos([]);
         }
@@ -480,6 +531,7 @@ export default function Profile() {
       const token = await require("@/utils/tokenStorage").getToken();
       if (!token || !currentUser?._id) return;
 
+      // Không set loading để tránh hiển thị loading indicator khi chuyển tab
       if (activeTab === "video") {
         const videosResponse = await fetch(
           `${API_BASE_URL}/videos/user/${currentUser._id}`,
@@ -535,8 +587,6 @@ export default function Profile() {
       }
     } catch (error) {
       // Error fetching tab data
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -545,7 +595,10 @@ export default function Profile() {
       setIsLoading(true);
       const token = await require("@/utils/tokenStorage").getToken();
 
-      if (!token || !currentUser?._id) return;
+      if (!token || !currentUser?._id) {
+        setIsLoading(false);
+        return;
+      }
 
       // Fetch user videos
       const videosResponse = await fetch(
@@ -612,8 +665,9 @@ export default function Profile() {
             ? videosData.videos || videosData
             : []
         );
+        // Đánh dấu đã fetch tab video
+        hasFetchedTabsRef.current.video = true;
       }
-
 
       // Fetch saved videos
       const savedResponse = await fetch(
@@ -631,6 +685,8 @@ export default function Profile() {
             ? savedData.videos || savedData
             : []
         );
+        // Đánh dấu đã fetch tab saved
+        hasFetchedTabsRef.current.saved = true;
       }
 
       // Fetch liked videos
@@ -649,6 +705,8 @@ export default function Profile() {
             ? likedData.videos || likedData
             : []
         );
+        // Đánh dấu đã fetch tab liked
+        hasFetchedTabsRef.current.liked = true;
       }
     } catch (error) {
       // Error fetching profile data
@@ -658,14 +716,26 @@ export default function Profile() {
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
+    // Reset flags để fetch lại data
+    hasFetchedProfileRef.current = false;
+    hasFetchedTabsRef.current = { video: false, saved: false, liked: false };
+    
     if (isViewingOtherProfile && targetUserId) {
-      fetchOtherUserProfile(targetUserId).then(() => {
-        setRefreshing(false);
-      });
+      await fetchOtherUserProfile(targetUserId);
+      setRefreshing(false);
+      hasFetchedProfileRef.current = true;
+      lastFetchedUserIdRef.current = targetUserId;
     } else {
-      fetchProfileData();
+      await fetchProfileData();
+      setRefreshing(false);
+      if (currentUser?._id) {
+        hasFetchedProfileRef.current = true;
+        lastFetchedUserIdRef.current = currentUser._id;
+        // Đánh dấu đã fetch tất cả tabs vì fetchProfileData đã fetch hết
+        hasFetchedTabsRef.current = { video: true, saved: true, liked: true };
+      }
     }
   };
 
