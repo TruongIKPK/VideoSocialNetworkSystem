@@ -25,6 +25,7 @@ import { useCustomAlert } from "@/hooks/useCustomAlert";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { shareVideo } from "@/utils/shareHelpers";
+import { useVideoViewCount } from "@/hooks/useVideoViewCount";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -93,7 +94,12 @@ export const VideoItem = ({
   const commentsCount = item.comments || item.commentsCount || 0;
   const sharesCount = item.shares || 0;
   const savesCount = item.saves || item.savesCount || 0;
-  const viewsCount = item.views || 0;
+  
+  // Fetch số lượt xem thực tế từ API
+  const { viewCount: apiViewCount } = useVideoViewCount(
+    isCurrent ? item._id : null // Chỉ fetch khi video đang được hiển thị
+  );
+  const viewsCount = apiViewCount !== null ? apiViewCount : (item.views || 0);
 
   const watchTimeRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
