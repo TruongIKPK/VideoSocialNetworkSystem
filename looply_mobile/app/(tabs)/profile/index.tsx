@@ -21,6 +21,7 @@ import {
   Typography,
   Spacing,
   BorderRadius,
+  Shadows,
 } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
@@ -153,9 +154,9 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
   videoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
   videoItemWrapper: {
     width: itemWidth,
@@ -172,11 +173,7 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     backgroundColor: Colors.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Shadows.sm,
   },
   deleteButton: {
     position: "absolute",
