@@ -153,9 +153,111 @@ export default function ChatDetail() {
     });
   };
 
+  const handleVideoPress = (videoId: string) => {
+    console.log("🔥 Đang bấm vào video ID:", videoId);
+    if (!videoId) {
+      alert("Tin nhắn này bị lỗi dữ liệu (thiếu ID video).");
+      return;
+    }
+    router.replace({
+      pathname: "/(tabs)/home",
+      params: {
+        videoId: videoId,
+        scrollToVideo: "true",
+      },
+    });
+  };
+
   // 4. UI Tin nhắn
   const renderItem = ({ item }: { item: any }) => {
     const isMe = item.sender === "me";
+
+    const isVideoShare =
+      item.content && item.content.startsWith("VIDEO_SHARE::");
+
+    if (item.type === "video_share") {
+      console.log("Check item video:", item);
+    }
+
+    if (isVideoShare) {
+      // Tách chuỗi ra: "VIDEO_SHARE::123456::Mô tả" -> ["VIDEO_SHARE", "123456", "Mô tả"]
+      const parts = item.content.split("::");
+      const videoId = parts[1];
+      const description = parts[2] || "Xem video";
+
+      return (
+        <View style={isMe ? styles.rightBubble : styles.leftBubble}>
+          {!isMe && (
+            <Image
+              source={
+                partner.avatar
+                  ? { uri: partner.avatar }
+                  : require("../../../assets/images/avatar/example.png")
+              }
+              style={styles.smallAvatar}
+            />
+          )}
+
+          <TouchableOpacity
+            style={[
+              isMe ? styles.rightTextContainer : styles.leftTextContainer,
+              { width: 220, padding: 8 },
+            ]}
+            activeOpacity={0.8}
+            // 👇 Bắt sự kiện bấm vào đây
+            onPress={() => handleVideoPress(videoId)}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: isMe
+                  ? "rgba(255,255,255,0.3)"
+                  : "rgba(0,0,0,0.1)",
+                paddingBottom: 5,
+              }}
+            >
+              <Ionicons
+                name="play-circle"
+                size={32}
+                color={isMe ? "#fff" : "#FF3B30"}
+              />
+              <View style={{ marginLeft: 8, flex: 1 }}>
+                <Text
+                  style={[
+                    isMe ? styles.rightText : styles.leftText,
+                    { fontWeight: "bold", fontSize: 15 },
+                  ]}
+                >
+                  Xem Video
+                </Text>
+                <Text
+                  style={[
+                    isMe ? styles.rightText : styles.leftText,
+                    { fontSize: 10, opacity: 0.8 },
+                  ]}
+                >
+                  Nhấn để phát ngay
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              numberOfLines={2}
+              style={[
+                isMe ? styles.rightText : styles.leftText,
+                { fontSize: 13 },
+              ]}
+            >
+              {description}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={isMe ? styles.rightBubble : styles.leftBubble}>
         {!isMe && (
@@ -188,7 +290,6 @@ export default function ChatDetail() {
                   color="white"
                 />
               )}
-              {/* Đã xem: 2 dấu tick hoặc màu xanh */}
               {item.status === "seen" && (
                 <View style={{ flexDirection: "row" }}>
                   <Ionicons name="checkmark-done" size={14} color="#90EE90" />
