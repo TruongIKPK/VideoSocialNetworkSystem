@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { FlatList, Dimensions } from "react-native";
 import { VideoPost } from "@/types/video";
 
@@ -17,20 +17,21 @@ export const useVideoScroll = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollStartIndexRef = useRef<number>(0);
 
-  const updateCurrentIndex = (index: number) => {
+  const updateCurrentIndex = useCallback((index: number) => {
     setCurrentIndex(index);
     onIndexChange(index);
-  };
+  }, [onIndexChange]);
 
-  // Track index thông qua onViewableItemsChanged
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+  // Track index thông qua onViewableItemsChanged - dùng useCallback để tránh stale closure
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
       const visibleIndex = viewableItems[0].index;
       if (visibleIndex !== null && visibleIndex !== undefined) {
-        updateCurrentIndex(visibleIndex);
+        setCurrentIndex(visibleIndex);
+        onIndexChange(visibleIndex);
       }
     }
-  }).current;
+  }, [onIndexChange]);
 
   const viewabilityConfig = {
     itemVisiblePercentThreshold: 50,

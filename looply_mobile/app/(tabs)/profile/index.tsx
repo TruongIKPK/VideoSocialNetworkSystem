@@ -425,7 +425,33 @@ export default function Profile() {
       
       if (response.ok) {
         const userData = await response.json();
-        setProfileUser(userData);
+        
+        // Fetch following count
+        const followingResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/following`
+        );
+        let followingCount = userData.following || 0;
+        if (followingResponse.ok) {
+          const followingData = await followingResponse.json();
+          followingCount = followingData.total || 0;
+        }
+
+        // Fetch followers count
+        const followersResponse = await fetch(
+          `${API_BASE_URL}/users/${userId}/followers`
+        );
+        let followersCount = userData.followers || 0;
+        if (followersResponse.ok) {
+          const followersData = await followersResponse.json();
+          followersCount = followersData.total || 0;
+        }
+
+        // Update userData with accurate counts
+        setProfileUser({
+          ...userData,
+          following: followingCount,
+          followers: followersCount,
+        });
         
         // Fetch videos của user đó
         const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
@@ -538,6 +564,45 @@ export default function Profile() {
       if (totalLikesResponse.ok) {
         const totalLikesData = await totalLikesResponse.json();
         setTotalLikes(totalLikesData.totalLikes || 0);
+      }
+
+      // Fetch following count
+      const followingResponse = await fetch(
+        `${API_BASE_URL}/users/${currentUser._id}/following`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      let followingCount = 0;
+      if (followingResponse.ok) {
+        const followingData = await followingResponse.json();
+        followingCount = followingData.total || 0;
+      }
+
+      // Fetch followers count
+      const followersResponse = await fetch(
+        `${API_BASE_URL}/users/${currentUser._id}/followers`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      let followersCount = 0;
+      if (followersResponse.ok) {
+        const followersData = await followersResponse.json();
+        followersCount = followersData.total || 0;
+      }
+
+      // Update profileUser with accurate counts
+      if (currentUser) {
+        setProfileUser((prev: any) => ({
+          ...prev,
+          following: followingCount,
+          followers: followersCount,
+        }));
       }
 
       if (videosResponse.ok) {
@@ -888,6 +953,23 @@ export default function Profile() {
                   size="sm"
                   style={{ flex: 1 }}
                 />
+                <Button
+                  title="Chia sẻ"
+                  onPress={async () => {
+                    if (profileUser) {
+                      const { shareUserProfile } = await import("@/utils/shareHelpers");
+                      await shareUserProfile({
+                        _id: profileUser._id,
+                        name: profileUser.name,
+                        username: profileUser.username,
+                        bio: profileUser.bio,
+                      });
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  style={{ flex: 1 }}
+                />
               </>
             ) : (
               // Giao diện khi xem User CỦA MÌNH: Chỉnh sửa & Chia sẻ
@@ -901,7 +983,17 @@ export default function Profile() {
                 />
                 <Button
                   title="Chia sẻ"
-                  onPress={() => {}}
+                  onPress={async () => {
+                    if (profileUser) {
+                      const { shareUserProfile } = await import("@/utils/shareHelpers");
+                      await shareUserProfile({
+                        _id: profileUser._id,
+                        name: profileUser.name,
+                        username: profileUser.username,
+                        bio: profileUser.bio,
+                      });
+                    }
+                  }}
                   variant="ghost"
                   size="sm"
                   style={{ flex: 1 }}

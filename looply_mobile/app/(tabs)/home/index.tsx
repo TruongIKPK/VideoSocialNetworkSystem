@@ -57,7 +57,7 @@ export default function HomeScreen() {
   });
 
   // Video actions (like, comment, follow, save)
-  const { handleLike, handleComment, handleFollow, handleSave } = useVideoActions({
+  const { handleLike, handleComment, handleFollow, handleSave, handleShare } = useVideoActions({
     videos,
     setVideos,
     userId,
@@ -279,24 +279,33 @@ export default function HomeScreen() {
     
     // Chỉ fetch nếu:
     // 1. Điều kiện trigger đúng (còn 0-3 video)
-    // 2. Chưa fetch ở index này hoặc index gần đây (để tránh fetch nhiều lần)
+    // 2. Chưa fetch ở index này hoặc index gần đây (trong vòng 2 index) để tránh fetch nhiều lần
     // 3. Không đang fetch
-    const hasFetchedRecently = lastFetchedIndexRef.current >= currentIndex - 1;
+    // Logic: Cho phép fetch nếu đã scroll xuống ít nhất 2 video từ lần fetch trước
+    const indexDiff = currentIndex - lastFetchedIndexRef.current;
+    const hasFetchedTooRecently = indexDiff <= 1 && lastFetchedIndexRef.current >= 0;
     
-    if (shouldFetch && !hasFetchedRecently) {
-      console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`);
+    if (shouldFetch && !hasFetchedTooRecently) {
+      console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}, Last fetched: ${lastFetchedIndexRef.current}`);
       lastFetchedIndexRef.current = currentIndex;
       
       // Gọi fetchMoreVideos ngay lập tức để có video mới sớm
       fetchMoreVideos().then((hasNewVideos) => {
         if (!hasNewVideos) {
           console.log(`[Home] ⚠️ No new videos found. Will retry later.`);
-          // Reset lastFetchedIndex để có thể thử lại sau khi scroll thêm
-          lastFetchedIndexRef.current = Math.max(-1, currentIndex - 3);
+          // Reset lastFetchedIndex để có thể thử lại sau khi scroll thêm ít nhất 2 video
+          lastFetchedIndexRef.current = Math.max(-1, currentIndex - 2);
         } else {
           console.log(`[Home] ✅ Successfully loaded new videos`);
         }
+      }).catch((error) => {
+        console.error(`[Home] ❌ Error loading more videos:`, error);
+        // Reset để có thể thử lại
+        lastFetchedIndexRef.current = Math.max(-1, currentIndex - 2);
       });
+    } else if (shouldFetch && hasFetchedTooRecently) {
+      // Log để debug tại sao không fetch
+      console.log(`[Home] ⏸️ Skipping fetch: Fetched too recently at index ${lastFetchedIndexRef.current}, current: ${currentIndex}, diff: ${indexDiff}`);
     }
   }, [currentIndex, videos.length, isLoading, isLoadingMore, fetchMoreVideos]);
 
@@ -345,6 +354,7 @@ export default function HomeScreen() {
         onComment={handleComment}
         onFollow={handleFollow}
         onSave={handleSave}
+        onShare={handleShare}
         currentUserId={userId}
         isScreenFocused={isScreenFocused}
         isLoadingMore={isLoadingMore}

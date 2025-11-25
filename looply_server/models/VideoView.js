@@ -29,5 +29,7 @@ const videoViewSchema = new mongoose.Schema({
 // Index để tìm kiếm nhanh
 videoViewSchema.index({ userId: 1, videoId: 1 });
 videoViewSchema.index({ userId: 1, viewedAt: -1 });
+videoViewSchema.index({ videoId: 1 }); // Index để đếm số lượt xem nhanh hơn
+videoViewSchema.index({ videoId: 1, completed: 1 }); // Index để đếm số lượt xem đã hoàn thành
 
 export default mongoose.model("VideoView", videoViewSchema);
