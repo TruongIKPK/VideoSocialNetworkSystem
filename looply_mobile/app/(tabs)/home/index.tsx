@@ -6,7 +6,12 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
 import { Spacing } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
-import { useRouter, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
+import {
+  useRouter,
+  useLocalSearchParams,
+  useFocusEffect,
+  useNavigation,
+} from "expo-router";
 import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { VideoItem } from "@/components/home/VideoItem";
 import { LoadingScreen } from "@/components/home/LoadingScreen";
@@ -18,6 +23,7 @@ import { useVideoScroll } from "@/hooks/useVideoScroll";
 import { useVideoView } from "@/hooks/useVideoView";
 import { VideoPost } from "@/types/video";
 import { Dimensions } from "react-native";
+import { ShareToChatModal } from "@/components/ShareToChatModal";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -36,7 +42,23 @@ export default function HomeScreen() {
   const lastFocusTimeRef = useRef<number>(0); // Track thời gian focus lần trước
   const focusCountRef = useRef(0); // Track số lần focus
   const isManualReloadRef = useRef(false); // Track xem có phải reload thủ công không
-  
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [videoToShare, setVideoToShare] = useState<VideoPost | null>(null);
+
+  const onSharePress = (videoId: string) => {
+    console.log("Bấm share video ID:", videoId);
+
+    // Tìm đối tượng video đầy đủ từ danh sách videos đang có
+    const video = videos.find((v) => v._id === videoId);
+
+    if (video) {
+      setVideoToShare(video);
+      setShareModalVisible(true);
+    } else {
+      console.warn("Không tìm thấy video để share");
+    }
+  };
+
   // Create dynamic styles based on theme
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -57,13 +79,14 @@ export default function HomeScreen() {
   });
 
   // Video actions (like, comment, follow, save)
-  const { handleLike, handleComment, handleFollow, handleSave, handleShare } = useVideoActions({
-    videos,
-    setVideos,
-    userId,
-    isAuthenticated,
-    token,
-  });
+  const { handleLike, handleComment, handleFollow, handleSave, handleShare } =
+    useVideoActions({
+      videos,
+      setVideos,
+      userId,
+      isAuthenticated,
+      token,
+    });
 
   // Video view tracking
   const { handleVideoProgress, recordVideoStart } = useVideoView({
@@ -96,7 +119,9 @@ export default function HomeScreen() {
 
   // Cập nhật reload state khi isLoading thay đổi
   useEffect(() => {
-    console.log(`[Home] 🔄 isLoading changed: ${isLoading}, isManualReload: ${isManualReloadRef.current}`);
+    console.log(
+      `[Home] 🔄 isLoading changed: ${isLoading}, isManualReload: ${isManualReloadRef.current}`
+    );
     if (isManualReloadRef.current) {
       // Nếu là reload thủ công, chỉ reset khi loading xong
       if (!isLoading) {
@@ -109,16 +134,18 @@ export default function HomeScreen() {
       }
     }
   }, [isLoading, setIsReloading]);
-  
+
   // Safety timeout: Đảm bảo isReloading không quay mãi mãi (tối đa 10 giây)
   useEffect(() => {
     if (isReloading) {
       const safetyTimeout = setTimeout(() => {
-        console.log(`[Home] ⚠️ Safety timeout: Force reset isReloading after 10s`);
+        console.log(
+          `[Home] ⚠️ Safety timeout: Force reset isReloading after 10s`
+        );
         isManualReloadRef.current = false;
         setIsReloading(false);
       }, 10000); // 10 giây
-      
+
       return () => clearTimeout(safetyTimeout);
     }
   }, [isReloading, setIsReloading]);
@@ -126,9 +153,11 @@ export default function HomeScreen() {
   // Xử lý khi tab được focus/unfocus - CHỈ để track focus state, KHÔNG reload
   useFocusEffect(
     React.useCallback(() => {
-      console.log(`[Home] 📍 useFocusEffect triggered - chỉ track focus, không reload`);
+      console.log(
+        `[Home] 📍 useFocusEffect triggered - chỉ track focus, không reload`
+      );
       setIsScreenFocused(true);
-      
+
       return () => {
         console.log(`[Home] 🔚 useFocusEffect cleanup`);
         setIsScreenFocused(false);
@@ -140,20 +169,22 @@ export default function HomeScreen() {
   // KHÔNG có logic reload tự động nào khác (không reload khi focus, không reload tự động)
   useEffect(() => {
     const reloadHandler = () => {
-      console.log(`[Home] 🔄 Manual reload triggered from icon home press ONLY`);
-      
+      console.log(
+        `[Home] 🔄 Manual reload triggered from icon home press ONLY`
+      );
+
       // Kiểm tra xem có đang loading không để tránh reload nhiều lần
       if (isLoading) {
         console.log(`[Home] ⚠️ Already loading, skipping reload`);
         return;
       }
-      
+
       // Kiểm tra xem có đang reload không
       if (isManualReloadRef.current) {
         console.log(`[Home] ⚠️ Already in manual reload, skipping`);
         return;
       }
-      
+
       console.log(`[Home] ✅ Starting manual reload from icon home ONLY`);
       isManualReloadRef.current = true;
       setIsReloading(true);
@@ -164,8 +195,10 @@ export default function HomeScreen() {
       // Gọi fetchVideos với isManualReload = true để không filter duplicates
       fetchVideosRef.current(true);
     };
-    
-    console.log(`[Home] 📝 Registering reload callback - CHỈ cho icon home press, KHÔNG tự động`);
+
+    console.log(
+      `[Home] 📝 Registering reload callback - CHỈ cho icon home press, KHÔNG tự động`
+    );
     setReloadCallback(reloadHandler);
     return () => {
       console.log(`[Home] 🗑️ Unregistering reload callback`);
@@ -179,18 +212,18 @@ export default function HomeScreen() {
       const API_BASE_URL = "https://videosocialnetworksystem.onrender.com/api";
       console.log(`[Home] 🔍 Fetching specific video: ${videoId}`);
       const response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
-      
+
       if (response.ok) {
         const videoData = await response.json();
         console.log(`[Home] ✅ Fetched video:`, videoData._id);
-        
+
         // Kiểm tra xem video đã có trong list chưa
-        const existingIndex = videos.findIndex(v => v._id === videoData._id);
+        const existingIndex = videos.findIndex((v) => v._id === videoData._id);
         if (existingIndex === -1) {
           // Thêm video vào đầu list
-          setVideos(prev => [videoData, ...prev]);
+          setVideos((prev) => [videoData, ...prev]);
           console.log(`[Home] ✅ Added video to list, scrolling to index 0`);
-          
+
           // Scroll đến video mới thêm
           setTimeout(() => {
             scrollToIndex(0, true);
@@ -198,14 +231,19 @@ export default function HomeScreen() {
           }, 500);
         } else {
           // Video đã có, scroll đến nó
-          console.log(`[Home] ✅ Video already in list at index ${existingIndex}, scrolling...`);
+          console.log(
+            `[Home] ✅ Video already in list at index ${existingIndex}, scrolling...`
+          );
           setTimeout(() => {
             scrollToIndex(existingIndex, true);
             hasScrolledToVideoRef.current = true;
           }, 500);
         }
       } else {
-        console.warn(`[Home] ⚠️ Failed to fetch video ${videoId}:`, response.status);
+        console.warn(
+          `[Home] ⚠️ Failed to fetch video ${videoId}:`,
+          response.status
+        );
       }
     } catch (error) {
       console.error(`[Home] ❌ Error fetching specific video:`, error);
@@ -214,28 +252,70 @@ export default function HomeScreen() {
   // Xử lý scroll đến video khi có videoId từ params
   useEffect(() => {
     const videoId = params.videoId as string | undefined;
-    const shouldScroll = params.scrollToVideo === "true";
-    
-    if (videoId && shouldScroll && videos.length > 0 && !hasScrolledToVideoRef.current) {
-      const videoIndex = videos.findIndex((v) => v._id === videoId);
-      
-      if (videoIndex !== -1) {
-        console.log(`[Home] 🎬 Scrolling to video: ${videoId} at index: ${videoIndex}`);
-        hasScrolledToVideoRef.current = true;
-        
-        setTimeout(() => {
-          scrollToIndex(videoIndex, true);
-        }, 500);
-      } else if (videoIndex === -1) {
-        console.log(`[Home] ⚠️ Video ${videoId} not found in current videos list`);
-        console.log(`[Home] 📋 Current videos count: ${videos.length}`);
-        console.log(`[Home] 🔍 Available video IDs:`, videos.slice(0, 5).map(v => v._id));
-        
-        // Nếu video không có trong danh sách, thử fetch video đó
-        fetchSpecificVideo(videoId);
+
+    // Chỉ chạy khi có videoId
+    if (videoId) {
+      console.log(`[Home] 🚀 Opening specific video: ${videoId}`);
+
+      // 1. Kiểm tra xem video đã có trong list hiện tại chưa
+      const existingIndex = videos.findIndex((v) => v._id === videoId);
+
+      if (existingIndex !== -1) {
+        // Nếu CÓ rồi: Đưa nó lên đầu danh sách
+        console.log(`[Home] 🎯 Video found in list, moving to top...`);
+        const targetVideo = videos[existingIndex];
+        const otherVideos = videos.filter((v) => v._id !== videoId);
+
+        // Tạo list mới: [Video cần xem, ...các video còn lại]
+        setVideos([targetVideo, ...otherVideos]);
+
+        // Set index về 0
+        setCurrentIndex(0);
+
+        // Scroll ngay lập tức về 0 (không animation để hiện ngay)
+        if (flatListRef.current) {
+          flatListRef.current.scrollToIndex({ index: 0, animated: false });
+        }
+      } else {
+        // 2. Nếu CHƯA CÓ: Fetch từ API về và chèn vào đầu
+        console.log(`[Home] ☁️ Video not in list, fetching from API...`);
+
+        const fetchTargetVideo = async () => {
+          try {
+            const API_BASE_URL =
+              "https://videosocialnetworksystem.onrender.com/api";
+            const response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
+
+            if (response.ok) {
+              const videoData = await response.json();
+              console.log(`[Home] ✅ Fetched target video success`);
+
+              // Chèn video mới load được vào đầu list hiện tại
+              setVideos((prev) => {
+                // Lọc trùng lặp nếu cần
+                const cleanPrev = prev.filter((v) => v._id !== videoData._id);
+                return [videoData, ...cleanPrev];
+              });
+
+              setCurrentIndex(0);
+              if (flatListRef.current) {
+                flatListRef.current.scrollToIndex({
+                  index: 0,
+                  animated: false,
+                });
+              }
+            }
+          } catch (error) {
+            console.error("[Home] ❌ Error loading target video", error);
+          }
+        };
+        fetchTargetVideo();
       }
+
+      // Xóa params đi để tránh reload lại khi đổi tab/focus lại màn hình
+      router.setParams({ videoId: undefined, scrollToVideo: undefined });
     }
-  }, [params.videoId, params.scrollToVideo, videos, scrollToIndex]);
+  }, [params.videoId]);
 
   // Reset tracking khi có video mới được load hoặc videos list bị trim
   useEffect(() => {
@@ -243,9 +323,11 @@ export default function HomeScreen() {
     if (videos.length > 0 && currentIndex >= videos.length) {
       const validIndex = Math.max(0, videos.length - 1);
       setCurrentIndex(validIndex);
-      console.log(`[Home] ⚠️ Adjusted currentIndex from ${currentIndex} to ${validIndex} (videos.length: ${videos.length})`);
+      console.log(
+        `[Home] ⚠️ Adjusted currentIndex from ${currentIndex} to ${validIndex} (videos.length: ${videos.length})`
+      );
     }
-    
+
     if (videos.length > lastVideosLengthRef.current) {
       // Có video mới được thêm vào
       // Reset lastFetchedIndex để cho phép fetch tiếp theo khi cần
@@ -256,7 +338,9 @@ export default function HomeScreen() {
       lastVideosLengthRef.current = videos.length;
     } else if (videos.length < lastVideosLengthRef.current) {
       // Videos list bị trim (giảm số lượng) - có thể do memory management
-      console.log(`[Home] ⚠️ Videos list trimmed from ${lastVideosLengthRef.current} to ${videos.length}`);
+      console.log(
+        `[Home] ⚠️ Videos list trimmed from ${lastVideosLengthRef.current} to ${videos.length}`
+      );
       // Điều chỉnh currentIndex nếu cần
       if (currentIndex >= videos.length) {
         const validIndex = Math.max(0, videos.length - 1);
@@ -273,20 +357,22 @@ export default function HomeScreen() {
     if (isLoading || isLoadingMore || videos.length === 0) return;
 
     const remainingVideos = videos.length - currentIndex - 1;
-    
+
     // Fetch khi còn 3 video hoặc ít hơn để đảm bảo có video mới trước khi hết
     const shouldFetch = remainingVideos >= 0 && remainingVideos <= 3;
-    
+
     // Chỉ fetch nếu:
     // 1. Điều kiện trigger đúng (còn 0-3 video)
     // 2. Chưa fetch ở index này hoặc index gần đây (để tránh fetch nhiều lần)
     // 3. Không đang fetch
     const hasFetchedRecently = lastFetchedIndexRef.current >= currentIndex - 1;
-    
+
     if (shouldFetch && !hasFetchedRecently) {
-      console.log(`[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`);
+      console.log(
+        `[Home] 📥 Loading more videos. Current index: ${currentIndex}, Total videos: ${videos.length}, Remaining: ${remainingVideos}`
+      );
       lastFetchedIndexRef.current = currentIndex;
-      
+
       // Gọi fetchMoreVideos ngay lập tức để có video mới sớm
       fetchMoreVideos().then((hasNewVideos) => {
         if (!hasNewVideos) {
@@ -319,9 +405,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Search Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.searchButton}
         onPress={handleSearchIconPress}
         activeOpacity={0.7}
@@ -345,10 +431,15 @@ export default function HomeScreen() {
         onComment={handleComment}
         onFollow={handleFollow}
         onSave={handleSave}
-        onShare={handleShare}
+        onShare={onSharePress}
         currentUserId={userId}
         isScreenFocused={isScreenFocused}
         isLoadingMore={isLoadingMore}
+      />
+      <ShareToChatModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        video={videoToShare}
       />
     </SafeAreaView>
   );
