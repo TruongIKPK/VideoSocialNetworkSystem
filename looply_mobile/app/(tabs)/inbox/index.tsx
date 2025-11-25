@@ -142,13 +142,13 @@ export default function InboxList() {
     socketService.connect(token);
 
     // 1. Logic nhận tin nhắn mới
-    const handleNewMessage = (message) => {
+    const handleNewMessage = (_message: any) => {
       console.log("📨 Socket: Tin nhắn mới");
       setTimeout(() => loadInbox(), 1000);
     };
 
     // 2. Logic đánh dấu đã đọc
-    const handleMessageSeen = ({ seenBy }) => {
+    const handleMessageSeen = ({ seenBy }: { seenBy: string | number }) => {
       setConversations((prev) =>
         prev.map((conv) => {
           if (String(conv.chatId) === String(seenBy)) {
@@ -162,22 +162,22 @@ export default function InboxList() {
     // --- LOGIC ONLINE/OFFLINE ---
 
     // 3. ✨ MỚI: Nhận danh sách toàn bộ user đang online khi mới connect
-    const handleGetOnlineUsers = (userIds) => {
+    const handleGetOnlineUsers = (userIds: (string | number)[]) => {
       // userIds là mảng id, ví dụ: ["id1", "id2"]
-      const onlineMap = {};
-      userIds.forEach((id) => {
+      const onlineMap: Record<string, boolean> = {};
+      userIds.forEach((id: string | number) => {
         onlineMap[String(id)] = true;
       });
       setOnlineUsers(onlineMap);
     };
 
     // 4. Ai đó vừa online
-    const handleUserOnline = ({ userId }) => {
+    const handleUserOnline = ({ userId }: { userId: string | number }) => {
       setOnlineUsers((prev) => ({ ...prev, [String(userId)]: true }));
     };
 
     // 5. Ai đó vừa offline
-    const handleUserOffline = ({ userId }) => {
+    const handleUserOffline = ({ userId }: { userId: string | number }) => {
       setOnlineUsers((prev) => {
         const newState = { ...prev };
         delete newState[String(userId)];
@@ -204,13 +204,13 @@ export default function InboxList() {
     };
   }, [token, loadInbox]);
 
-  const handleOpenChat = async (chatId) => {
+  const handleOpenChat = async (chatId: string | number) => {
     isNavigatingRef.current = true;
     setConversations((prev) =>
       prev.map((c) => (String(c.chatId) === String(chatId) ? { ...c, status: "seen" } : c))
     );
     try {
-      await markMessagesAsSeen(chatId); 
+      await markMessagesAsSeen(String(chatId)); 
     } catch (error) {
       console.log("❌ Lỗi update DB:", error);
     }

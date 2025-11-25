@@ -21,6 +21,7 @@ import {
   Typography,
   Spacing,
   BorderRadius,
+  Shadows,
 } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
@@ -153,9 +154,9 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
   videoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
   videoItemWrapper: {
     width: itemWidth,
@@ -172,11 +173,7 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     backgroundColor: Colors.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Shadows.sm,
   },
   deleteButton: {
     position: "absolute",
@@ -346,6 +343,9 @@ export default function Profile() {
   const [refreshing, setRefreshing] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [videoToDelete, setVideoToDelete] = useState<string | null>(null); // Video được chọn để xóa
+  const [showDeleteButtons, setShowDeleteButtons] = useState<Set<string>>(new Set()); // Set các video ID đang hiển thị nút xóa
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -358,12 +358,14 @@ export default function Profile() {
         fetchProfileData();
       }
 
+      const uploaded = Array.isArray(params.uploaded) 
+        ? params.uploaded[0] 
+        : (params.uploaded as string | undefined);
       if (uploaded === "true") {
         router.setParams({ uploaded: undefined });
       }
-  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
-  const [videoToDelete, setVideoToDelete] = useState<string | null>(null); // Video được chọn để xóa
-  const [showDeleteButtons, setShowDeleteButtons] = useState<Set<string>>(new Set()); // Set các video ID đang hiển thị nút xóa
+    }
+  }, [isAuthenticated, isViewingOtherProfile, targetUserId, currentUser]);
 
   // Reset nút xóa khi chuyển tab
   useEffect(() => {
@@ -873,7 +875,7 @@ export default function Profile() {
               // Giao diện khi xem User KHÁC: Follow & Nhắn tin
               <>
                 <Button
-                  title={isFollowing ? "Đang Follow" : "Follow"}
+                  title={isFollowing ? "Đã follow" : "Follow"}
                   onPress={handleFollow}
                   variant={isFollowing ? "outline" : "primary"}
                   size="sm"
@@ -889,23 +891,6 @@ export default function Profile() {
               </>
             ) : (
               // Giao diện khi xem User CỦA MÌNH: Chỉnh sửa & Chia sẻ
-              <>
-                <Button
-                  title="Follow"
-                  onPress={() => {
-                    // TODO: Implement follow functionality
-                  }}
-                  variant="primary"
-                  size="sm"
-                />
-                <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
-                  size="sm"
-                />
-              </>
-            ) : (
               <>
                 <Button
                   title="Chỉnh sửa"
@@ -1053,169 +1038,3 @@ export default function Profile() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.light,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  profileSection: {
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-    backgroundColor: Colors.white,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: BorderRadius.avatar,
-    marginBottom: Spacing.md,
-    borderWidth: 3,
-    borderColor: Colors.primary,
-  },
-  username: {
-    fontSize: Typography.fontSize.xxxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    marginBottom: Spacing.xs,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  bio: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    marginBottom: Spacing.md,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    marginBottom: Spacing.lg,
-    gap: Spacing.sm,
-    width: "60%", 
-    justifyContent: "center",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    marginBottom: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.text.primary,
-    fontFamily: Typography.fontFamily.bold,
-  },
-  statLabel: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginTop: Spacing.xs / 2,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    width: "100%",
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.md,
-    gap: Spacing.xs,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.gray[400],
-    fontFamily: Typography.fontFamily.regular,
-  },
-  activeTabText: {
-    color: Colors.primary,
-    fontWeight: Typography.fontWeight.semibold,
-    fontFamily: Typography.fontFamily.medium,
-  },
-  videoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: 100,
-  },
-  videoItemWrapper: {
-    width: itemWidth,
-    marginHorizontal: 2.5,
-    marginBottom: Spacing.sm,
-  },
-  videoItem: {
-    width: "100%",
-    height: itemWidth * 1.4,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-    backgroundColor: Colors.gray[200],
-    ...Shadows.sm,
-  },
-  videoThumbnail: {
-    width: "100%",
-    height: "100%",
-  },
-  videoOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    padding: Spacing.xs,
-  },
-  videoStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs / 2,
-  },
-  videoStatsText: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.white,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.xxxl,
-  },
-  emptyText: {
-    fontSize: Typography.fontSize.md,
-    color: Colors.text.secondary,
-    marginTop: Spacing.md,
-    fontFamily: Typography.fontFamily.regular,
-  },
-  notLoggedInContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
-  },
-  notLoggedInText: {
-    fontSize: Typography.fontSize.lg,
-    color: Colors.text.secondary,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.lg,
-    textAlign: "center",
-    fontFamily: Typography.fontFamily.regular,
-  },
-});
