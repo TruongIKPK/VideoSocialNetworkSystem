@@ -108,3 +108,40 @@ export const checkVideoViewed = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Lấy số lượt xem của một video
+export const getVideoViewCount = async (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    // Validate videoId
+    if (!videoId) {
+      return res.status(400).json({ message: "Video ID is required" });
+    }
+
+    // Kiểm tra video có tồn tại không
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ message: "Video not found" });
+    }
+
+    // Đếm số lượt xem (số lượng unique users đã xem video)
+    const viewCount = await VideoView.countDocuments({ videoId });
+
+    // Đếm số lượt xem đã hoàn thành (completed = true)
+    const completedCount = await VideoView.countDocuments({ 
+      videoId, 
+      completed: true 
+    });
+
+    res.json({
+      videoId,
+      viewCount,
+      completedCount,
+      message: "Success"
+    });
+  } catch (error) {
+    console.error("Error getting video view count:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
