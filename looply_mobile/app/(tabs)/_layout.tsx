@@ -24,13 +24,17 @@ export default function TabLayout() {
   // Track home tab focus state - sử dụng pathname/segments để track
   // Không thể setState trong render, nên dùng useEffect
   useEffect(() => {
+    // Kiểm tra xem có comments trong segments không
+    const hasComments = segments && segments.some((s: string) => s === 'comments');
+    const hasHome = segments && segments.some((s: string) => s === 'home');
+    
     const isOnHome = 
       pathname?.includes('home/index') || 
       (segments && segments.length > 0 && segments[segments.length - 1] === 'home') ||
       pathname === '/(tabs)/home/index' || 
       pathname === '/home/index' || 
       pathname === 'home/index' ||
-      (segments && segments.includes('home') && !segments.includes('comments'));
+      (hasHome && !hasComments);
     
     setIsHomeFocused(isOnHome);
     console.log(`[TabLayout] 📍 Pathname: ${pathname}, Segments: ${JSON.stringify(segments)}, isHomeFocused: ${isOnHome}`);
