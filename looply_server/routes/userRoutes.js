@@ -31,14 +31,14 @@ router.get("/search", searchUsers);
 router.get("/:userId/total-likes", getUserTotalLikes); // Lấy tổng số lượt like từ video của user
 router.get("/:id/followers", getFollowers);
 router.get("/:id/following", getFollowing);
-router.get("/:id", getUserById); // Route dynamic đặt cuối cùng
 
 // Protected routes (cần authentication)
 router.get("/", authenticateToken, getAllUsers);
 router.get("/me", authenticateToken, getMe);
-router.get("/check-follow", authenticateToken, checkFollow); // Kiểm tra đã follow chưa
+router.get("/check-follow", authenticateToken, checkFollow);
 router.put("/profile/:id", authenticateToken, checkOwnership, upload.single("avatar"), updateProfile);
 router.post("/:id/follow", authenticateToken, followUser);
 router.delete("/:id/follow", authenticateToken, unfollowUser);
 router.put("/:id/status", authenticateToken, requireAdmin, updateUserStatus);
+router.get("/:id", getUserById); 
 export default router;
