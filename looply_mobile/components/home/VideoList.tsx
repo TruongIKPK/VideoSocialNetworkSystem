@@ -22,6 +22,7 @@ interface VideoListProps {
   onComment: (videoId: string) => void;
   onFollow: (userId: string) => void;
   onSave?: (videoId: string) => void;
+  onShare?: (videoId: string) => void;
   currentUserId: string | null;
   isScreenFocused: boolean;
   isLoadingMore: boolean;
@@ -43,6 +44,7 @@ export const VideoList = ({
   onComment,
   onFollow,
   onSave,
+  onShare,
   currentUserId,
   isScreenFocused,
   isLoadingMore,
@@ -65,6 +67,7 @@ export const VideoList = ({
         onComment={onComment}
         onFollow={onFollow}
         onSave={onSave}
+        onShare={onShare}
         currentUserId={currentUserId}
         isScreenFocused={isScreenFocused}
       />
