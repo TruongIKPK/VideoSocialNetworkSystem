@@ -26,6 +26,7 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
+import { fetchVideoViewCounts } from "@/hooks/useVideoViewCount";
 
 const { width } = Dimensions.get("window");
 const itemWidth = (width - 60) / 3;
@@ -346,6 +347,7 @@ export default function Profile() {
   const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null); // Video được chọn để xóa
   const [showDeleteButtons, setShowDeleteButtons] = useState<Set<string>>(new Set()); // Set các video ID đang hiển thị nút xóa
+  const [videoViewCounts, setVideoViewCounts] = useState<Map<string, number>>(new Map()); // Map videoId -> viewCount
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -378,6 +380,7 @@ export default function Profile() {
     setVideos([]);
     setLiked([]);
     setShowDeleteButtons(new Set()); // Reset nút xóa khi thay đổi tab hoặc user
+    setVideoViewCounts(new Map()); // Reset view counts
 
     if (isViewingOtherProfile && targetUserId) {
       // Fetch profile của user khác
@@ -462,6 +465,13 @@ export default function Profile() {
             ? (videosData.videos || videosData) 
             : [];
           setVideos(videosArray);
+          
+          // Fetch view counts cho các videos
+          if (videosArray.length > 0) {
+            const videoIds = videosArray.map((v: VideoPost) => v._id);
+            const viewCounts = await fetchVideoViewCounts(videoIds);
+            setVideoViewCounts(viewCounts);
+          }
         } else {
           setVideos([]);
         }
@@ -491,11 +501,17 @@ export default function Profile() {
         );
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
-          setVideos(
-            Array.isArray(videosData.videos || videosData)
-              ? videosData.videos || videosData
-              : []
-          );
+          const videosArray = Array.isArray(videosData.videos || videosData)
+            ? videosData.videos || videosData
+            : [];
+          setVideos(videosArray);
+          
+          // Fetch view counts cho các videos
+          if (videosArray.length > 0) {
+            const videoIds = videosArray.map((v: VideoPost) => v._id);
+            const viewCounts = await fetchVideoViewCounts(videoIds);
+            setVideoViewCounts(viewCounts);
+          }
         }
 
       } else if (activeTab === "saved") {
@@ -509,11 +525,17 @@ export default function Profile() {
         );
         if (savedResponse.ok) {
           const savedData = await savedResponse.json();
-          setSaved(
-            Array.isArray(savedData.videos || savedData)
-              ? savedData.videos || savedData
-              : []
-          );
+          const savedArray = Array.isArray(savedData.videos || savedData)
+            ? savedData.videos || savedData
+            : [];
+          setSaved(savedArray);
+          
+          // Fetch view counts cho các saved videos
+          if (savedArray.length > 0) {
+            const videoIds = savedArray.map((v: VideoPost) => v._id);
+            const viewCounts = await fetchVideoViewCounts(videoIds);
+            setVideoViewCounts((prev) => new Map([...prev, ...viewCounts]));
+          }
         }
       } else if (activeTab === "liked") {
         const likedResponse = await fetch(
@@ -526,11 +548,17 @@ export default function Profile() {
         );
         if (likedResponse.ok) {
           const likedData = await likedResponse.json();
-          setLiked(
-            Array.isArray(likedData.videos || likedData)
-              ? likedData.videos || likedData
-              : []
-          );
+          const likedArray = Array.isArray(likedData.videos || likedData)
+            ? likedData.videos || likedData
+            : [];
+          setLiked(likedArray);
+          
+          // Fetch view counts cho các liked videos
+          if (likedArray.length > 0) {
+            const videoIds = likedArray.map((v: VideoPost) => v._id);
+            const viewCounts = await fetchVideoViewCounts(videoIds);
+            setVideoViewCounts((prev) => new Map([...prev, ...viewCounts]));
+          }
         }
       }
     } catch (error) {
@@ -607,11 +635,17 @@ export default function Profile() {
 
       if (videosResponse.ok) {
         const videosData = await videosResponse.json();
-        setVideos(
-          Array.isArray(videosData.videos || videosData)
-            ? videosData.videos || videosData
-            : []
-        );
+        const videosArray = Array.isArray(videosData.videos || videosData)
+          ? videosData.videos || videosData
+          : [];
+        setVideos(videosArray);
+        
+        // Fetch view counts cho các videos
+        if (videosArray.length > 0) {
+          const videoIds = videosArray.map((v: VideoPost) => v._id);
+          const viewCounts = await fetchVideoViewCounts(videoIds);
+          setVideoViewCounts(viewCounts);
+        }
       }
 
 
@@ -626,11 +660,17 @@ export default function Profile() {
       );
       if (savedResponse.ok) {
         const savedData = await savedResponse.json();
-        setSaved(
-          Array.isArray(savedData.videos || savedData)
-            ? savedData.videos || savedData
-            : []
-        );
+        const savedArray = Array.isArray(savedData.videos || savedData)
+          ? savedData.videos || savedData
+          : [];
+        setSaved(savedArray);
+        
+        // Fetch view counts cho các saved videos
+        if (savedArray.length > 0) {
+          const videoIds = savedArray.map((v: VideoPost) => v._id);
+          const viewCounts = await fetchVideoViewCounts(videoIds);
+          setVideoViewCounts((prev) => new Map([...prev, ...viewCounts]));
+        }
       }
 
       // Fetch liked videos
@@ -644,11 +684,17 @@ export default function Profile() {
       );
       if (likedResponse.ok) {
         const likedData = await likedResponse.json();
-        setLiked(
-          Array.isArray(likedData.videos || likedData)
-            ? likedData.videos || likedData
-            : []
-        );
+        const likedArray = Array.isArray(likedData.videos || likedData)
+          ? likedData.videos || likedData
+          : [];
+        setLiked(likedArray);
+        
+        // Fetch view counts cho các liked videos
+        if (likedArray.length > 0) {
+          const videoIds = likedArray.map((v: VideoPost) => v._id);
+          const viewCounts = await fetchVideoViewCounts(videoIds);
+          setVideoViewCounts((prev) => new Map([...prev, ...viewCounts]));
+        }
       }
     } catch (error) {
       // Error fetching profile data
@@ -809,7 +855,7 @@ export default function Profile() {
             <View style={styles.videoStats}>
               <Ionicons name="eye-outline" size={12} color={Colors.white} />
               <Text style={styles.videoStatsText}>
-                {formatNumber(item.views || 0)}
+                {formatNumber(videoViewCounts.get(item._id) ?? item.views ?? 0)}
               </Text>
             </View>
           </View>
