@@ -12,6 +12,7 @@ import {
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import authService, { validateRegisterForm } from "@/service/authService";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +36,7 @@ export default function RegisterScreen() {
   });
   const [generalError, setGeneralError] = useState("");
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleRegister = async () => {
     // Validate form
@@ -71,10 +73,10 @@ export default function RegisterScreen() {
         // Tự động navigate, không cần thông báo
         router.replace("/login");
       } else {
-        setGeneralError(response.message || "Đăng kí thất bại");
+        setGeneralError(response.message || t("auth.register.error"));
       }
     } catch (error) {
-      setGeneralError("Đăng kí thất bại. Vui lòng thử lại!");
+      setGeneralError(t("auth.register.errorMessage"));
     } finally {
       setIsLoading(false);
     }
@@ -104,14 +106,14 @@ export default function RegisterScreen() {
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>Xin chào!</Text>
+          <Text style={styles.title}>{t("auth.register.title")}</Text>
           <Text style={styles.subtitle}>
-            Hãy đăng kí tài khoản Looply tại đây!
+            {t("auth.register.subtitle")}
           </Text>
 
           {/* Full Name Input */}
           <Input
-            placeholder="Họ và tên"
+            placeholder={t("auth.register.fullName")}
             value={fullName}
             onChangeText={(text) => {
               setFullName(text);
@@ -126,7 +128,7 @@ export default function RegisterScreen() {
 
           {/* Email Input */}
           <Input
-            placeholder="Địa chỉ thư điện tử"
+            placeholder={t("auth.register.email")}
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -143,7 +145,7 @@ export default function RegisterScreen() {
 
           {/* Password Input */}
           <Input
-            placeholder="Mật khẩu"
+            placeholder={t("auth.register.password")}
             value={password}
             onChangeText={(text) => {
               setPassword(text);
@@ -159,7 +161,7 @@ export default function RegisterScreen() {
 
           {/* Confirm Password Input */}
           <Input
-            placeholder="Xác nhận mật khẩu"
+            placeholder={t("auth.register.confirmPassword")}
             value={confirmPassword}
             onChangeText={(text) => {
               setConfirmPassword(text);
@@ -186,9 +188,9 @@ export default function RegisterScreen() {
               color={agreeTerms ? "#007AFF" : undefined}
             />
             <Text style={styles.termsText}>
-              Tôi đồng ý với{" "}
-              <Text style={styles.termsLink}>Điều khoản sử dụng</Text> và{" "}
-              <Text style={styles.termsLink}>Chính sách bảo mật</Text>
+              {t("auth.register.agreeTerms")}{" "}
+              <Text style={styles.termsLink}>{t("auth.register.termsOfService")}</Text> {t("auth.register.and")}{" "}
+              <Text style={styles.termsLink}>{t("auth.register.privacyPolicy")}</Text>
             </Text>
           </View>
           {errors.terms && (
@@ -202,7 +204,7 @@ export default function RegisterScreen() {
 
           {/* Register Button */}
           <Button
-            title="ĐĂNG KÍ"
+            title={t("auth.register.button")}
             onPress={handleRegister}
             variant="primary"
             size="lg"
@@ -214,19 +216,19 @@ export default function RegisterScreen() {
 
           {/* Login Link */}
           <View style={styles.loginLinkContainer}>
-            <Text style={styles.loginLinkText}>Đã có tài khoản? </Text>
+            <Text style={styles.loginLinkText}>{t("auth.register.hasAccount")} </Text>
             <TouchableOpacity
               onPress={() => router.push("/login")}
               disabled={isLoading}
             >
-              <Text style={styles.loginLink}>Đăng nhập</Text>
+              <Text style={styles.loginLink}>{t("auth.register.loginLink")}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Lựa chọn khác</Text>
+            <Text style={styles.dividerText}>{t("auth.register.otherOptions")}</Text>
             <View style={styles.dividerLine} />
           </View>
 

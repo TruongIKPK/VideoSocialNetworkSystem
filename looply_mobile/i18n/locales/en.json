@@ -1,0 +1,165 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "retry": "Retry",
+    "close": "Close",
+    "search": "Search",
+    "noResults": "No results",
+    "follow": "Follow",
+    "following": "Following",
+    "unfollow": "Unfollow",
+    "like": "Like",
+    "comment": "Comment",
+    "share": "Share",
+    "save": "Save",
+    "saved": "Saved",
+    "views": "views",
+    "likes": "likes",
+    "comments": "comments",
+    "shares": "shares",
+    "saves": "saves"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "subtitle": "Welcome back to Looply",
+      "email": "Email address",
+      "password": "Password",
+      "button": "LOGIN",
+      "registerLink": "Register here",
+      "forgotPassword": "Forgot password?",
+      "backToHome": "Back to home",
+      "otherOptions": "Other options",
+      "error": "Login failed",
+      "errorMessage": "Login failed. Please try again!"
+    },
+    "register": {
+      "title": "Hello!",
+      "subtitle": "Register your Looply account here!",
+      "fullName": "Full name",
+      "email": "Email address",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "agreeTerms": "I agree with",
+      "termsOfService": "Terms of Service",
+      "and": "and",
+      "privacyPolicy": "Privacy Policy",
+      "button": "REGISTER",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Login",
+      "otherOptions": "Other options",
+      "error": "Registration failed",
+      "errorMessage": "Registration failed. Please try again!"
+    }
+  },
+  "tabs": {
+    "home": "Home",
+    "explore": "Explore",
+    "camera": "Camera",
+    "inbox": "Inbox",
+    "profile": "Profile"
+  },
+  "home": {
+    "noVideos": "No videos",
+    "noNewVideos": "No new videos available",
+    "failedToLoad": "Failed to load videos. Please try again.",
+    "loadingMore": "Loading more..."
+  },
+  "explore": {
+    "title": "Explore",
+    "all": "All",
+    "trending": "Trending",
+    "music": "Music",
+    "comedy": "Comedy",
+    "dance": "Dance",
+    "sports": "Sports",
+    "noVideos": "No videos"
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "followers": "Followers",
+    "following": "Following",
+    "videos": "Videos",
+    "likes": "Likes",
+    "noVideos": "No videos yet",
+    "noBio": "No bio yet"
+  },
+  "upload": {
+    "title": "Title",
+    "titleRequired": "Title:",
+    "titlePlaceholder": "Enter title...",
+    "description": "Description",
+    "descriptionPlaceholder": "Write description (optional)...",
+    "uploading": "Uploading...",
+    "upload": "Upload",
+    "cancel": "Cancel",
+    "charCount": "/100",
+    "descCharCount": "/500",
+    "error": "Error"
+  },
+  "video": {
+    "report": "Report",
+    "reportVideo": "Report video",
+    "reportUser": "Report user",
+    "reportSuccess": "Report submitted successfully",
+    "reportError": "Error reporting",
+    "description": "Description",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "viewAllComments": "View all comments"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": {
+      "title": "Account",
+      "editProfile": "Edit Profile",
+      "editProfileSubtitle": "Update personal information",
+      "privacy": "Privacy",
+      "privacySubtitle": "Control privacy settings",
+      "security": "Security",
+      "securitySubtitle": "Password and authentication"
+    },
+    "app": {
+      "title": "App",
+      "notifications": "Notifications",
+      "notificationsSubtitle": "Manage notifications",
+      "darkMode": "Dark Mode",
+      "darkModeOn": "Enabled",
+      "darkModeOff": "Disabled",
+      "language": "Language",
+      "languageSubtitle": "English",
+      "dataUsage": "Data Usage",
+      "dataUsageSubtitle": "Manage data"
+    },
+    "support": {
+      "title": "Support",
+      "help": "Help & Support",
+      "helpSubtitle": "Frequently asked questions",
+      "feedback": "Send Feedback",
+      "feedbackSubtitle": "Share your thoughts",
+      "about": "About Looply",
+      "aboutSubtitle": "Version 1.0.0"
+    },
+    "logout": {
+      "title": "Logout",
+      "confirmTitle": "Logout",
+      "confirmMessage": "Are you sure you want to logout?",
+      "cancel": "Cancel",
+      "confirm": "Logout"
+    },
+    "footer": {
+      "appVersion": "Looply v1.0.0",
+      "adminVersion": "Looply Admin v1.0.0"
+    }
+  }
+}

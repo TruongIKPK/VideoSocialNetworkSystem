@@ -1,19 +1,44 @@
-import { Tabs } from "expo-router";
-import React, { useEffect } from "react";
+import { Tabs, usePathname, useSegments } from "expo-router";
+import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { View, ActivityIndicator, Animated, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import { CustomHeader } from "../_layout";
 
 import { useUser } from "@/contexts/UserContext";
 import { useHomeReload } from "@/contexts/HomeReloadContext";
 import { socketService } from "../../service/socketService";
+import { saveMessageToDB } from "@/utils/database";
 
 export default function TabLayout() {
   const { user, token } = useUser();
   const { isReloading, triggerReload } = useHomeReload();
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const segments = useSegments();
+  const [isHomeFocused, setIsHomeFocused] = useState(false);
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const lastTabPressTimeRef = React.useRef<number>(0);
   const TAB_PRESS_DEBOUNCE_MS = 300; // Debounce 0.3 giây (giảm từ 1s để nhanh hơn)
+  
+  // Track home tab focus state - sử dụng pathname/segments để track
+  // Không thể setState trong render, nên dùng useEffect
+  useEffect(() => {
+    // Kiểm tra xem có comments trong segments không
+    const hasComments = segments && segments.some((s: string) => s === 'comments');
+    const hasHome = segments && segments.some((s: string) => s === 'home');
+    
+    const isOnHome = 
+      pathname?.includes('home/index') || 
+      (segments && segments.length > 0 && segments[segments.length - 1] === 'home') ||
+      pathname === '/(tabs)/home/index' || 
+      pathname === '/home/index' || 
+      pathname === 'home/index' ||
+      (hasHome && !hasComments);
+    
+    setIsHomeFocused(isOnHome);
+    console.log(`[TabLayout] 📍 Pathname: ${pathname}, Segments: ${JSON.stringify(segments)}, isHomeFocused: ${isOnHome}`);
+  }, [pathname, segments]);
   
   // Debug: Log reloading state
   useEffect(() => {
@@ -71,6 +96,36 @@ export default function TabLayout() {
     // Chỉ kết nối socket cho user thường, không phải admin
     if (token && user?._id && user?.role !== "admin") {
       socketService.connect(token);
+
+      const handleGlobalMessage = (msg: any) => {
+        console.log("📩 [Global Listener] Có tin nhắn mới:", msg);
+
+        // Chỉ xử lý tin nhắn từ người khác gửi đến
+        if (msg.from !== user._id) {
+          const incomingMsg = {
+            messageId: msg.messageId,
+            chatId: msg.from, // ID người gửi chính là ID cuộc trò chuyện
+            content: msg.text,
+            sender: "other",
+            type: msg.type || "text",
+            timestamp: msg.timestamp,
+            status: "received",
+          };
+
+          // 💾 Lưu ngay vào SQLite
+          saveMessageToDB(incomingMsg);
+
+          // (Tùy chọn) Tại đây bạn có thể bắn Notification hoặc rung máy
+        }
+      };
+
+      // Đăng ký sự kiện
+      socketService.on("receive-message", handleGlobalMessage);
+
+      // Cleanup khi unmount
+      return () => {
+        socketService.off("receive-message", handleGlobalMessage);
+      };
     } else if (user?.role === "admin") {
       // Nếu là admin, disconnect socket
       socketService.disconnect();
@@ -102,9 +157,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home/index"
         options={{
-          title: "Home",
+          title: t("tabs.home"),
           tabBarIcon: ({ focused }) => {
-            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}`);
+            console.log(`[TabLayout] 🎨 Rendering home icon - isReloading: ${isReloading}, focused: ${focused}, isHomeFocused: ${isHomeFocused}`);
             return (
               <View style={styles.iconContainer}>
                 <Ionicons
@@ -137,7 +192,24 @@ export default function TabLayout() {
             const now = Date.now();
             const timeSinceLastPress = now - lastTabPressTimeRef.current;
             
-            console.log(`[TabLayout] 👆 Tab press detected on home tab! isReloading: ${isReloading}, timeSinceLastPress: ${timeSinceLastPress}ms`);
+            console.log(`[TabLayout] 👆 Tab press detected on home tab!`);
+            console.log(`[TabLayout] Current pathname: ${pathname}`);
+            console.log(`[TabLayout] Current segments: ${JSON.stringify(segments)}`);
+            console.log(`[TabLayout] isHomeFocused: ${isHomeFocused}`);
+            console.log(`[TabLayout] isReloading: ${isReloading}`);
+            console.log(`[TabLayout] timeSinceLastPress: ${timeSinceLastPress}ms`);
+            
+            // Nếu đang ở tab khác, chỉ navigate về home (không reload)
+            // Để expo-router tự động navigate, không prevent default
+            if (!isHomeFocused) {
+              console.log(`[TabLayout] 📍 Currently on different tab, navigating to home (no reload)`);
+              // Không prevent default, để expo-router tự động navigate về home
+              return;
+            }
+            
+            // Nếu đang ở home tab, prevent default navigation và trigger reload
+            console.log(`[TabLayout] 🏠 Currently on home tab, preventing default and triggering reload`);
+            e.preventDefault();
             
             // Ngăn trigger nếu đang reload hoặc vừa mới press gần đây
             if (isReloading) {
@@ -165,7 +237,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore/index"
         options={{
-          title: "Explore",
+          title: t("tabs.explore"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="compass"
@@ -180,7 +252,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="camera/index"
         options={{
-          title: "Camera",
+          title: t("tabs.camera"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="camera"
@@ -193,7 +265,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="inbox/index"
         options={{
-          title: "Inbox",
+          title: t("tabs.inbox"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="chatbubble"
@@ -212,7 +284,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile/index"
         options={{
-          title: "Profile",
+          title: t("tabs.profile"),
           tabBarIcon: ({ focused }) => (
             <Ionicons
               name="person"

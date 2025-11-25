@@ -72,6 +72,11 @@ export const useVideoList = ({
   // Check follow status for a video's user
   const checkFollowStatus = async (video: VideoPost): Promise<VideoPost> => {
     let isFollowing = false;
+    
+    // Chỉ kiểm tra nếu:
+    // 1. Video có user info
+    // 2. User của video khác với current user
+    // 3. User đã đăng nhập
     if (video.user && video.user._id && video.user._id !== userId && isAuthenticated && token && userId) {
       try {
         const checkFollowResponse = await fetch(
@@ -88,21 +93,71 @@ export const useVideoList = ({
         if (checkFollowResponse.ok) {
           const checkFollowData = await checkFollowResponse.json();
           isFollowing = checkFollowData.isFollowing || checkFollowData.followed || false;
+          console.log(`[useVideoList] ✅ Follow status for user ${video.user._id}: ${isFollowing}`);
+        } else {
+          const errorText = await checkFollowResponse.text().catch(() => 'Unknown error');
+          console.warn(`[useVideoList] ⚠️ Failed to check follow status for user ${video.user._id}: ${checkFollowResponse.status} - ${errorText}`);
         }
       } catch (error) {
-        console.error(`Error checking follow status for user ${video.user._id}:`, error);
+        console.error(`[useVideoList] ❌ Error checking follow status for user ${video.user._id}:`, error);
+      }
+    } else {
+      // Nếu không đủ điều kiện, set isFollowing = false
+      if (video.user && video.user._id === userId) {
+        console.log(`[useVideoList] ℹ️ Skipping follow check: video owner is current user`);
+      } else if (!isAuthenticated || !token || !userId) {
+        console.log(`[useVideoList] ℹ️ Skipping follow check: user not authenticated`);
       }
     }
 
     return { ...video, isFollowing };
   };
 
-  // Process videos: check like and follow status
+  // Check save status for a video
+  const checkSaveStatus = async (video: VideoPost): Promise<VideoPost> => {
+    let savedBy = video.savedBy || [];
+    if (!Array.isArray(savedBy)) {
+      savedBy = [];
+    }
+
+    if (isAuthenticated && token && userId) {
+      try {
+        const checkResponse = await fetch(
+          `${API_BASE_URL}/saves/check?userId=${encodeURIComponent(userId)}&videoId=${encodeURIComponent(video._id)}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.isSaved || checkData.saved) {
+            if (!savedBy.includes(userId)) {
+              savedBy = [...savedBy, userId];
+            }
+          } else {
+            savedBy = savedBy.filter((id: string) => id !== userId);
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking save status for video ${video._id}:`, error);
+      }
+    }
+
+    return { ...video, savedBy };
+  };
+
+  // Process videos: check like, follow and save status
   const processVideos = async (videoList: VideoPost[]): Promise<VideoPost[]> => {
     if (!isAuthenticated || !token || !userId) {
       return videoList.map((video) => ({
         ...video,
         likedBy: [],
+        savedBy: [],
         isFollowing: false,
       }));
     }
@@ -110,7 +165,8 @@ export const useVideoList = ({
     return Promise.all(
       videoList.map(async (video) => {
         const withLikeStatus = await checkLikeStatus(video);
-        return checkFollowStatus(withLikeStatus);
+        const withFollowStatus = await checkFollowStatus(withLikeStatus);
+        return checkSaveStatus(withFollowStatus);
       })
     );
   };

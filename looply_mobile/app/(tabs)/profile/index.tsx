@@ -21,6 +21,7 @@ import {
   Typography,
   Spacing,
   BorderRadius,
+  Shadows,
 } from "@/constants/theme";
 import { useColors } from "@/hooks/useColors";
 import { Loading } from "@/components/ui/Loading";
@@ -37,7 +38,7 @@ interface VideoPost {
   title: string;
   likes?: number;
   views?: number;
-  type?: 'video' | 'image';
+  type?: "video" | "image";
 }
 
 const createStyles = (Colors: ReturnType<typeof useColors>) => {
@@ -94,6 +95,8 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     flexDirection: "row",
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
+    width: "60%", 
+    justifyContent: "center",
   },
   statsContainer: {
     flexDirection: "row",
@@ -151,9 +154,9 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
   videoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
   videoItemWrapper: {
     width: itemWidth,
@@ -170,11 +173,7 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     backgroundColor: Colors.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Shadows.sm,
   },
   deleteButton: {
     position: "absolute",
@@ -187,6 +186,79 @@ const createStyles = (Colors: ReturnType<typeof useColors>) => {
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
+  },
+  deleteConfirmOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 30,
+    padding: 4,
+  },
+  deleteConfirmContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 10,
+    padding: Spacing.sm,
+    width: "100%",
+    maxWidth: itemWidth - 8,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deleteConfirmTitle: {
+    color: Colors.text.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.bold,
+    fontFamily: Typography.fontFamily.bold,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+    paddingHorizontal: Spacing.xs,
+  },
+  deleteConfirmButtons: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    width: "100%",
+    paddingHorizontal: Spacing.xs,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: "#FF3B30",
+    paddingVertical: Spacing.sm,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 36,
+  },
+  cancelDeleteButton: {
+    flex: 1,
+    backgroundColor: "transparent",
+    paddingVertical: Spacing.sm,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.border.light,
+    minHeight: 36,
+  },
+  deleteConfirmText: {
+    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    fontFamily: Typography.fontFamily.medium,
+  },
+  cancelDeleteText: {
+    color: Colors.text.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    fontFamily: Typography.fontFamily.medium,
   },
   videoThumbnail: {
     width: "100%",
@@ -270,12 +342,42 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [videoToDelete, setVideoToDelete] = useState<string | null>(null); // Video được chọn để xóa
+  const [showDeleteButtons, setShowDeleteButtons] = useState<Set<string>>(new Set()); // Set các video ID đang hiển thị nút xóa
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (isViewingOtherProfile && targetUserId) {
+        // Nếu đang xem profile người khác -> Fetch data người đó
+        fetchOtherUserProfile(targetUserId);
+      } else if (currentUser) {
+        // Nếu là profile mình -> Dùng data currentUser
+        setProfileUser(currentUser);
+        fetchProfileData();
+      }
+
+      const uploaded = Array.isArray(params.uploaded) 
+        ? params.uploaded[0] 
+        : (params.uploaded as string | undefined);
+      if (uploaded === "true") {
+        router.setParams({ uploaded: undefined });
+      }
+    }
+  }, [isAuthenticated, isViewingOtherProfile, targetUserId, currentUser]);
+
+  // Reset nút xóa khi chuyển tab
+  useEffect(() => {
+    setShowDeleteButtons(new Set());
+    setVideoToDelete(null);
+  }, [activeTab]);
 
   useEffect(() => {
     // Reset state khi params thay đổi
     setVideos([]);
     setLiked([]);
+    setShowDeleteButtons(new Set()); // Reset nút xóa khi thay đổi tab hoặc user
 
     if (isViewingOtherProfile && targetUserId) {
       // Fetch profile của user khác
@@ -294,6 +396,26 @@ export default function Profile() {
     targetUserId,
     isViewingOtherProfile,
   ]);
+
+  const handleFollow = async () => {
+    // TODO: Gọi API Follow tại đây
+    // const response = await fetch(...)
+    setIsFollowing(!isFollowing); // Giả lập update UI
+  };
+
+  const handleMessage = () => {
+    if (!isAuthenticated) return router.push("/login");
+
+    router.push({
+      pathname: "/(tabs)/inbox/[id]", 
+      params: { 
+        id: profileUser._id,
+        receiverId: profileUser._id,
+        name: profileUser.name || profileUser.username,
+        avatar: profileUser.avatar
+      }
+    });
+  };
 
   const fetchOtherUserProfile = async (userId: string) => {
     try {
@@ -482,7 +604,37 @@ export default function Profile() {
     }
   };
 
-  const handleDeleteVideo = async (videoId: string) => {
+  const handleLongPress = (videoId: string) => {
+    // Hiển thị nút xóa khi long press vào video
+    // Chỉ hiển thị nếu đang ở tab video và là video của chính mình
+    if (activeTab === "video" && !isViewingOtherProfile && currentUser) {
+      setShowDeleteButtons((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(videoId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteClick = (videoId: string) => {
+    // Hiển thị overlay xác nhận xóa khi click vào nút xóa
+    setVideoToDelete(videoId);
+  };
+
+  const handleCancelDelete = () => {
+    // Hủy xóa và ẩn nút xóa
+    setVideoToDelete(null);
+    setShowDeleteButtons((prev) => {
+      const newSet = new Set(prev);
+      if (videoToDelete) {
+        newSet.delete(videoToDelete);
+      }
+      return newSet;
+    });
+  };
+
+  const handleConfirmDelete = async (videoId: string) => {
+    // Hiển thị Alert xác nhận
     Alert.alert(
       "Xóa video",
       "Bạn có chắc chắn muốn xóa video này?",
@@ -490,6 +642,7 @@ export default function Profile() {
         {
           text: "Hủy",
           style: "cancel",
+          onPress: () => setVideoToDelete(null),
         },
         {
           text: "Xóa",
@@ -497,6 +650,7 @@ export default function Profile() {
           onPress: async () => {
             try {
               setDeletingVideoId(videoId);
+              setVideoToDelete(null);
               const token = await require("@/utils/tokenStorage").getToken();
               if (!token) {
                 Alert.alert("Lỗi", "Vui lòng đăng nhập để xóa video");
@@ -518,6 +672,12 @@ export default function Profile() {
                 setVideos((prev) => prev.filter((v) => v._id !== videoId));
                 setSaved((prev) => prev.filter((v) => v._id !== videoId));
                 setLiked((prev) => prev.filter((v) => v._id !== videoId));
+                // Ẩn nút xóa
+                setShowDeleteButtons((prev) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(videoId);
+                  return newSet;
+                });
                 
                 Alert.alert("Thành công", "Đã xóa video");
               } else {
@@ -546,13 +706,34 @@ export default function Profile() {
 
   const renderVideoItem = ({ item }: { item: VideoPost }) => {
     const isOwnVideo = activeTab === "video" && !isViewingOtherProfile;
+    const isSelectedForDelete = videoToDelete === item._id;
+    const isDeleting = deletingVideoId === item._id;
+    const shouldShowDeleteButton = isOwnVideo && showDeleteButtons.has(item._id);
     
     return (
       <View style={styles.videoItemContainer}>
         <TouchableOpacity
           style={styles.videoItem}
-          onPress={() => router.push("/(tabs)/home")}
+          onPress={() => {
+            // Nếu đang hiển thị overlay xác nhận, không navigate
+            if (isSelectedForDelete) {
+              return;
+            }
+            // Nếu đang hiển thị nút xóa, ẩn nút xóa khi click vào video
+            if (shouldShowDeleteButton) {
+              setShowDeleteButtons((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(item._id);
+                return newSet;
+              });
+            } else {
+              // Navigate đến home để xem video
+              router.push("/(tabs)/home");
+            }
+          }}
+          onLongPress={() => handleLongPress(item._id)}
           activeOpacity={0.8}
+          disabled={isSelectedForDelete}
         >
           <Image
             source={getAvatarUri(item.thumbnail || item.url)}
@@ -568,18 +749,50 @@ export default function Profile() {
             </View>
           </View>
         </TouchableOpacity>
-        {isOwnVideo && (
+        
+        {/* Chỉ hiển thị nút xóa nhỏ khi đã long press và không có overlay xác nhận */}
+        {shouldShowDeleteButton && !isSelectedForDelete && (
           <TouchableOpacity
             style={styles.deleteButton}
-            onPress={() => handleDeleteVideo(item._id)}
-            disabled={deletingVideoId === item._id}
+            onPress={() => handleDeleteClick(item._id)}
+            disabled={isDeleting}
+            activeOpacity={0.7}
           >
-            {deletingVideoId === item._id ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
-              <Ionicons name="trash-outline" size={16} color={Colors.white} />
-            )}
+            <Ionicons name="trash-outline" size={16} color={Colors.white} />
           </TouchableOpacity>
+        )}
+        
+        {/* Overlay hiển thị nút xóa khi được chọn - đặt ngoài để che phủ toàn bộ */}
+        {isSelectedForDelete && (
+          <View style={styles.deleteConfirmOverlay}>
+            <View style={styles.deleteConfirmContent}>
+              {/* Tiêu đề */}
+              <Text style={styles.deleteConfirmTitle}>Xóa video này?</Text>
+              
+              {/* Nút hành động */}
+              <View style={styles.deleteConfirmButtons}>
+                <TouchableOpacity
+                  style={styles.cancelDeleteButton}
+                  onPress={handleCancelDelete}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.cancelDeleteText}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteConfirmButton}
+                  onPress={() => handleConfirmDelete(item._id)}
+                  disabled={isDeleting}
+                  activeOpacity={0.8}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Text style={styles.deleteConfirmText}>Xóa</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         )}
       </View>
     );
@@ -659,35 +872,39 @@ export default function Profile() {
 
           <View style={styles.buttonContainer}>
             {isViewingOtherProfile ? (
+              // Giao diện khi xem User KHÁC: Follow & Nhắn tin
               <>
                 <Button
-                  title="Follow"
-                  onPress={() => {
-                    // TODO: Implement follow functionality
-                  }}
-                  variant="primary"
+                  title={isFollowing ? "Đã follow" : "Follow"}
+                  onPress={handleFollow}
+                  variant={isFollowing ? "outline" : "primary"}
                   size="sm"
+                  style={{ flex: 1 }}
                 />
                 <Button
-                  title="Chia sẻ"
-                  onPress={() => {}}
-                  variant="ghost"
+                  title="Nhắn tin"
+                  onPress={handleMessage}
+                  variant="outline"
                   size="sm"
+                  style={{ flex: 1 }}
                 />
               </>
             ) : (
+              // Giao diện khi xem User CỦA MÌNH: Chỉnh sửa & Chia sẻ
               <>
                 <Button
                   title="Chỉnh sửa"
                   onPress={() => router.push("/(tabs)/settings")}
                   variant="outline"
                   size="sm"
+                  style={{ flex: 1 }}
                 />
                 <Button
                   title="Chia sẻ"
                   onPress={() => {}}
                   variant="ghost"
                   size="sm"
+                  style={{ flex: 1 }}
                 />
               </>
             )}

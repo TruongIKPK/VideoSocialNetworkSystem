@@ -16,7 +16,13 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUser } from "@/contexts/UserContext";
 import { getAvatarUri, formatNumber } from "@/utils/imageHelpers";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import {
+  Colors,
+  Typography,
+  Spacing,
+  BorderRadius,
+  Shadows,
+} from "@/constants/theme";
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 
@@ -42,7 +48,9 @@ export default function OtherUserProfile() {
   const username = params.username as string | undefined;
 
   const [profileUser, setProfileUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">("video");
+  const [activeTab, setActiveTab] = useState<"video" | "favorites" | "liked">(
+    "video"
+  );
   const [videos, setVideos] = useState<VideoPost[]>([]);
   const [favorites, setFavorites] = useState<VideoPost[]>([]);
   const [liked, setLiked] = useState<VideoPost[]>([]);
@@ -58,6 +66,20 @@ export default function OtherUserProfile() {
     }
   }, [userId]);
 
+  const handleMessage = () => {
+    if (!isAuthenticated) return router.push("/login");
+
+    router.push({
+      pathname: "/(tabs)/inbox/[id]",
+      params: {
+        id: userId,
+        receiverId: userId,
+        name: profileUser?.name || profileUser?.username || "User",
+        avatar: profileUser?.avatar,
+      },
+    });
+  };
+
   const fetchUserProfile = async () => {
     try {
       setIsLoading(true);
@@ -65,14 +87,20 @@ export default function OtherUserProfile() {
       if (response.ok) {
         const userData = await response.json();
         setProfileUser(userData);
-        
+
         // Fetch videos của user đó
-        const videosResponse = await fetch(`${API_BASE_URL}/videos/user/${userId}`);
+        const videosResponse = await fetch(
+          `${API_BASE_URL}/videos/user/${userId}`
+        );
         if (videosResponse.ok) {
           const videosData = await videosResponse.json();
-          setVideos(Array.isArray(videosData.videos || videosData) ? (videosData.videos || videosData) : []);
+          setVideos(
+            Array.isArray(videosData.videos || videosData)
+              ? videosData.videos || videosData
+              : []
+          );
         }
-        
+
         // Fetch total likes received
         const totalLikesResponse = await fetch(
           `${API_BASE_URL}/users/${userId}/total-likes`
@@ -126,26 +154,27 @@ export default function OtherUserProfile() {
 
     try {
       const method = wasFollowing ? "DELETE" : "POST";
-      const response = await fetch(
-        `${API_BASE_URL}/users/${userId}/follow`,
-        {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/follow`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${wasFollowing ? "unfollow" : "follow"} user`);
+        throw new Error(
+          `Failed to ${wasFollowing ? "unfollow" : "follow"} user`
+        );
       }
 
       // Update followers count
       if (response.ok) {
         setProfileUser((prev: any) => ({
           ...prev,
-          followers: wasFollowing ? (prev.followers || 0) - 1 : (prev.followers || 0) + 1,
+          followers: wasFollowing
+            ? (prev.followers || 0) - 1
+            : (prev.followers || 0) + 1,
         }));
       }
     } catch (error) {
@@ -164,10 +193,12 @@ export default function OtherUserProfile() {
   const renderVideoItem = ({ item }: { item: VideoPost }) => (
     <TouchableOpacity
       style={styles.videoItem}
-      onPress={() => router.push({
-        pathname: "/(tabs)/home",
-        params: { videoId: item._id, scrollToVideo: "true" },
-      })}
+      onPress={() =>
+        router.push({
+          pathname: "/(tabs)/home",
+          params: { videoId: item._id, scrollToVideo: "true" },
+        })
+      }
       activeOpacity={0.8}
     >
       <Image
@@ -178,7 +209,9 @@ export default function OtherUserProfile() {
       <View style={styles.videoOverlay}>
         <View style={styles.videoStats}>
           <Ionicons name="eye-outline" size={12} color={Colors.white} />
-          <Text style={styles.videoStatsText}>{formatNumber(item.views || 0)}</Text>
+          <Text style={styles.videoStatsText}>
+            {formatNumber(item.views || 0)}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -187,7 +220,11 @@ export default function OtherUserProfile() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Loading message="Loading profile..." color={Colors.primary} fullScreen />
+        <Loading
+          message="Loading profile..."
+          color={Colors.primary}
+          fullScreen
+        />
       </SafeAreaView>
     );
   }
@@ -196,7 +233,11 @@ export default function OtherUserProfile() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Ionicons name="person-circle-outline" size={80} color={Colors.gray[400]} />
+          <Ionicons
+            name="person-circle-outline"
+            size={80}
+            color={Colors.gray[400]}
+          />
           <Text style={styles.errorText}>Không tìm thấy người dùng</Text>
           <Button
             title="Quay lại"
@@ -209,7 +250,12 @@ export default function OtherUserProfile() {
     );
   }
 
-  const currentVideos = activeTab === "video" ? videos : activeTab === "favorites" ? favorites : liked;
+  const currentVideos =
+    activeTab === "video"
+      ? videos
+      : activeTab === "favorites"
+      ? favorites
+      : liked;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -240,8 +286,12 @@ export default function OtherUserProfile() {
             contentFit="cover"
           />
 
-          <Text style={styles.username}>{profileUser?.name || profileUser?.username || "User"}</Text>
-          {profileUser?.bio && <Text style={styles.bio}>{profileUser.bio}</Text>}
+          <Text style={styles.username}>
+            {profileUser?.name || profileUser?.username || "User"}
+          </Text>
+          {profileUser?.bio && (
+            <Text style={styles.bio}>{profileUser.bio}</Text>
+          )}
 
           {/* Follow Button */}
           {isAuthenticated && currentUser?._id !== userId && (
@@ -253,6 +303,12 @@ export default function OtherUserProfile() {
                 size="sm"
                 loading={isLoadingFollow}
                 disabled={isLoadingFollow}
+              />
+              <Button
+                title="Nhắn tin"
+                onPress={handleMessage}
+                variant="outline"
+                size="sm"
               />
               <Button
                 title="Chia sẻ"
@@ -278,9 +334,7 @@ export default function OtherUserProfile() {
               <Text style={styles.statLabel}>Follower</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {formatNumber(totalLikes)}
-              </Text>
+              <Text style={styles.statNumber}>{formatNumber(totalLikes)}</Text>
               <Text style={styles.statLabel}>Lượt thích</Text>
             </View>
           </View>
@@ -288,64 +342,66 @@ export default function OtherUserProfile() {
 
         {/* Tab Bar - Fixed at top */}
         <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "video" && styles.activeTab]}
-              onPress={() => setActiveTab("video")}
-              activeOpacity={0.7}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "video" && styles.activeTab]}
+            onPress={() => setActiveTab("video")}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="grid"
+              size={16}
+              color={activeTab === "video" ? Colors.primary : Colors.gray[400]}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "video" && styles.activeTabText,
+              ]}
             >
-              <Ionicons
-                name="grid"
-                size={16}
-                color={activeTab === "video" ? Colors.primary : Colors.gray[400]}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "video" && styles.activeTabText,
-                ]}
-              >
-                Video
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "favorites" && styles.activeTab]}
-              onPress={() => setActiveTab("favorites")}
-              activeOpacity={0.7}
+              Video
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "favorites" && styles.activeTab]}
+            onPress={() => setActiveTab("favorites")}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="bookmark-outline"
+              size={16}
+              color={
+                activeTab === "favorites" ? Colors.primary : Colors.gray[400]
+              }
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "favorites" && styles.activeTabText,
+              ]}
             >
-              <Ionicons
-                name="bookmark-outline"
-                size={16}
-                color={activeTab === "favorites" ? Colors.primary : Colors.gray[400]}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "favorites" && styles.activeTabText,
-                ]}
-              >
-                Yêu thích
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "liked" && styles.activeTab]}
-              onPress={() => setActiveTab("liked")}
-              activeOpacity={0.7}
+              Yêu thích
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "liked" && styles.activeTab]}
+            onPress={() => setActiveTab("liked")}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="heart-outline"
+              size={16}
+              color={activeTab === "liked" ? Colors.primary : Colors.gray[400]}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "liked" && styles.activeTabText,
+              ]}
             >
-              <Ionicons
-                name="heart-outline"
-                size={16}
-                color={activeTab === "liked" ? Colors.primary : Colors.gray[400]}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "liked" && styles.activeTabText,
-                ]}
-              >
-                Đã thích
-              </Text>
-            </TouchableOpacity>
-          </View>
+              Đã thích
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Content based on active tab */}
         {currentVideos.length > 0 ? (
@@ -359,7 +415,11 @@ export default function OtherUserProfile() {
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons
-              name={activeTab === "video" ? "videocam-off-outline" : "bookmark-outline"}
+              name={
+                activeTab === "video"
+                  ? "videocam-off-outline"
+                  : "bookmark-outline"
+              }
               size={64}
               color={Colors.gray[400]}
             />
@@ -428,7 +488,10 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: "row",
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
+    gap: Spacing.xs, 
+    width: "100%", 
+    paddingHorizontal: Spacing.md, 
+    justifyContent: "center",
   },
   statsContainer: {
     flexDirection: "row",
@@ -558,4 +621,3 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.regular,
   },
 });
-

@@ -17,6 +17,8 @@ import { HomeReloadProvider } from "@/contexts/HomeReloadContext";
 import { initDB } from "@/utils/database";
 import * as Notifications from "expo-notifications";
 import { requestNotificationPermissions } from "@/utils/notifications";
+import { SocketManager } from "@/components/SocketManager";
+import "@/i18n/config"; // Initialize i18n
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -120,6 +122,7 @@ export default function RootLayout() {
 
   return (
     <UserProvider>
+      <SocketManager />
       <ThemeProvider>
         <HomeReloadProvider>
           <RootLayoutContent />
